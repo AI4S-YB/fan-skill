@@ -77,7 +77,7 @@ gene_family:
   - rule_id: "gf-single-species-hmm-002"
     priority: 8
     condition:
-      species_count: "== 1"
+      species_count: 1
       domain_known: true
     recommend: "hmm_search"
     reason: "单物种已知结构域家族 → HMMER hmmsearch"
@@ -86,7 +86,7 @@ gene_family:
   - rule_id: "gf-single-species-blast-003"
     priority: 7
     condition:
-      species_count: "== 1"
+      species_count: 1
       domain_known: false
     recommend: "blast_all_vs_all_cluster"
     reason: "单物种未知结构域 → BLAST all-vs-all + MCL 聚类"
