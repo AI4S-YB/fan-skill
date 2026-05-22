@@ -1,0 +1,174 @@
+version: "1.0"
+analysis: rnaseq_de
+
+inputs_required:
+  - data_profile.json
+  - params.yaml
+  - count_matrix
+  - sample_table
+  - contrasts.txt
+
+# ============================================================
+# 决策节点 1: 表达矩阵格式识别
+# ============================================================
+count_matrix_format:
+  - rule_id: "fmt-counts-matrix-001"
+    priority: 10
+    condition:
+      format_hint: "genes.counts.matrix"
+    action: "read_matrix"
+    reason: "标准 counts matrix (genes × samples)"
+
+  - rule_id: "fmt-tpm-matrix-002"
+    priority: 10
+    condition:
+      format_hint: "tpm_matrix"
+    action: "convert_to_counts_warning"
+    reason: "TPM 不适合 DESeq2/edgeR — 需要原始 counts"
+
+  - rule_id: "fmt-salmon-003"
+    priority: 10
+    condition:
+      format_hint: "salmon_quant"
+    action: "tximport_import"
+    tool: "tool-catalog/deseq2.md"
+    reason: "Salmon/Kallisto 定量需 tximport 导入"
+
+# ============================================================
+# 决策节点 2: 低表达过滤策略
+# ============================================================
+low_expression_filter:
+  - rule_id: "filter-standard-001"
+    priority: 5
+    condition:
+      sample_count: ">= 9"
+    action: "filter_min_10_counts_3_samples"
+    reason: "≥9 样本时，至少在 3 个样本中 count≥10"
+    params: {min_count: 10, min_samples: 3}
+
+  - rule_id: "filter-small-n-002"
+    priority: 6
+    condition:
+      sample_count: "< 9"
+    action: "filter_min_10_counts_min_samples"
+    reason: "小样本时，至少在 [n_replicates] 个样本中 count≥10"
+    params: {min_count: 10, min_samples: "{n_replicates}"}
+
+# ============================================================
+# 决策节点 3: 标准化与 DE 工具选择 (核心)
+# ============================================================
+de_method:
+  - rule_id: "de-standard-deseq2-001"
+    priority: 10
+    condition:
+      replicates_per_group: ">= 3"
+      design_type: ["simple", "two_group", "multi_group"]
+    recommend: "deseq2"
+    reason: "≥3 重复 → DESeq2 是标准选择，功效高，处理离群值好"
+    tool: "tool-catalog/deseq2.md"
+
+  - rule_id: "de-low-reps-deseq2-002"
+    priority: 9
+    condition:
+      replicates_per_group: "== 2"
+    recommend: "deseq2"
+    reason: "仅 2 重复 → DESeq2 仍可用，但功效低，结果需谨慎"
+    tool: "tool-catalog/deseq2.md"
+    warning: "仅 2 生物学重复 → 统计功效极低。显著 DEGs 可能偏少。"
+
+  - rule_id: "de-no-reps-edger-003"
+    priority: 9
+    condition:
+      replicates_per_group: "== 1"
+    recommend: "edger_glm_estimate_dispersion"
+    reason: "无重复 → edgeR 的 estimateDisp 可用，但只能发现极大差异"
+    tool: "tool-catalog/edger.md"
+    warning: "无生物学重复，不能做统计推断。只能报告 fold change。"
+
+  - rule_id: "de-continuous-covariate-004"
+    priority: 8
+    condition:
+      design_type: "continuous"
+    recommend: "limma_voom"
+    reason: "连续型协变量 → limma-voom 的线性建模更灵活"
+    tool: "tool-catalog/limma-voom.md"
+
+  - rule_id: "de-large-dataset-005"
+    priority: 7
+    condition:
+      gene_count: ">= 40000"
+      sample_count: ">= 30"
+    recommend: "limma_voom"
+    reason: "超大数据集 → limma-voom 速度优于 DESeq2"
+    tool: "tool-catalog/limma-voom.md"
+
+  - rule_id: "de-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+
+# ============================================================
+# 决策节点 4: 多重检验校正
+# ============================================================
+multiple_testing:
+  - rule_id: "mt-standard-001"
+    priority: 5
+    condition:
+      method: ["deseq2", "edger", "limma_voom"]
+    action: "bh_adjust"
+    params: {alpha: 0.05}
+    reason: "Benjamini-Hochberg FDR 校正，标准做法"
+
+  - rule_id: "mt-large-degs-002"
+    priority: 4
+    condition:
+      deg_count_estimate: ">= 5000"
+    action: "bh_adjust_strict"
+    params: {alpha: 0.01}
+    reason: "预期大量 DEGs 时可用更严格的 α"
+
+# ============================================================
+# 决策节点 5: 功能富集数据库选择
+# ============================================================
+enrichment_database:
+  - rule_id: "enrich-plant-reactome-001"
+    priority: 10
+    condition:
+      species_detected: ["oryza_sativa", "zea_mays", "arabidopsis_thaliana"]
+    recommend: "plant_reactome_first"
+    reason: "Plant Reactome 覆盖这些物种，优先使用"
+    tool: "tool-catalog/enrichment.md"
+
+  - rule_id: "enrich-mercator-002"
+    priority: 8
+    condition:
+      species_detected: "unknown"
+    recommend: "mercator_annotation_then_go"
+    reason: "非模式植物先用 Mercator 在线注释，再做 GO 富集"
+    tool: "tool-catalog/enrichment.md"
+
+  - rule_id: "enrich-agrigo-003"
+    priority: 7
+    condition:
+      species_type: "crop"
+    recommend: "agrigo_v2"
+    reason: "农业物种 GO 富集用 AgriGO v2"
+
+# ============================================================
+# 决策节点 6: WGCNA 参数
+# ============================================================
+wgcna:
+  - rule_id: "wgcna-standard-001"
+    priority: 5
+    condition:
+      gene_count: "< 10000"
+    recommend: "standard_wgcna"
+    params: {min_module_size: 30, merge_cut_height: 0.25}
+
+  - rule_id: "wgcna-large-002"
+    priority: 5
+    condition:
+      gene_count: ">= 10000"
+    recommend: "blockwise_wgcna"
+    params: {max_block_size: 5000, min_module_size: 50}
+    reason: ">10K 基因用 blockwise 节省内存"
