@@ -1,0 +1,2 @@
+study_id,data_type,file_path,phenotype_file,notes
+study1,bed,/path/to/genotype_prefix,/path/to/pheno.csv,optional description
