@@ -1,0 +1,140 @@
+# 分子标记开发 决策矩阵测试用例
+# 每条 rule 至少一个 case 能触发
+
+test_cases:
+  # --- 标记类型选择 ---
+  - name: "snp_low_throughput_kasp"
+    rule_section: marker_type
+    input_profile:
+      variant_type: "snp"
+      throughput: "low"
+    expected:
+      rule_id: "marker-snp-kasp-001"
+      recommend: "kasp_marker"
+
+  - name: "snp_medium_throughput_kasp"
+    rule_section: marker_type
+    input_profile:
+      variant_type: "snp"
+      throughput: "medium"
+    expected:
+      rule_id: "marker-snp-kasp-001"
+      recommend: "kasp_marker"
+
+  - name: "snp_high_throughput_chip"
+    rule_section: marker_type
+    input_profile:
+      variant_type: "snp"
+      throughput: "high"
+    expected:
+      rule_id: "marker-snp-high-throughput-002"
+      recommend: "snp_chip_or_gbs"
+
+  - name: "indel_marker_length_polymorphism"
+    rule_section: marker_type
+    input_profile:
+      variant_type: "indel"
+    expected:
+      rule_id: "marker-indel-003"
+      recommend: "indel_marker"
+
+  - name: "ssr_flanking_primers"
+    rule_section: marker_type
+    input_profile:
+      variant_type: "ssr"
+    expected:
+      rule_id: "marker-ssr-004"
+      recommend: "ssr_flanking_primers"
+
+  - name: "missense_functional_marker"
+    rule_section: marker_type
+    input_profile:
+      variant_effect: "missense"
+    expected:
+      rule_id: "marker-functional-005"
+      recommend: "functional_marker"
+
+  - name: "nonsense_functional_marker"
+    rule_section: marker_type
+    input_profile:
+      variant_effect: "nonsense"
+    expected:
+      rule_id: "marker-functional-005"
+      recommend: "functional_marker"
+
+  # --- 引物设计 ---
+  - name: "standard_primer_design_short_target"
+    rule_section: primer_design
+    input_profile:
+      target_length: "500"
+    expected:
+      rule_id: "primer-standard-001"
+      recommend: "primer3_standard"
+
+  - name: "gc_rich_primer_design"
+    rule_section: primer_design
+    input_profile:
+      gc_content: "65"
+    expected:
+      rule_id: "primer-gc-rich-002"
+      recommend: "primer3_gc_rich"
+
+  - name: "allopolyploid_subgenome_primers"
+    rule_section: primer_design
+    input_profile:
+      ploidy: "allopolyploid"
+    expected:
+      rule_id: "primer-polyploid-003"
+      recommend: "subgenome_specific_primers"
+
+  # --- 标记验证 ---
+  - name: "in_silico_pcr_validation"
+    rule_section: marker_validation
+    input_profile: {}
+    expected:
+      rule_id: "val-in-silico-001"
+      action: "in_silico_pcr_and_specificity"
+
+  - name: "polymorphism_check_with_population"
+    rule_section: marker_validation
+    input_profile:
+      has_population_data: true
+    expected:
+      rule_id: "val-polymorphism-check-002"
+      action: "check_polymorphism_in_population"
+
+  # --- 亲本推荐 ---
+  - name: "pyramiding_complementary_parents"
+    rule_section: parental_recommendation
+    input_profile:
+      breeding_goal: "pyramiding"
+      target_count: "3"
+    expected:
+      rule_id: "parent-complementary-001"
+      recommend: "complementary_parent_selection"
+
+  - name: "genetic_gain_max_gebv"
+    rule_section: parental_recommendation
+    input_profile:
+      breeding_goal: "genetic_gain"
+    expected:
+      rule_id: "parent-max-gebv-002"
+      recommend: "max_gebv_pairing"
+
+  - name: "pre_breeding_diversity_cross"
+    rule_section: parental_recommendation
+    input_profile:
+      breeding_goal: "pre_breeding"
+    expected:
+      rule_id: "parent-diversity-003"
+      recommend: "max_diversity_cross"
+
+  # --- fallback ---
+  - name: "no_rule_matches_fallback"
+    rule_section: marker_type
+    input_profile:
+      variant_type: "cnv"
+      throughput: "unknown"
+    expected:
+      rule_id: "marker-fallback-999"
+      action: "delegate_to_expert"
