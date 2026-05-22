@@ -91,3 +91,48 @@ datasets download genome accession <GCA_ID> --filename genome.zip
 2. 候选区间内的基因 → 查表达数据库 (该组织是否表达?)
 3. 基因功能注释 (Plant Reactome > GO > KEGG)
 4. 同源基因在拟南芥/水稻中的功能 (跨物种推断)
+
+---
+
+## 基因表达数据（RNA-seq 专用）
+
+### 公共表达数据
+| 资源 | 覆盖 | 用途 |
+|------|------|------|
+| Expression Atlas (EBI) | 多物种 | 差异表达参考、基线表达 |
+| SRA (NCBI) | 所有物种 | 原始测序数据 |
+| GEO (NCBI) | 所有物种 | 公共基因表达数据集 |
+| Rice Expression Database | 水稻 | 水稻表达图谱 |
+| MaizeGDB Expression | 玉米 | 玉米发育表达图谱 |
+| Wheat Expression Browser | 小麦 | 小麦同源基因表达 |
+| eFP Browser (BAR) | 拟南芥、大麦等 | 可视化基因表达 |
+
+### 富集分析数据库
+| 资源 | 覆盖 | 推荐优先级 |
+|------|------|:--------:|
+| Plant Reactome | 水稻、玉米、拟南芥 | 1 (首选) |
+| MapMan / Mercator | 多物种（在线注释） | 2 (非模式植物) |
+| AgriGO v2 | 农业物种 | 2 (GO 富集) |
+| KEGG Plant | 多物种 | 3 (备选) |
+| clusterProfiler (R) | GO + KEGG | 通用工具 |
+
+---
+
+## 基因组选择资源
+
+### 训练群体数据
+| 资源 | 覆盖 | 用途 |
+|------|------|------|
+| Rice 3K | 水稻 3,024 份种质 | GS 训练群体 |
+| Maize NAM | 玉米 25 个 founder × B73 | 多亲本 GS |
+| Wheat WatSeq | 小麦多样性面板 | GS 验证 |
+| SoyNAM | 大豆 5,600 RILs | 大豆 GS |
+
+### GS 软件与工具
+| 工具 | 方法 | 语言 |
+|------|------|------|
+| rrBLUP | Ridge regression BLUP | R |
+| BGLR | Bayesian (A/B/C/Lasso) | R |
+| sommer | Mixed models (G×E) | R |
+| AlphaPeel | AlphaBayes | CLI |
+| DMU | Mixed models (large scale) | CLI |

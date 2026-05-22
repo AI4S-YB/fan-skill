@@ -52,10 +52,61 @@ population_genetics:
 
 rnaseq:
   mapping:
-    alignment_rate: 0.70
-  expression:
-    genes_detected_min: 10000
-  de:
-    padj_threshold: 0.05
-    log2fc_threshold: 1.0
-    deg_min_per_contrast: 5
+    alignment_rate:
+      threshold: 0.70
+      description: "Read alignment rate > 70%"
+  quantification:
+    genes_detected_min:
+      threshold: 10000
+      description: "Minimum genes with >= 10 counts"
+  differential_expression:
+    padj_threshold:
+      threshold: 0.05
+      description: "Adjusted p-value for significance"
+    log2fc_threshold:
+      threshold: 1.0
+      description: "Absolute log2 fold change for biological significance"
+    deg_min_per_contrast:
+      threshold: 5
+      description: "Minimum DEGs expected per contrast"
+      note: "<5 DEGs may indicate low power or genuinely subtle differences"
+  enrichment:
+    min_category_size:
+      threshold: 5
+      description: "Minimum genes in a category for testing"
+    padj_threshold:
+      threshold: 0.05
+  wgcna:
+    scale_free_topology_r2:
+      threshold: 0.80
+      description: "Scale-free topology model fit R² > 0.80 for soft threshold selection"
+    min_module_size:
+      threshold: 30
+      description: "Minimum genes per module"
+
+genomic_selection:
+  prediction_accuracy:
+    pearson_r_min:
+      threshold: 0.30
+      description: "Minimum prediction accuracy (Pearson r) — below this, GS may not be practical"
+    pearson_r_good:
+      threshold: 0.50
+      description: "Good prediction accuracy"
+  cross_validation:
+    folds_min:
+      threshold: 5
+      description: "Minimum CV folds for reliable accuracy estimation"
+    repeats_min:
+      threshold: 5
+      description: "Minimum CV repeats for small populations (<500)"
+  heritability:
+    min_for_gs:
+      threshold: 0.10
+      description: "Minimum trait heritability for GS to be worthwhile"
+  marker_density:
+    min_for_gblup:
+      threshold: 1000
+      description: "Minimum markers for GBLUP"
+    min_for_bayes:
+      threshold: 5000
+      description: "Minimum markers for BayesB/BayesC (variable selection benefits from density)"
