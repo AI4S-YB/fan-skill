@@ -1,6 +1,6 @@
 #!/bin/bash
 # install.sh — 安装 plant-bioinfo-skills 到 Claude Code
-set -e
+set -euo pipefail
 
 SKILLS_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -10,11 +10,13 @@ echo "安装目标: $SKILLS_DIR"
 
 mkdir -p "$SKILLS_DIR"
 
-for skill in bio-plant-infra bio-plant-gwas bio-plant-population bio-plant-genomic-selection bio-plant-rnaseq bio-plant-comparative bio-plant-marker; do
-    if [ -d "$SCRIPT_DIR/$skill" ]; then
-        echo "  安装: $skill"
-        cp -r "$SCRIPT_DIR/$skill" "$SKILLS_DIR/$skill"
+for skill_dir in "$SCRIPT_DIR"/bio-plant-*/; do
+    skill=$(basename "$skill_dir")
+    if [ -d "$SKILLS_DIR/$skill" ]; then
+        echo "  覆盖: $skill (已存在)"
     fi
+    echo "  安装: $skill"
+    cp -rp "$SCRIPT_DIR/$skill" "$SKILLS_DIR/$skill"
 done
 
 echo "=== 安装完成 ==="
