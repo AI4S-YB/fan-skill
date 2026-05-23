@@ -1,0 +1,95 @@
+# QTL 作图决策矩阵 — Rule 模式的决策规则
+# 规则按优先级排序，多条同时命中时取 priority 最高的
+
+version: "1.0"
+analysis: qtl_mapping
+
+inputs_required:
+  - data_profile.json
+  - genotype_data
+  - phenotype_data
+  - population_info
+  - params.yaml
+
+genetic_map:
+  - rule_id: "gmap-rqtl-standard-001"
+    priority: 10
+    condition:
+      population_type: ["f2", "ril", "dh", "bc"]
+    recommend: "rqtl_est_map"
+    reason: "标准双亲群体 -> R/qtl est.map 构建遗传图谱"
+    tool: "tool-catalog/genetic-map.md"
+
+  - rule_id: "gmap-lepmap-large-002"
+    priority: 9
+    condition:
+      marker_count: ">= 10000"
+    recommend: "lepmap3"
+    reason: "高密度标记 -> LepMap3 处理效率更高"
+    tool: "tool-catalog/genetic-map.md"
+
+  - rule_id: "gmap-asmap-003"
+    priority: 8
+    condition:
+      population_type: "maggic"
+    recommend: "asmap"
+    reason: "MAGIC/多亲本群体 -> ASMap 更适合复杂群体"
+    tool: "tool-catalog/genetic-map.md"
+
+qtl_method:
+  - rule_id: "qtl-cim-standard-001"
+    priority: 10
+    condition:
+      population_type: ["f2", "ril", "dh", "bc"]
+    recommend: "composite_interval_mapping"
+    reason: "复合区间作图 (CIM) 控制背景 QTL 效应，标准选择"
+    tool: "tool-catalog/composite-interval.md"
+
+  - rule_id: "qtl-mqm-multiple-002"
+    priority: 9
+    condition:
+      expected_qtl_count: ">= 3"
+    recommend: "multiple_qtl_mapping"
+    reason: "预期多个 QTL -> MQM 自动构建多 QTL 模型"
+    tool: "tool-catalog/multi-qtl.md"
+
+  - rule_id: "qtl-im-simple-003"
+    priority: 7
+    condition:
+      marker_count: "< 200"
+    recommend: "interval_mapping"
+    reason: "标记少 -> 区间作图 (IM) 足够"
+    tool: "tool-catalog/rqtl.md"
+
+lod_threshold:
+  - rule_id: "lod-permutation-001"
+    priority: 10
+    condition:
+      sample_count: ">= 100"
+    action: "permutation_1000"
+    reason: ">=100样本 -> 1000次置换检验确定LOD阈值"
+    tool: "tool-catalog/rqtl.md"
+
+  - rule_id: "lod-analytical-002"
+    priority: 7
+    condition:
+      sample_count: "< 100"
+    action: "analytical_or_500_permutations"
+    reason: "<100样本 -> 分析性阈值或500次置换"
+    tool: "tool-catalog/rqtl.md"
+
+multi_env_qtl:
+  - rule_id: "qtl-met-joint-001"
+    priority: 5
+    condition:
+      env_count: ">= 2"
+    recommend: "joint_multi_env_qtl"
+    reason: "多环境 -> 联合 QTL 分析可估计 QTLxE"
+    tool: "tool-catalog/multi-qtl.md"
+
+fallback:
+  - rule_id: "qtl-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    reason: "数据特征不在预设规则内，切换到 expert 推理"
