@@ -1,0 +1,144 @@
+version: "1.0"
+analysis: metagenomics
+
+inputs_required:
+  - data_profile.json
+  - params.yaml
+  - sequencing_reads
+  - sample_metadata
+
+# ============================================================
+# Decision Node 1: Assembly Strategy
+# ============================================================
+assembly:
+  - rule_id: "meta-megahit-standard-001"
+    priority: 10
+    condition:
+      data_volume: ["medium", "large"]
+    recommend: "megahit"
+    reason: "中等-大数据量 → MEGAHIT高效"
+    tool: "tool-catalog/megahit.md"
+
+  - rule_id: "meta-metaspades-sensitive-002"
+    priority: 9
+    condition:
+      data_volume: "small"
+    recommend: "metaspades"
+    reason: "小数据量 → metaSPAdes更敏感"
+    tool: "tool-catalog/preprocessing.md"
+
+  - rule_id: "meta-hybrid-assembly-003"
+    priority: 11
+    condition:
+      has_long_reads: true
+    recommend: "hybrid_assembly"
+    reason: "有长读长 → 混合组装提升连续性"
+
+# ============================================================
+# Decision Node 2: Preprocessing / Quality Control
+# ============================================================
+preprocessing:
+  - rule_id: "meta-fastp-default-001"
+    priority: 10
+    recommend: "fastp_trimming"
+    reason: "fastp质控+去宿主"
+    tool: "tool-catalog/preprocessing.md"
+
+  - rule_id: "meta-kneaddata-host-002"
+    priority: 11
+    condition:
+      host_contamination: true
+    recommend: "kneaddata_dehost"
+    reason: "需去宿主污染 → KneadData比对宿主基因组"
+
+# ============================================================
+# Decision Node 3: Binning
+# ============================================================
+binning:
+  - rule_id: "meta-metabat2-001"
+    priority: 10
+    recommend: "metabat2"
+    reason: "MetaBAT2自动分箱"
+    tool: "tool-catalog/metabat2.md"
+
+  - rule_id: "meta-concoct-002"
+    priority: 11
+    condition:
+      binning_method: "composition"
+    recommend: "concoct"
+    reason: "基于组成的分箱 → CONCOCT四核苷酸频率"
+
+  - rule_id: "meta-maxbin-003"
+    priority: 7
+    condition:
+      binning_method: "coverage"
+    recommend: "maxbin2"
+    reason: "基于覆盖度的分箱 → MaxBin2"
+
+  - rule_id: "meta-das-tool-ensemble-004"
+    priority: 11
+    condition:
+      binning_consensus: true
+    recommend: "das_tool"
+    reason: "多工具共识分箱 → DASTool整合结果"
+
+# ============================================================
+# Decision Node 4: MAG Quality Assessment
+# ============================================================
+mag_qc:
+  - rule_id: "meta-checkm-001"
+    priority: 10
+    recommend: "checkm_quality"
+    reason: "CheckM评估MAG完整性和污染"
+    tool: "tool-catalog/checkm.md"
+
+  - rule_id: "meta-gtdbtk-002"
+    priority: 11
+    condition:
+      mag_count: ">= 1"
+      classification: true
+    recommend: "gtdbtk_classify"
+    reason: "GTDB-Tk物种分类"
+
+# ============================================================
+# Decision Node 5: Functional Annotation
+# ============================================================
+annotation:
+  - rule_id: "meta-func-annotation-001"
+    priority: 5
+    recommend: "prokka_or_dram"
+    reason: "MAG功能注释"
+    tool: "tool-catalog/functional-annotation.md"
+
+  - rule_id: "meta-eggnog-002"
+    priority: 4
+    condition:
+      database: "eggnog"
+    recommend: "eggnog_mapper"
+    reason: "EggNOG-mapper COG/KEGG注释"
+
+  - rule_id: "meta-kegg-plant-003"
+    priority: 4
+    condition:
+      focus: "plant_pathway"
+    recommend: "kegg_decoder"
+    reason: "植物相关通路 → KEGG-Decoder可视化"
+
+# ============================================================
+# Decision Node 6: Visualization
+# ============================================================
+visualization:
+  - rule_id: "meta-vis-phyloseq-001"
+    priority: 5
+    recommend: "phyloseq_barplot"
+    reason: "群落组成 → phyloseq柱状图+PCoA"
+    tool: "tool-catalog/visualization.md"
+
+# ============================================================
+# Fallback
+# ============================================================
+fallback:
+  - rule_id: "meta-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
