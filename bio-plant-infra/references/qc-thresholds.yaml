@@ -195,3 +195,88 @@ enviromics:
   tpe:
     min_env_for_definition: 5
     description: "≥5 environments for TPE characterization"
+
+small_rna:
+  mirna_prediction:
+    min_reads: 10
+    description: "≥10 reads for miRNA detection"
+  target_prediction:
+    max_expectation: 3.0
+    description: "psRNATarget expectation ≤ 3.0"
+
+chipseq:
+  peak_calling:
+    q_value: 0.05
+    description: "MACS2 q-value < 0.05"
+  frip:
+    min_frip: 0.01
+    description: "FRiP (Fraction of Reads in Peaks) > 1%"
+
+atacseq:
+  peak_calling:
+    q_value: 0.05
+  tss_enrichment:
+    min_score: 5
+    description: "TSS enrichment score ≥ 5"
+
+methylation:
+  coverage:
+    min_depth: 5
+    description: "Per-CpG coverage ≥ 5x"
+  dmr:
+    min_difference: 0.20
+    description: "DMR methylation difference ≥ 20%"
+
+genome_assembly:
+  busco:
+    complete_min: 0.80
+    description: "BUSCO completeness ≥ 80%"
+  contig_n50:
+    description: "N50 depends on technology — PacBio HiFi > 5Mb, ONT > 1Mb, Illumina > 10kb"
+
+genome_annotation:
+  busco:
+    complete_min: 0.80
+    description: "BUSCO of annotated proteins ≥ 80%"
+
+amplicon:
+  asv:
+    min_frequency: 0.0001
+    description: "ASV relative abundance ≥ 0.01%"
+  rarefaction:
+    min_depth: 5000
+    description: "Rarefaction depth ≥ 5000 reads per sample"
+
+metabolomics:
+  peak_detection:
+    snr_min: 3
+    description: "S/N ratio ≥ 3 for peak detection"
+  missing_values:
+    max_pct: 0.50
+    description: "≤ 50% missing across samples"
+
+pan_genome:
+  core_detection:
+    min_genomes: 5
+    description: "≥5 genomes for meaningful core/variable analysis"
+
+metagenomics:
+  binning:
+    completeness_min: 0.50
+    contamination_max: 0.10
+    description: "MAG: completeness ≥ 50%, contamination ≤ 10%"
+
+proteomics:
+  protein_fdr:
+    threshold: 0.01
+    description: "Protein-level FDR < 1%"
+
+hybrid_prediction:
+  gca_accuracy:
+    min_correlation: 0.50
+    description: "GCA prediction accuracy r > 0.50 for practical use"
+
+crispr:
+  off_target:
+    max_mismatches: 3
+    description: "≤3 mismatches in seed region for acceptable specificity"
