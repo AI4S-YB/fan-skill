@@ -110,3 +110,49 @@ genomic_selection:
     min_for_bayes:
       threshold: 5000
       description: "Minimum markers for BayesB/BayesC (variable selection benefits from density)"
+
+phenotype:
+  heritability:
+    min_for_gs: 0.10
+    min_for_gwas: 0.20
+    description: "H² < 0.1 → GS accuracy theoretical max ≈ 0.32"
+  blup_reliability:
+    threshold: 0.30
+    description: "BLUP reliability (r²) > 0.30 for selection decisions"
+  spatial_variation:
+    cv_threshold: 0.15
+    description: "Field CV > 15% → consider spatial correction"
+
+variant_calling:
+  alignment:
+    mapping_rate_min: 0.90
+    description: "Read mapping rate > 90%"
+  variant_quality:
+    gq_min: 30
+    description: "Genotype quality (GQ) ≥ 30"
+    dp_min: 5
+    description: "Minimum depth (DP) ≥ 5"
+  calling:
+    ti_tv_ratio: [2.0, 2.5]
+    description: "Ti/Tv ratio ~2.0-2.5 for plants (higher than human)"
+
+genotype_imputation:
+  pre_imputation:
+    maf_min: 0.01
+    geno_max: 0.10
+  post_imputation:
+    r2_min: 0.30
+    description: "IMPUTE2 info score / Beagle R² > 0.30 for inclusion"
+    accuracy_min: 0.80
+    description: "Imputation accuracy > 80% for well-imputed variants"
+
+qtl_mapping:
+  population:
+    size_min: 100
+    description: "Biparental population ≥ 100 individuals for QTL detection"
+  genetic_map:
+    marker_count_min: 100
+    description: "≥ 100 markers for genetic map construction"
+  lod:
+    threshold_permutation: true
+    description: "Use permutation-based LOD threshold (n≥1000 permutations)"
