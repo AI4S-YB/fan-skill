@@ -1,0 +1,106 @@
+# Variant Calling 决策矩阵测试用例
+# 每条 rule 至少一个 case 能触发
+
+test_cases:
+  # --- 序列比对 ---
+  - name: "illumina_short_read_alignment"
+    rule_section: alignment
+    input_profile:
+      sequencing_platform: "illumina"
+    expected:
+      rule_id: "aln-bwa-illumina-001"
+      recommend: "bwa_mem"
+
+  - name: "pacbio_long_read_alignment"
+    rule_section: alignment
+    input_profile:
+      sequencing_platform: "pacbio"
+    expected:
+      rule_id: "aln-minimap2-long-002"
+      recommend: "minimap2"
+
+  - name: "ont_long_read_alignment"
+    rule_section: alignment
+    input_profile:
+      sequencing_platform: "ont"
+    expected:
+      rule_id: "aln-minimap2-long-002"
+      recommend: "minimap2"
+
+  # --- 变异检测 ---
+  - name: "large_diploid_cohort_gatk"
+    rule_section: variant_caller
+    input_profile:
+      sample_count: 50
+      species_type: "diploid"
+    expected:
+      rule_id: "vc-gatk-gvcf-001"
+      recommend: "gatk_haplotypecaller_gvcf"
+
+  - name: "small_cohort_bcftools"
+    rule_section: variant_caller
+    input_profile:
+      sample_count: 5
+    expected:
+      rule_id: "vc-bcftools-small-002"
+      recommend: "bcftools_mpileup"
+
+  - name: "long_read_deepvariant"
+    rule_section: variant_caller
+    input_profile:
+      sequencing_platform: "ont"
+    expected:
+      rule_id: "vc-deepvariant-003"
+      recommend: "deepvariant"
+
+  - name: "allopolyploid_freebayes"
+    rule_section: variant_caller
+    input_profile:
+      ploidy: "allopolyploid"
+    expected:
+      rule_id: "vc-polyploid-004"
+      recommend: "gatk_polyploid_or_freebayes"
+
+  # --- 变异过滤 ---
+  - name: "small_cohort_hard_filtering"
+    rule_section: variant_filtering
+    input_profile:
+      sample_count: 15
+    expected:
+      rule_id: "vf-hard-filter-001"
+      recommend: "hard_filtering"
+
+  - name: "large_cohort_with_known_sites_vqsr"
+    rule_section: variant_filtering
+    input_profile:
+      sample_count: 50
+      has_known_sites: true
+    expected:
+      rule_id: "vf-vqsr-002"
+      recommend: "vqsr"
+
+  - name: "large_cohort_no_known_sites_hard_filter_fallback"
+    rule_section: variant_filtering
+    input_profile:
+      sample_count: 40
+      has_known_sites: false
+    expected:
+      rule_id: "vf-hard-filter-no-known-003"
+      recommend: "hard_filtering"
+
+  # --- VCF 质控与可视化 ---
+  - name: "diploid_qc_metrics"
+    rule_section: vcf_qc
+    input_profile:
+      species_type: "diploid"
+    expected:
+      rule_id: "qc-titv-check-001"
+      recommend: "standard_qc_metrics"
+
+  - name: "polyploid_qc_metrics"
+    rule_section: vcf_qc
+    input_profile:
+      ploidy: "autopolyploid"
+    expected:
+      rule_id: "qc-polyploid-check-002"
+      recommend: "polyploid_qc_metrics"
