@@ -1,0 +1,76 @@
+# design-rules.yaml
+# Scientific visualization quality constraints — checked before figure delivery
+# severity: block (fix required) | warn (fix recommended)
+# All checks run in Phase 4 before output delivery
+
+version: "1.0"
+analysis: scientific_visualization
+
+resolution:
+  - id: "res-dpi-001"
+    rule: "Bitmap images: >= 300 DPI; line art: >= 600 DPI"
+    check: "output_dpi >= 300"
+    severity: "block"
+    on_fail: "Reducing resolution below 300 DPI requires explicit user approval. Journals typically require 300-600 DPI for figures."
+
+typography:
+  - id: "type-font-size-001"
+    rule: "All text elements in figure must be >= 6pt (recommended >= 8pt)"
+    severity: "warn"
+    on_fail: "Text smaller than 6pt will be illegible when printed. Increase base_size in theme_plant_scientific()."
+  - id: "type-font-family-001"
+    rule: "Use sans-serif font family (Arial/Helvetica) or theme_plant_scientific default"
+    severity: "warn"
+    on_fail: "Serif fonts reduce legibility in figures. Switch to sans-serif (Arial, Helvetica, or default sans)."
+
+color:
+  - id: "color-blind-safe-001"
+    rule: "Use colorblind-safe palette (Okabe-Ito or viridis) for categorical data"
+    severity: "warn"
+    on_fail: >
+      Current color palette may not be distinguishable under red-green colorblindness
+      (protanopia/deuteranopia), which affects ~8% of males and ~0.5% of females.
+      Recommend switching to Okabe-Ito palette (scale_color_manual(values = okabe_ito))
+      or viridis (scale_color_viridis_d()).
+  - id: "color-grayscale-001"
+    rule: "Grayscale printing must still distinguish groups (sufficient luminance difference)"
+    severity: "warn"
+    on_fail: "If the figure will be printed in grayscale, use luminance-differentiated colors or add point shapes/line types as redundant encodings."
+
+data_ink:
+  - id: "ink-tufte-001"
+    rule: "Remove top and right border (Tufte data-ink ratio principle)"
+    severity: "warn"
+    on_fail: "Top and right borders add non-data ink. theme_plant_scientific() handles this automatically."
+  - id: "ink-no-chart-junk-001"
+    rule: "No 3D effects, no decorative gradient backgrounds, no gridlines unless statistically meaningful"
+    severity: "warn"
+    on_fail: "Decorative elements distract from the data. Use clean, flat design consistent with scientific publication standards."
+
+annotation:
+  - id: "ann-error-bar-001"
+    rule: "Error bars must be annotated with type (SD/SEM/CI) in figure caption or legend"
+    severity: "block"
+    on_fail: "Error bars without annotation are ambiguous. Specify whether bars represent SD, SEM, or 95% CI."
+  - id: "ann-sample-size-001"
+    rule: "Sample size (n=X) must appear in legend or subtitle for each group"
+    severity: "warn"
+    on_fail: "Without sample size, readers cannot assess statistical reliability. Add 'n=X' annotation per group."
+  - id: "ann-axis-units-001"
+    rule: "Axis labels must include measurement units (e.g., 'Plant Height (cm)', 'Gene Expression (log2 CPM)')"
+    severity: "block"
+    on_fail: "Axis labels without units are ambiguous. Add units in parentheses."
+  - id: "ann-no-title-in-figure-001"
+    rule: "No main title inside figure panel (titles belong in LaTeX caption or figure legend)"
+    severity: "warn"
+    on_fail: "In-figure titles are redundant with the caption. Use ggtitle() only for multi-panel labels (A, B, C)."
+
+export:
+  - id: "exp-vector-001"
+    rule: "Output vector format (PDF/SVG) as primary; provide PNG as fallback"
+    severity: "block"
+    on_fail: "Raster-only output is not acceptable for publication. Generate PDF or SVG as the primary format."
+  - id: "exp-reproducible-001"
+    rule: "Every figure must be accompanied by a reproducible R script"
+    severity: "block"
+    on_fail: "Without the R script, the figure cannot be reproduced or modified. Always deliver the .R file alongside the figure."
