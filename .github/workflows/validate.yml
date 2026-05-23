@@ -1,0 +1,66 @@
+name: Validate Knowledge Base
+
+on:
+  pull_request:
+    paths:
+      - 'knowledge-base/**'
+      - 'engine/**'
+      - 'tool-registry/**'
+  push:
+    branches: [main]
+    paths:
+      - 'knowledge-base/**'
+      - 'engine/**'
+      - 'tool-registry/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Validate knowledge entries
+        run: |
+          errors=0
+          for entry in knowledge-base/*/; do
+            echo "=== $(basename $entry) ==="
+            if engine/validate_entry.sh "$entry"; then
+              echo "  PASS"
+            else
+              echo "  FAIL"
+              errors=$((errors + 1))
+            fi
+          done
+          if [ $errors -gt 0 ]; then
+            echo "ERROR: $errors entries failed validation"
+            exit 1
+          fi
+          echo "All entries validated successfully"
+
+      - name: Run L2 rule reachability tests
+        run: |
+          errors=0
+          tested=0
+          for entry in knowledge-base/*/; do
+            if [ -f "$entry/test/test_cases.yaml" ]; then
+              echo "=== $(basename $entry) ==="
+              if RULES_DIR="$entry" bash engine/test_decision_rules.sh; then
+                tested=$((tested + 1))
+              else
+                errors=$((errors + 1))
+              fi
+            fi
+          done
+          echo "$tested entries tested"
+          if [ $errors -gt 0 ]; then
+            echo "ERROR: $errors entries failed L2 tests"
+            exit 1
+          fi
+          echo "All L2 tests passed"
