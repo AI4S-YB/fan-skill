@@ -32,13 +32,49 @@ Use progressive dialogue. One question at a time. Skip what they already said.
 
 ### Phase 2: Match Knowledge + Discover Paths
 
-Run `engine/discover_chains.py` with the user's goal and available data.
-This automatically finds all feasible analysis paths across `knowledge-base/`.
+You have access to 29 analysis entries in `knowledge-base/`. Each entry has a
+`rules.yaml` file. The top of each file contains metadata — only read that part
+for ALL entries first. Do NOT load the full rules yet.
 
-Present 2-3 options with trade-offs. For each option, state:
-- What it can answer and what it cannot
-- What data it needs (mark as ✅ available or ❌ missing)
-- Expected outputs
+**Step 2a: Lightweight scan for matching**
+
+For every entry in `knowledge-base/`, read only the YAML frontmatter metadata:
+  - `name`, `description`, `triggers`, `inputs`, `outputs`
+
+This is ~10 lines per entry. 29 entries = ~300 lines total. Quick to load.
+
+Use your semantic understanding to match the user's goal against these fields.
+The user may express their goal in Chinese, English, or mixed language. The 
+`triggers` are hints, not an exhaustive match list — you do the understanding.
+
+Example:
+  User: "找到控制水稻粒重的基因"
+  → You understand: "GWAS for grain weight in rice"
+  → Semantically matches: gwas, population (structure check), marker (breeding)
+
+**Step 2b: Chain discovery**
+
+For each matched entry, look at `inputs` and `outputs`:
+  - If an entry's `inputs` are satisfied by the user's available data → it's ready
+  - If an entry's `outputs` can serve as `inputs` to another matched entry → they can chain
+  - Example: gwas outputs "significant_snps" → variant-annotation inputs "genomic_positions"
+  - Present chains like: [gwas → variant-annotation → rnaseq]
+
+**Step 2c: Present options**
+
+Present 2-3 feasible paths. For each path, clearly state:
+  - What it can answer and what it cannot
+  - Which steps are ready to run (data ✅) and which need additional data (data ❌)
+  - Expected outputs at each step
+
+If you're uncertain whether a match is correct, confirm with the user:
+  "基于你的描述，我理解你想做遗传定位分析（GWAS）。这准确吗？"
+
+**Step 2d: Load full rules for confirmed entries**
+
+Only AFTER the user confirms the path, load the full `rules.yaml` and `notebook.md`
+for the confirmed entries. These contain the detailed C-layer decision rules and
+B-layer expert reasoning needed for Phase 4 execution.
 
 ### Phase 3: User Selects + Confirms
 
