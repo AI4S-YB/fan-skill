@@ -156,3 +156,42 @@ qtl_mapping:
   lod:
     threshold_permutation: true
     description: "Use permutation-based LOD threshold (n≥1000 permutations)"
+
+time_series:
+  clustering:
+    min_genes_for_clustering: 1000
+    description: "At least 1000 variable genes for meaningful clustering"
+  mfuzz:
+    fuzzifier_m_range: [1.5, 2.5]
+    description: "Fuzzifier m typically 1.5-2.5; higher = softer clustering"
+
+grn:
+  genie3:
+    min_samples: 15
+    description: "≥15 samples for GENIE3 network inference"
+  scenic:
+    min_regulons: 10
+    description: "≥10 regulons detected for meaningful analysis"
+
+multi_omics:
+  mofa:
+    min_samples: 15
+    min_features_per_view: 100
+  diablo:
+    min_samples_per_class: 5
+
+eqtl:
+  cis:
+    distance_bp: 1000000
+    description: "cis-eQTL window ±1Mb from gene TSS"
+  fdr:
+    threshold: 0.05
+    description: "FDR < 0.05 for eQTL significance"
+
+enviromics:
+  gxe:
+    min_env: 3
+    description: "≥3 environments for reliable G×E variance component estimation"
+  tpe:
+    min_env_for_definition: 5
+    description: "≥5 environments for TPE characterization"
