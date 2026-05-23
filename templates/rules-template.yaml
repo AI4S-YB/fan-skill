@@ -1,0 +1,30 @@
+name: <analysis-name>
+description: "<one-line description>"
+triggers:
+  - "<keyword1>"
+  - "<keyword2>"
+inputs:
+  - <required_input_1>
+  - <required_input_2>
+outputs:
+  - <output_file_1>
+  - <output_file_2>
+
+# ============================================================
+# Decision nodes below. Add your rules here.
+# Each rule must have: rule_id, priority, condition, recommend/action, reason
+# ============================================================
+
+<first_decision_node>:
+  - rule_id: "<name>-standard-001"
+    priority: 10
+    condition:
+      <field>: "<value>"
+    recommend: "<method>"
+    reason: "<why>"
+    tool_id: "<tool-name>"
+
+  - rule_id: "<name>-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"

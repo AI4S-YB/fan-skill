@@ -1,0 +1,176 @@
+# design-rules.yaml
+# 实验设计硬约束 — 在生成分析计划前自动检查
+# severity: block (阻止分析) | warn (警告但允许继续)
+# 所有检查在 Phase 2 执行
+
+version: "1.0"
+
+# ============================================================
+# 通用门禁：所有分析都需要
+# ============================================================
+universal_gates:
+  - id: "replicate-requirement"
+    rule: "任何涉及统计推断的分析都需要生物学重复"
+    check: "replicates >= 2"
+    severity: "block"
+    on_fail: >
+      当前实验设计没有生物学重复。没有重复意味着无法估计组内方差，
+      因此无法区分"处理效应"和"个体差异"。可以报告描述性统计（平均值、fold change），
+      但不能报告 p 值或统计显著性。如果这是探索性实验，可以做但需要在报告中明确标注。
+
+  - id: "sample-size-minimum"
+    rule: "每组至少需要 2 个生物学重复以进行最基本的方差估计"
+    check: "replicates_per_group >= 2"
+    severity: "warn"
+    on_fail: >
+      仅 2 个生物学重复 → 方差估计极不稳定，统计功效很低。
+      显著结果可能不可靠（假阳性高），阴性结果不能排除真实效应的存在。
+      如果可能，增加到 ≥3 个重复。如果无法增加，结果只能作为探索性分析。
+
+  - id: "numeric-phenotype"
+    rule: "统计建模需要数值型表型，不能用分类标签"
+    check: "phenotype_is_numeric == true"
+    severity: "block"
+    applies_to: ["gwas", "genomic_selection"]
+    on_fail: >
+      表型数据需要用数值表示（如产量=5.2kg，株高=120cm），
+      不能用"高/中/低"或"抗病/感病"等分类描述。
+      如果只有分类数据，GWAS 需要用 case-control 设计，GS 需要用阈值模型。
+
+# ============================================================
+# GWAS 门禁
+# ============================================================
+gwas_gates:
+  - id: "gwas-markers-minimum"
+    rule: "至少需要 500 个标记才能做全基因组关联分析"
+    check: "snp_count >= 500"
+    severity: "block"
+    on_fail: >
+      标记数 < 500 无法覆盖全基因组，不能做 GWAS。
+      如果你的标记集中在候选基因区域，考虑做候选基因关联分析而非 GWAS。
+      如果你的材料是双亲群体（F2/RIL），应该用连锁分析（QTL mapping）而非 GWAS。
+
+  - id: "gwas-samples-minimum"
+    rule: "GWAS 至少需要 100 个样本才具备基本的统计功效"
+    check: "sample_count >= 100"
+    severity: "warn"
+    on_fail: >
+      样本量 < 100 → 统计功效只能检测解释 >10% 表型变异的大效应位点。
+      更常见的微效位点（解释 1-5% 变异）将无法被检出。
+      0 个显著位点是正常结果，不代表实验失败或数据有问题。
+
+  - id: "gwas-phenotype-required"
+    rule: "GWAS 需要基因型 + 表型两种数据"
+    check: "has_genotype == true and has_phenotype == true"
+    severity: "block"
+    on_fail: >
+      GWAS 需要基因型和表型配对数据。缺少任何一种都无法做 GWAS。
+      如果只有表型数据：可以先做遗传力估计和表型描述性分析。
+      如果只有基因型数据：可以做群体遗传结构分析（PCA、聚类、系统发育树）。
+
+  - id: "gwas-polyploid-warning"
+    rule: "多倍体物种的 GWAS 需要特殊方法"
+    check: "ploidy not in ['autopolyploid', 'allopolyploid'] or gwas_method_selected in ['subgenome_aware', 'dosage_aware']"
+    severity: "warn"
+    on_fail: >
+      多倍体物种的 GWAS 需要特殊处理。异源多倍体（小麦、棉花、油菜）
+      需要分亚基因组分析。同源多倍体（马铃薯、苜蓿）需要剂量感知的方法。
+      用标准二倍体方法分析多倍体数据会引入假阳性和假阴性。
+
+# ============================================================
+# RNA-seq 差异表达门禁
+# ============================================================
+rnaseq_gates:
+  - id: "rnaseq-control-group"
+    rule: "差异表达分析必须有对照组"
+    check: "has_control_group == true"
+    severity: "block"
+    on_fail: >
+      没有对照组 → 不能做差异表达分析。你可以估计每个基因的绝对表达量，
+      比较不同基因之间的表达水平，但不能说"处理引起了某个基因的表达变化"。
+      如果目的是看基因表达的组织特异性（如根 vs 叶），这是可以的。
+
+  - id: "rnaseq-replicates"
+    rule: "差异表达分析每组需要 ≥3 个生物学重复"
+    check: "replicates_per_group >= 3"
+    severity: "warn"
+    on_fail: >
+      只有 1-2 个重复 → DESeq2 或 edgeR 仍可运行，但统计功效极低。
+      ≥3 个重复是差异表达分析的共识最低标准。
+      如果你只有 1 个重复，不能做统计推断，只能按 fold change 排序。
+
+  - id: "rnaseq-reference-genome"
+    rule: "有参考基因组能大幅提高 RNA-seq 分析质量"
+    check: "has_reference_genome == true"
+    severity: "warn"
+    on_fail: >
+      没有参考基因组 → 可以做 de novo 转录组组装 (Trinity)，
+      但分析结果的完整性和可靠性低于有参考基因组的分析。
+      如果你的物种有近缘种的参考基因组，可以考虑用近缘种做参考。
+
+# ============================================================
+# 基因组选择门禁
+# ============================================================
+gs_gates:
+  - id: "gs-training-size"
+    rule: "基因组选择需要训练群体"
+    check: "samples_with_phenotype >= 100"
+    severity: "warn"
+    on_fail: >
+      训练群体 < 100 → 预测准确性通常 < 0.3（Pearson r）。
+      基因组选择的预测准确性随训练群体增加而提高。
+      如果你的群体包含家系结构，预测准确性可能略高于随机群体。
+
+  - id: "gs-heritability"
+    rule: "预测准确性受限于性状遗传力的平方根"
+    check: "heritability >= 0.1 or heritability == 'unknown'"
+    severity: "warn"
+    on_fail: >
+      遗传力 < 0.1 → 预测准确性的理论上限仅为 0.32（√0.1）。
+      GS 仍然可以尝试，但预测效果会很有限。如果有多环境数据，
+      可以用重复测量提高遗传力估计的准确性。
+
+  - id: "gs-markers-minimum"
+    rule: "GBLUP 至少需要 1000 个标记；BayesB 至少需要 5000 个"
+    check: "snp_count >= 1000"
+    severity: "warn"
+    on_fail: >
+      标记数 < 1000 → 基因组覆盖度低，可能无法充分捕获全基因组的遗传变异。
+      预测准确性会受到限制。rrBLUP 对低密度标记最稳健。
+
+# ============================================================
+# 比较基因组学门禁
+# ============================================================
+comparative_gates:
+  - id: "comp-annotation-required"
+    rule: "比较基因组分析需要基因注释文件 (GFF3/GTF)"
+    check: "has_gene_annotation == true"
+    severity: "block"
+    on_fail: >
+      仅有基因组 FASTA 序列不够，需要基因位置信息 (GFF3/GTF)。
+      共线性分析、Ks 分析、基因家族鉴定都需要知道基因在哪。
+      如果你的基因组没有官方注释，可以考虑用 BRAKER3 或 GeMoMa 做从头注释。
+
+  - id: "comp-cds-required"
+    rule: "Ks 和 dN/dS 分析需要 CDS 序列"
+    check: "has_cds_sequences == true"
+    severity: "block"
+    applies_to: ["ks_analysis", "selection_pressure"]
+    on_fail: >
+      Ks 和 dN/dS 分析需要蛋白质编码序列 (CDS) 进行密码子比对。
+      仅有蛋白序列或仅有基因组序列都不够。
+
+# ============================================================
+# Fallback：不匹配任何预设分析类型
+# ============================================================
+fallback:
+  strategy: "inform_and_delegate"
+  instruction: >
+    该分析不在预设门禁检查范围内。不自动阻断。
+
+    告知用户：
+    1. 这是当前 Skill 库未专门覆盖的分析类型
+    2. Agent 将使用通用知识自行编排分析流程
+    3. 分析质量和可靠性可能低于已覆盖的分析类型
+    4. 建议关注结果的生物学合理性，而非仅依赖统计输出
+    5. 如果可能，后续可以为此分析类型构建专门的 Skill
