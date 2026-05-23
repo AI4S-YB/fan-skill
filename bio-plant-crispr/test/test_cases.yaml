@@ -1,0 +1,82 @@
+test_cases:
+  - name: "major_crop_crispor"
+    rule_section: sgrna_design
+    input_profile:
+      species_detected: "oryza_sativa"
+    expected:
+      rule_id: "crispr-crispor-plant-001"
+
+  - name: "wheat_crispor"
+    rule_section: sgrna_design
+    input_profile:
+      species_detected: "triticum_aestivum"
+    expected:
+      rule_id: "crispr-crispor-plant-001"
+
+  - name: "unknown_species_crispr_p"
+    rule_section: sgrna_design
+    input_profile:
+      species_detected: "unknown"
+    expected:
+      rule_id: "crispr-crispr-p-custom-002"
+
+  - name: "prefer_local_chopchop"
+    rule_section: sgrna_design
+    input_profile:
+      prefer_local: true
+    expected:
+      rule_id: "crispr-chopchop-003"
+
+  - name: "default_cas_offinder"
+    rule_section: off_target
+    input_profile: {}
+    expected:
+      rule_id: "crispr-cas-offinder-001"
+
+  - name: "crispr_rgen_offinder"
+    rule_section: off_target
+    input_profile:
+      tool: "crispr_rgen"
+    expected:
+      rule_id: "crispr-crispr-offinder-002"
+
+  - name: "mismatch_filter_for_multiple"
+    rule_section: off_target
+    input_profile:
+      has_multiple_guides: true
+    expected:
+      rule_id: "crispr-mismatch-filter-003"
+
+  - name: "default_deepspcas9"
+    rule_section: editing_efficiency
+    input_profile: {}
+    expected:
+      rule_id: "crispr-deepspcas9-001"
+
+  - name: "rice_azimuth"
+    rule_section: editing_efficiency
+    input_profile:
+      species_detected: "oryza_sativa"
+    expected:
+      rule_id: "crispr-azimuth-plant-002"
+
+  - name: "indelphi_repair_prediction"
+    rule_section: editing_efficiency
+    input_profile:
+      predict_repair: true
+    expected:
+      rule_id: "crispr-indelphi-003"
+
+  - name: "hdr_for_knockin"
+    rule_section: hdr_template
+    input_profile:
+      editing_type: "knock_in"
+    expected:
+      rule_id: "crispr-hdr-design-001"
+
+  - name: "prime_editing_pegrna"
+    rule_section: hdr_template
+    input_profile:
+      editing_type: "prime_editing"
+    expected:
+      rule_id: "crispr-prime-editing-002"

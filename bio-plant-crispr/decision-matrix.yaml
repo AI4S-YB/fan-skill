@@ -1,0 +1,139 @@
+version: "1.0"
+analysis: crispr_design
+
+inputs_required:
+  - data_profile.json
+  - params.yaml
+  - target_gene_sequence
+  - species_info
+  - editing_goal
+
+# ============================================================
+# Decision Node 1: sgRNA Design
+# ============================================================
+sgrna_design:
+  - rule_id: "crispr-crispor-plant-001"
+    priority: 10
+    condition:
+      species_detected: ["oryza_sativa", "zea_mays", "arabidopsis_thaliana", "glycine_max", "solanum_lycopersicum", "triticum_aestivum"]
+    recommend: "crispor_with_species_genome"
+    reason: "主要作物 → CRISPOR有参考基因组"
+    tool: "tool-catalog/sgrna-design.md"
+
+  - rule_id: "crispr-crispr-p-custom-002"
+    priority: 8
+    condition:
+      species_detected: "unknown"
+    recommend: "crispr_p_with_custom_genome"
+    reason: "非模式物种 → CRISPR-P上传自定义基因组"
+    tool: "tool-catalog/sgrna-design.md"
+
+  - rule_id: "crispr-chopchop-003"
+    priority: 7
+    condition:
+      prefer_local: true
+    recommend: "chopchop_local"
+    reason: "偏好本地运行 → CHOPCHOP命令行"
+
+# ============================================================
+# Decision Node 2: Off-Target Analysis
+# ============================================================
+off_target:
+  - rule_id: "crispr-cas-offinder-001"
+    priority: 10
+    recommend: "cas_offinder"
+    reason: "Cas-OFFinder全基因组脱靶搜索"
+    tool: "tool-catalog/off-target.md"
+
+  - rule_id: "crispr-crispr-offinder-002"
+    priority: 11
+    condition:
+      tool: "crispr_rgen"
+    recommend: "crispr_rgen_offinder"
+    reason: "CRISPR RGEN Tools脱靶评估"
+
+  - rule_id: "crispr-mismatch-filter-003"
+    priority: 11
+    condition:
+      has_multiple_guides: true
+    recommend: "mismatch_count_filter"
+    reason: "多个sgRNA → 按错配数过滤最优"
+
+# ============================================================
+# Decision Node 3: Editing Efficiency Prediction
+# ============================================================
+editing_efficiency:
+  - rule_id: "crispr-deepspcas9-001"
+    priority: 5
+    recommend: "deepspcas9_prediction"
+    reason: "DeepSpCas9预测编辑效率"
+    tool: "tool-catalog/editing-efficiency.md"
+
+  - rule_id: "crispr-azimuth-plant-002"
+    priority: 6
+    condition:
+      species_detected: ["oryza_sativa", "arabidopsis_thaliana"]
+    recommend: "azimuth_plant_model"
+    reason: "水稻/拟南芥 → Azimuth植物模型"
+
+  - rule_id: "crispr-indelphi-003"
+    priority: 6
+    condition:
+      predict_repair: true
+    recommend: "indelphi_repair_prediction"
+    reason: "需要预测修复结果 → inDelphi微同源介导修复"
+
+# ============================================================
+# Decision Node 4: HDR Template Design
+# ============================================================
+hdr_template:
+  - rule_id: "crispr-hdr-design-001"
+    priority: 5
+    condition:
+      editing_type: "knock_in"
+    recommend: "hdr_template_design"
+    reason: "Knock-in → HDR供体模板设计"
+    tool: "tool-catalog/hdr-template.md"
+
+  - rule_id: "crispr-prime-editing-002"
+    priority: 4
+    condition:
+      editing_type: "prime_editing"
+    recommend: "peg_finder"
+    reason: "Prime Editing → pegFinder设计pegRNA"
+
+# ============================================================
+# Decision Node 5: Validation Strategy
+# ============================================================
+validation:
+  - rule_id: "crispr-valid-pcr-001"
+    priority: 5
+    recommend: "pcr_sanger_targeted"
+    reason: "靶向PCR+Sanger测序验证基因型"
+    tool: "tool-catalog/validation.md"
+
+  - rule_id: "crispr-valid-ngs-002"
+    priority: 6
+    condition:
+      multiplex: true
+    recommend: "amplicon_ngs"
+    reason: "多重编辑 → 扩增子NGS检测"
+
+# ============================================================
+# Decision Node 6: Visualization
+# ============================================================
+visualization:
+  - rule_id: "crispr-vis-sgrna-001"
+    priority: 5
+    recommend: "sgrna_structure_plot"
+    reason: "sgRNA结构+靶位点可视化"
+    tool: "tool-catalog/visualization.md"
+
+# ============================================================
+# Fallback
+# ============================================================
+fallback:
+  - rule_id: "crispr-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
