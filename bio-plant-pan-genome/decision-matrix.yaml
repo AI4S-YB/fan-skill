@@ -1,0 +1,125 @@
+version: "1.0"
+analysis: pan_genome
+
+inputs_required:
+  - data_profile.json
+  - params.yaml
+  - genome_list
+  - annotation_list
+
+# ============================================================
+# Decision Node 1: Pan-genome Graph Construction
+# ============================================================
+graph_construction:
+  - rule_id: "pan-minigraph-small-001"
+    priority: 10
+    condition:
+      genome_count: "< 20"
+    recommend: "minigraph"
+    reason: "<20基因组 → Minigraph高效构建泛基因组图"
+    tool: "tool-catalog/minigraph.md"
+
+  - rule_id: "pan-pggb-large-002"
+    priority: 9
+    condition:
+      genome_count: ">= 20"
+    recommend: "pggb"
+    reason: "≥20基因组 → PGGB全比对图"
+    tool: "tool-catalog/pggb.md"
+
+  - rule_id: "pan-cactus-complex-003"
+    priority: 10
+    condition:
+      genome_count: ">= 20"
+      has_haplotypes: true
+    recommend: "cactus_pangenome"
+    reason: "≥20基因组且含单倍型 → Cactus渐进式比对更稳健"
+
+# ============================================================
+# Decision Node 2: Core/Variable Gene Classification
+# ============================================================
+core_variable:
+  - rule_id: "pan-core-threshold-001"
+    priority: 5
+    recommend: "presence_absence_matrix"
+    reason: "按出现频率分类核心/软核心/可变/私有基因"
+    tool: "tool-catalog/core-variable.md"
+    params:
+      core_threshold: ">= 95% genomes"
+      soft_core_threshold: ">= 80% and < 95%"
+      variable_threshold: ">= 15% and < 80%"
+      private_threshold: "< 15%"
+
+  - rule_id: "pan-core-orthofinder-002"
+    priority: 6
+    condition:
+      has_orthogroups: true
+    recommend: "orthofinder_clustering"
+    reason: "已有OrthoFinder结果 → 基于直系同源群定义核心基因组"
+
+# ============================================================
+# Decision Node 3: PAV Detection
+# ============================================================
+pav_detection:
+  - rule_id: "pan-pav-pangene-001"
+    priority: 5
+    recommend: "pangene_or_panGenie"
+    reason: "PAV检测 → PanGene或PanGenie"
+    tool: "tool-catalog/pav-detection.md"
+
+  - rule_id: "pan-pav-svgap-002"
+    priority: 6
+    condition:
+      has_graph: true
+    recommend: "svgap_pav"
+    reason: "已有泛基因组图 → SV-GAP从图中提取PAV"
+
+# ============================================================
+# Decision Node 4: SV Genotyping
+# ============================================================
+sv_genotyping:
+  - rule_id: "pan-sv-vg-001"
+    priority: 5
+    recommend: "vg_giraffe"
+    reason: "SV基因分型 → vg giraffe比对到泛基因组图"
+    tool: "tool-catalog/sv-genotyping.md"
+
+  - rule_id: "pan-sv-graphaligner-002"
+    priority: 6
+    condition:
+      sv_class: "large_sv"
+    recommend: "graphaligner"
+    reason: "大片段SV → GraphAligner长读长比对更准确"
+
+  - rule_id: "pan-sv-paragraph-003"
+    priority: 6
+    condition:
+      sv_class: "small_sv"
+    recommend: "paragraph"
+    reason: "小SV → Paragraph基因分型工具"
+
+# ============================================================
+# Decision Node 5: Visualization
+# ============================================================
+visualization:
+  - rule_id: "pan-vis-odgi-001"
+    priority: 5
+    recommend: "odgi_viz"
+    reason: "泛基因组图可视化 → ODGI layout + Bandage"
+    tool: "tool-catalog/visualization.md"
+
+  - rule_id: "pan-vis-circos-002"
+    priority: 6
+    condition:
+      view_type: "comparative"
+    recommend: "circos_plot"
+    reason: "多基因组比较 → Circos图展示PAV分布"
+
+# ============================================================
+# Fallback
+# ============================================================
+fallback:
+  - rule_id: "pan-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
