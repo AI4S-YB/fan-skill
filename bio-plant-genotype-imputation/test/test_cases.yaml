@@ -1,0 +1,116 @@
+# 基因型填充决策矩阵测试用例
+# 每条 rule 至少一个 case 能触发
+
+test_cases:
+  # --- 预填充 QC ---
+  - name: "high_density_standard_pre_qc"
+    rule_section: pre_imputation_qc
+    input_profile:
+      snp_count: 5000
+    expected:
+      rule_id: "preimp-standard-001"
+      action: "standard_qc"
+
+  - name: "low_density_relaxed_pre_qc"
+    rule_section: pre_imputation_qc
+    input_profile:
+      snp_count: 500
+    expected:
+      rule_id: "preimp-relaxed-002"
+      action: "relaxed_qc"
+
+  # --- 填充工具选择 ---
+  - name: "small_dataset_beagle"
+    rule_section: imputation_tool
+    input_profile:
+      sample_count: 200
+      snp_count: 10000
+    expected:
+      rule_id: "imp-beagle-small-001"
+      recommend: "beagle"
+
+  - name: "haplotype_reference_impute2"
+    rule_section: imputation_tool
+    input_profile:
+      has_reference_panel: true
+      reference_panel_type: "haplotype"
+    expected:
+      rule_id: "imp-impute2-reference-002"
+      recommend: "impute2"
+
+  - name: "large_sample_minimac4"
+    rule_section: imputation_tool
+    input_profile:
+      sample_count: 800
+    expected:
+      rule_id: "imp-minimac-large-003"
+      recommend: "minimac4"
+
+  - name: "autopolyploid_beagle_polyploid"
+    rule_section: imputation_tool
+    input_profile:
+      ploidy: "autopolyploid"
+    expected:
+      rule_id: "imp-polyploid-004"
+      recommend: "beagle_polyploid"
+
+  - name: "allopolyploid_beagle_polyploid"
+    rule_section: imputation_tool
+    input_profile:
+      ploidy: "allopolyploid"
+    expected:
+      rule_id: "imp-polyploid-004"
+      recommend: "beagle_polyploid"
+
+  # --- 种质资源考虑 ---
+  - name: "outcross_species_diverse_reference"
+    rule_section: germplasm_consideration
+    input_profile:
+      breeding_system: "outcross"
+    expected:
+      rule_id: "germ-panmictic-001"
+      action: "use_diverse_reference"
+
+  - name: "inbred_species_beagle_sufficient"
+    rule_section: germplasm_consideration
+    input_profile:
+      breeding_system: "inbred"
+    expected:
+      rule_id: "germ-selfing-002"
+      action: "beagle_sufficient"
+
+  # --- 后填充 QC ---
+  - name: "standard_post_qc_after_beagle"
+    rule_section: post_imputation_qc
+    input_profile:
+      tool_used: "beagle"
+    expected:
+      rule_id: "postimp-standard-001"
+      action: "filter_by_r2_and_maf"
+
+  - name: "strict_post_qc_for_gwas"
+    rule_section: post_imputation_qc
+    input_profile:
+      downstream_analysis: "gwas"
+    expected:
+      rule_id: "postimp-strict-002"
+      action: "strict_filter"
+
+  - name: "gs_relaxed_post_qc"
+    rule_section: post_imputation_qc
+    input_profile:
+      downstream_analysis: "genomic_selection"
+    expected:
+      rule_id: "postimp-gs-003"
+      action: "retain_more_markers"
+
+  # --- 回退规则 ---
+  - name: "no_rule_matches_fallback"
+    rule_section: fallback
+    input_profile:
+      sample_count: 1
+      snp_count: 10
+      ploidy: "octoploid"
+    expected:
+      rule_id: "imp-fallback-999"
+      action: "delegate_to_expert"
