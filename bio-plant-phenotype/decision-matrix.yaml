@@ -1,0 +1,103 @@
+version: "1.0"
+analysis: phenotype
+
+inputs_required:
+  - data_profile.json
+  - phenotype_data
+  - trial_design_info
+  - params.yaml
+
+heritability:
+  - rule_id: "h2-multi-env-001"
+    priority: 10
+    condition:
+      env_count: ">= 2"
+      rep_count: ">= 2"
+    recommend: "mixed_model_h2"
+    reason: "多环境多重复 → 混合线性模型估计广义/狭义遗传力"
+    tool: "tool-catalog/heritability.md"
+
+  - rule_id: "h2-single-env-rep-002"
+    priority: 8
+    condition:
+      env_count: "== 1"
+      rep_count: ">= 2"
+    recommend: "anova_h2"
+    reason: "单环境有重复 → ANOVA估计广义遗传力"
+    tool: "tool-catalog/heritability.md"
+
+  - rule_id: "h2-unreplicated-003"
+    priority: 6
+    condition:
+      rep_count: "== 1"
+    action: "warn_cannot_estimate"
+    reason: "无重复 → 无法估计遗传力，只能计算表型描述性统计"
+
+breeding_value:
+  - rule_id: "bv-multi-env-blup-001"
+    priority: 10
+    condition:
+      env_count: ">= 2"
+      genotype_connected: true
+    recommend: "multi_env_blup"
+    reason: "多环境连接设计 → 跨环境BLUP"
+    tool: "tool-catalog/blup-blues.md"
+
+  - rule_id: "bv-single-env-blue-002"
+    priority: 8
+    condition:
+      env_count: "== 1"
+      genotype_random: true
+    recommend: "blup_single_env"
+    reason: "基因型作为随机效应 → BLUP"
+    tool: "tool-catalog/blup-blues.md"
+
+  - rule_id: "bv-fixed-genotype-003"
+    priority: 7
+    condition:
+      genotype_random: false
+    recommend: "blue"
+    reason: "基因型作为固定效应 → BLUE (最佳线性无偏估计)"
+    tool: "tool-catalog/blup-blues.md"
+
+spatial_correction:
+  - rule_id: "spatial-field-trial-001"
+    priority: 5
+    condition:
+      trial_type: "field"
+      has_row_col_info: true
+    recommend: "spatial_ar1_model"
+    reason: "田间试验有行列信息 → AR1×AR1 空间模型"
+    tool: "tool-catalog/spatial-correction.md"
+
+  - rule_id: "spatial-no-coords-002"
+    priority: 5
+    condition:
+      trial_type: "field"
+      has_row_col_info: false
+    recommend: "check_cv_and_warn"
+    reason: "无行列信息 → 检查 CV 值，如果 >15% 需考虑潜在空间变异"
+    tool: "tool-catalog/spatial-correction.md"
+
+met_summary:
+  - rule_id: "met-stability-001"
+    priority: 5
+    condition:
+      env_count: ">= 3"
+    recommend: "ammi_or_gge"
+    reason: "≥3 环境 → AMMI/GGE biplot 分析品种稳定性"
+    tool: "tool-catalog/met-summary.md"
+
+  - rule_id: "met-correlation-002"
+    priority: 5
+    condition:
+      env_count: ">= 2"
+    recommend: "env_correlation_and_summary"
+    reason: "计算环境间相关系数和汇总统计"
+    tool: "tool-catalog/met-summary.md"
+
+fallback:
+  - rule_id: "pheno-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
