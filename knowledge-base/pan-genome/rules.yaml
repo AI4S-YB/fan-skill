@@ -17,9 +17,10 @@ inputs:
   - annotation_list
 
 outputs:
+  - pan_genome_graph
+  - core_variable_table
+  - pav_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: pan_genome

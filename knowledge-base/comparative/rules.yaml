@@ -17,9 +17,11 @@ inputs:
   - params.yaml
 
 outputs:
+  - synteny_blocks
+  - ks_values_table
+  - orthogroups_table
+  - selection_pressure_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: comparative_genomics

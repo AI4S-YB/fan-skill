@@ -17,9 +17,10 @@ inputs:
   - sample_metadata
 
 outputs:
+  - mag_table
+  - functional_annotation_table
+  - taxonomic_profile_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: metagenomics

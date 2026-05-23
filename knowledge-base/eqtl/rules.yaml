@@ -16,9 +16,10 @@ inputs:
   - covariates
 
 outputs:
+  - cis_eqtl_table
+  - trans_eqtl_table
+  - colocalization_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: eqtl_analysis

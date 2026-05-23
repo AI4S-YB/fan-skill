@@ -16,9 +16,11 @@ inputs:
   - reference_database
 
 outputs:
+  - asv_table
+  - taxonomy_table
+  - diversity_metrics
+  - differential_abundance_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: amplicon_sequencing

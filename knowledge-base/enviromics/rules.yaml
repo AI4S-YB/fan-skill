@@ -16,9 +16,11 @@ inputs:
   - phenotype_data
 
 outputs:
+  - env_index_table
+  - gxe_variance_table
+  - stability_metrics
+  - tpe_classification
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: enviromics

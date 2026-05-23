@@ -17,9 +17,11 @@ inputs:
   - params.yaml
 
 outputs:
+  - heritability_table
+  - blup_blues_table
+  - met_summary_table
+  - spatial_correction_report
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: phenotype

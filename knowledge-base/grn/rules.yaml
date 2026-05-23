@@ -16,9 +16,10 @@ inputs:
   - reference_genome
 
 outputs:
+  - regulatory_network
+  - hub_gene_table
+  - regulon_activity_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: gene_regulatory_network

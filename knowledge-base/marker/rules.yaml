@@ -17,9 +17,10 @@ inputs:
   - params.yaml
 
 outputs:
+  - primer_design_table
+  - validation_table
+  - parental_combination_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: marker_development

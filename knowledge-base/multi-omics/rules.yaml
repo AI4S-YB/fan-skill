@@ -16,9 +16,10 @@ inputs:
   - experimental_design
 
 outputs:
+  - integrated_factors
+  - cross_omics_correlation_table
+  - factor_interpretation
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: multi_omics_integration

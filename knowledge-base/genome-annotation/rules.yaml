@@ -16,9 +16,10 @@ inputs:
   - protein_evidence
 
 outputs:
+  - gene_predictions_gff
+  - functional_annotation_table
+  - busco_completeness
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: genome_annotation

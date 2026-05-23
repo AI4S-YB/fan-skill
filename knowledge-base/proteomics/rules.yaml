@@ -18,9 +18,10 @@ inputs:
   - experimental_design
 
 outputs:
+  - protein_quantification_table
+  - differential_proteins_table
+  - ppi_network
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: proteomics

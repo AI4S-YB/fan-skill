@@ -12,6 +12,8 @@ triggers:
 
 inputs:
   - data_profile.json
+  - genotype_data
+  - species_info
   - params.yaml
 
 outputs:

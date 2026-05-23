@@ -16,9 +16,10 @@ inputs:
   - metadata.csv
 
 outputs:
+  - methylation_levels
+  - dmr_table
+  - correlation_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: dna_methylation

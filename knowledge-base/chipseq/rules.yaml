@@ -16,9 +16,10 @@ inputs:
   - metadata.csv
 
 outputs:
+  - peak_file
+  - differential_binding_table
+  - motif_enrichment_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: chipseq

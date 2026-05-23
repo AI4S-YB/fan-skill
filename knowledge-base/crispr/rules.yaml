@@ -18,9 +18,10 @@ inputs:
   - editing_goal
 
 outputs:
+  - sgrna_design_table
+  - off_target_table
+  - editing_efficiency_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: crispr_design

@@ -17,9 +17,10 @@ inputs:
   - time_point_metadata
 
 outputs:
+  - cluster_assignments
+  - trend_patterns_table
+  - stage_specificity_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: time_series_expression

@@ -17,9 +17,11 @@ inputs:
   - params.yaml
 
 outputs:
+  - gebv_table
+  - prediction_accuracy
+  - cross_validation_table
+  - selection_candidates
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: genomic_selection

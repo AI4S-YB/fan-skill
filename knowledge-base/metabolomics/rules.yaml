@@ -16,9 +16,10 @@ inputs:
   - reference_database
 
 outputs:
+  - peak_table
+  - differential_metabolites_table
+  - pathway_mapping_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: metabolomics

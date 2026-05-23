@@ -18,9 +18,11 @@ inputs:
   - pedigree (optional)
 
 outputs:
+  - gca_sca_table
+  - heterotic_groups
+  - cross_prediction_table
+  - mate_selection_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: hybrid_prediction

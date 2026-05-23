@@ -16,9 +16,10 @@ inputs:
   - metadata.csv
 
 outputs:
+  - peak_file
+  - differential_accessibility_table
+  - footprint_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: atacseq

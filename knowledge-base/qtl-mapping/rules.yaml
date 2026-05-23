@@ -18,9 +18,10 @@ inputs:
   - params.yaml
 
 outputs:
+  - genetic_map
+  - lod_profile_table
+  - qtl_interval_table
   - analysis_report
-  - figures
-  - result_tables
 
 # QTL 作图决策矩阵 — Rule 模式的决策规则
 # 规则按优先级排序，多条同时命中时取 priority 最高的

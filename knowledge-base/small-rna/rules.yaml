@@ -16,9 +16,10 @@ inputs:
   - metadata.csv
 
 outputs:
+  - mirna_expression_table
+  - target_prediction_table
+  - degradome_table
   - analysis_report
-  - figures
-  - result_tables
 
 version: "1.0"
 analysis: small_rna
