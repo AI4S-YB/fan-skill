@@ -83,11 +83,35 @@ Let the user choose. If they need to explore further, loop back.
 ### Phase 4: Execute
 
 For each step in the selected chain:
-- Load `knowledge-base/<entry>/rules.yaml` (C-layer: decision rules)
-- Load `knowledge-base/<entry>/notebook.md` (B-layer: expert reasoning)
-- Use `engine/rule_engine.py` to match data profile to methods
-- Execute analysis with tools from `tool-registry/`
-- Log decisions via `engine/log_decision.sh`
+
+1. Load `knowledge-base/<entry>/rules.yaml` (C-layer: decision rules)
+2. Load `knowledge-base/<entry>/notebook.md` (B-layer: expert reasoning)
+3. Match data profile to methods using the C-layer rules
+4. Execute analysis, logging decisions via `engine/log_decision.sh`
+
+**When a rule references a `tool_id`:**
+
+The `tool_id` field points to documentation in `tool-registry/`. Read
+`tool-registry/<tool_id>.md` for optimal parameters, common errors, and
+plant-specific notes before executing.
+
+**If `tool_id` documentation is missing:**
+
+This is a documentation gap, not a runtime error. The tool itself is still
+available via Bash. You have several fallback options:
+
+| Priority | Action |
+|----------|--------|
+| 1 | Look for related tools in `tool-registry/` — similar tools often share patterns |
+| 2 | Use your own knowledge of the tool — you know GAPIT, DESeq2, PLINK etc. |
+| 3 | Check the parameters and error table in `rules.yaml` — rules encode key decisions |
+| 4 | If uncertain about parameters, ask the user: "工具 X 的文档暂缺，我将使用标准参数，可以吗？" |
+
+After the analysis, if you used a missing tool_id, note it:
+*"此次分析使用了 tool_id: X，但 tool-registry/ 中暂无文档。建议补充。"*
+
+This way, missing documentation gets flagged naturally during use, rather than
+blocking analysis at validation time.
 
 For long-running analyses: use `engine/run_pipeline.sh` (checkpoint + nohup).
 
