@@ -1,0 +1,132 @@
+name: time-series
+description: "Plant time-series expression analysis — from DESeq2-normalized counts through smoothing, clustering, and stage-specificity to publication-ready visualizations. Uses a dual-mode decision system (rule matrix + expert notebook)."
+triggers:
+  - "time series"
+  - "time course"
+  - "temporal"
+  - "longitudinal"
+  - "developmental"
+  - "trajectory"
+  - "pseudotime"
+  - "maSigPro"
+
+inputs:
+  - data_profile.json
+  - params.yaml
+  - normalized_expression_matrix
+  - time_point_metadata
+
+outputs:
+  - analysis_report
+  - figures
+  - result_tables
+
+version: "1.0"
+analysis: time_series_expression
+
+inputs_required:
+  - data_profile.json
+  - params.yaml
+  - normalized_expression_matrix  # DESeq2 VST/rlog
+  - time_point_metadata
+
+# ============================================================
+# Decision node 1: Preprocessing / Smoothing
+# ============================================================
+preprocessing:
+  - rule_id: "ts-preprocess-standard-001"
+    priority: 5
+    condition:
+      time_points: ">= 5"
+    recommend: "spline_smoothing"
+    reason: "≥5 time points -> spline smoothing for denoising with preserved inflection points"
+    tool_id: "preprocessing"
+
+  - rule_id: "ts-preprocess-few-points-002"
+    priority: 5
+    condition:
+      time_points: "< 5"
+    recommend: "loess_smoothing"
+    reason: "<5 time points -> LOESS more robust with fewer data points; spline overfits"
+
+# ============================================================
+# Decision node 2: Clustering
+# ============================================================
+clustering:
+  - rule_id: "ts-mfuzz-standard-001"
+    priority: 10
+    condition:
+      gene_count: ">= 1000"
+    recommend: "mfuzz"
+    reason: "≥1000 genes -> Mfuzz soft clustering allows genes to belong to multiple patterns, better for complex plant transcriptomes"
+    tool_id: "mfuzz"
+
+  - rule_id: "ts-kmeans-few-002"
+    priority: 8
+    condition:
+      gene_count: "< 1000"
+    recommend: "kmeans"
+    reason: "<1000 genes -> k-means simple and effective for smaller gene sets"
+    tool_id: "kmeans-cluster"
+
+# ============================================================
+# Decision node 3: Stage / Tissue Specificity
+# ============================================================
+stage_specificity:
+  - rule_id: "ts-tau-index-001"
+    priority: 5
+    condition:
+      tissue_or_stage_count: ">= 3"
+    recommend: "tau_index"
+    reason: "≥3 tissues/stages -> tau index quantifies expression specificity across conditions"
+    tool_id: "stage-specificity"
+
+# ============================================================
+# Decision node 4: Trend Analysis
+# ============================================================
+trend_analysis:
+  - rule_id: "ts-trend-stem-001"
+    priority: 5
+    condition:
+      time_points: ">= 6"
+    recommend: "stem"
+    reason: "≥6 time points -> STEM identifies statistically significant temporal trend profiles"
+    tool_id: "trend-analysis"
+
+  - rule_id: "ts-trend-mfuzz-pattern-002"
+    priority: 4
+    condition:
+      time_points: "< 6"
+    recommend: "mfuzz_trend"
+    reason: "<6 time points -> Mfuzz cluster profiles suffice for trend interpretation"
+    tool_id: "trend-analysis"
+
+# ============================================================
+# Decision node 5: Visualization
+# ============================================================
+visualization:
+  - rule_id: "ts-viz-heatmap-line-001"
+    priority: 5
+    condition:
+      time_points: ">= 5"
+    recommend: "heatmap_plus_line"
+    reason: "≥5 time points -> combined heatmap and line plots capture global and per-gene patterns"
+    tool_id: "visualization"
+
+  - rule_id: "ts-viz-simple-line-002"
+    priority: 5
+    condition:
+      time_points: "< 5"
+    recommend: "simple_line_plot"
+    reason: "<5 time points -> simple line plot with error bars most interpretable"
+    tool_id: "visualization"
+
+# ============================================================
+# Global Fallback
+# ============================================================
+fallback:
+  - rule_id: "ts-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    reason: "Data characteristics outside preset rules, switch to expert reasoning"

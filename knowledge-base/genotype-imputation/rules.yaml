@@ -1,0 +1,176 @@
+name: genotype-imputation
+description: "Plant genotype imputation — from post-QC genotype data to fully imputed variant set. Covers pre-imputation QC, Beagle 5, IMPUTE2, Minimac4, polyploid imputation, and post-imputation filtering. Uses a dual-mode decision system (rule matrix + expert notebook)."
+triggers:
+  - "imputation"
+  - "genotype imputation"
+  - "beagle"
+  - "impute"
+  - "minimac"
+  - "phasing"
+  - "haplotype"
+  - "low-density"
+
+inputs:
+  - data_profile.json
+  - genotype_data (VCF or PLINK)
+  - reference_panel_info
+  - params.yaml
+
+outputs:
+  - vcf_file
+  - variant_stats
+  - qc_report
+  - analysis_report
+
+# 基因型填充决策矩阵 — Rule 模式的决策规则
+# 规则按优先级排序，多条同时命中时取 priority 最高的
+
+version: "1.0"
+analysis: genotype_imputation
+
+inputs_required:
+  - data_profile.json
+  - genotype_data (VCF or PLINK)
+  - reference_panel_info
+  - params.yaml
+
+# ============================================================
+# 决策节点 1: 预填充 QC
+# ============================================================
+pre_imputation_qc:
+  - rule_id: "preimp-standard-001"
+    priority: 5
+    condition:
+      snp_count: ">= 1000"
+    action: "standard_qc"
+    params: {maf: 0.01, geno: 0.10, hwe: 1e-6}
+    reason: "标准预填充 QC"
+    tool_id: "pre-imputation-qc"
+
+  - rule_id: "preimp-relaxed-002"
+    priority: 5
+    condition:
+      snp_count: "< 1000"
+    action: "relaxed_qc"
+    params: {maf: 0.01, geno: 0.20}
+    reason: "标记少时放宽缺失率阈值"
+
+# ============================================================
+# 决策节点 2: 填充工具选择 (核心)
+# ============================================================
+imputation_tool:
+  - rule_id: "imp-beagle-small-001"
+    priority: 10
+    condition:
+      sample_count: "< 500"
+      snp_count: "< 50000"
+    recommend: "beagle"
+    reason: "小-中等数据 → Beagle 5 速度快，无需参考面板"
+    tool_id: "beagle"
+
+  - rule_id: "imp-impute2-reference-002"
+    priority: 9
+    condition:
+      has_reference_panel: true
+      reference_panel_type: "haplotype"
+    recommend: "impute2"
+    reason: "有单倍型参考面板 → IMPUTE2 利用 LD 信息充分"
+    tool_id: "impute2"
+
+  - rule_id: "imp-minimac-large-003"
+    priority: 8
+    condition:
+      sample_count: ">= 500"
+    recommend: "minimac4"
+    reason: "大样本 → Minimac4 计算效率最高"
+    tool_id: "minimac"
+
+  - rule_id: "imp-polyploid-004"
+    priority: 9
+    condition:
+      ploidy: ["allopolyploid", "autopolyploid"]
+    recommend: "beagle_polyploid"
+    reason: "多倍体 → Beagle 支持多倍体填充，IMPUTE2 不支持"
+
+# ============================================================
+# 决策节点 3: 种质资源考虑
+# ============================================================
+germplasm_consideration:
+  - rule_id: "germ-panmictic-001"
+    priority: 5
+    condition:
+      breeding_system: "outcross"
+    action: "use_diverse_reference"
+    reason: "异交物种 LD 衰减快，需要高密度参考面板或大样本量"
+
+  - rule_id: "germ-selfing-002"
+    priority: 5
+    condition:
+      breeding_system: "inbred"
+    action: "beagle_sufficient"
+    reason: "自交物种 LD 跨度大，Beagle 不依赖参考面板亦可获得良好填充精度"
+
+  - rule_id: "germ-structured-003"
+    priority: 6
+    condition:
+      population_structure: "strong"
+    action: "stratify_before_imputation"
+    reason: "强群体结构 → 按亚群分层填充，避免跨亚群错误填充"
+
+# ============================================================
+# 决策节点 4: 后填充 QC
+# ============================================================
+post_imputation_qc:
+  - rule_id: "postimp-standard-001"
+    priority: 5
+    condition:
+      tool_used: ["beagle", "impute2", "minimac4"]
+    action: "filter_by_r2_and_maf"
+    params: {r2_min: 0.30, maf_min: 0.01}
+    reason: "R² > 0.3 保留，MAF > 0.01"
+    tool_id: "post-imputation-qc"
+
+  - rule_id: "postimp-strict-002"
+    priority: 4
+    condition:
+      downstream_analysis: "gwas"
+    action: "strict_filter"
+    params: {r2_min: 0.50, maf_min: 0.05}
+    reason: "GWAS 下游 → 更严格的过滤，减少假阳性"
+
+  - rule_id: "postimp-gs-003"
+    priority: 4
+    condition:
+      downstream_analysis: "genomic_selection"
+    action: "retain_more_markers"
+    params: {r2_min: 0.30, maf_min: 0.01}
+    reason: "基因组选择 → 保留更多标记，允许低 R² 标记"
+
+# ============================================================
+# 决策节点 5: 分阶段填充 (scaffold)
+# ============================================================
+phasing_strategy:
+  - rule_id: "phase-beagle-convenience-001"
+    priority: 5
+    condition:
+      imputation_tool_selected: "beagle"
+    action: "beagle_integrated_phasing"
+    reason: "Beagle 内置定相功能，无需额外步骤"
+
+  - rule_id: "phase-shapeit-impute2-002"
+    priority: 4
+    condition:
+      imputation_tool_selected: "impute2"
+      sample_count: ">= 100"
+    action: "shapeit_prephasing"
+    tool_id: "shapeit-phasing"
+    reason: "IMPUTE2 需要预先定相，SHAPEIT 是标准前处理"
+
+# ============================================================
+# 回退规则
+# ============================================================
+fallback:
+  - rule_id: "imp-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"

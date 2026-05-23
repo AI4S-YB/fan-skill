@@ -1,0 +1,148 @@
+name: marker
+description: "Plant molecular marker development — from GWAS peaks/QTL to PCR markers. Covers KASP, InDel, SSR, and functional (dCAPS/CAPS) marker design, validation, and parental combination recommendation. Dual-mode B+C decision system."
+triggers:
+  - "marker development"
+  - "ssr"
+  - "snp"
+  - "indel"
+  - "primer design"
+  - "molecular marker"
+  - "kasp"
+  - "dart"
+
+inputs:
+  - data_profile.json
+  - target_sequences
+  - reference_genome
+  - params.yaml
+
+outputs:
+  - analysis_report
+  - figures
+  - result_tables
+
+version: "1.0"
+analysis: marker_development
+
+inputs_required:
+  - data_profile.json
+  - target_sequences
+  - reference_genome
+  - params.yaml
+
+marker_type:
+  - rule_id: "marker-snp-kasp-001"
+    priority: 10
+    condition:
+      variant_type: "snp"
+      throughput: ["low", "medium"]
+    recommend: "kasp_marker"
+    reason: "SNP 位点 + 中低通量 → KASP 标记最实用"
+    tool_id: "kaspar-design"
+
+  - rule_id: "marker-snp-high-throughput-002"
+    priority: 10
+    condition:
+      variant_type: "snp"
+      throughput: "high"
+    recommend: "snp_chip_or_gbs"
+    reason: "高通量 SNP → 设计芯片或 GBS 标记面板"
+    tool_id: "marker-validation"
+
+  - rule_id: "marker-indel-003"
+    priority: 9
+    condition:
+      variant_type: "indel"
+    recommend: "indel_marker"
+    reason: "InDel 标记 → 基于长度多态性的 PCR 标记"
+    tool_id: "primer3"
+
+  - rule_id: "marker-ssr-004"
+    priority: 8
+    condition:
+      variant_type: "ssr"
+    recommend: "ssr_flanking_primers"
+    reason: "SSR/微卫星 → 侧翼序列设计引物"
+    tool_id: "primer3"
+
+  - rule_id: "marker-functional-005"
+    priority: 9
+    condition:
+      variant_effect: ["missense", "nonsense", "splice_site"]
+    recommend: "functional_marker"
+    reason: "功能性变异 → 直接开发功能性标记（dCAPS/CAPS）"
+    tool_id: "primer3"
+
+primer_design:
+  - rule_id: "primer-standard-001"
+    priority: 5
+    condition:
+      target_length: "< 1000"
+    recommend: "primer3_standard"
+    params: {product_size: "80-150", tm: "58-62", gc: "40-60"}
+    reason: "标准 PCR 引物设计参数"
+    tool_id: "primer3"
+
+  - rule_id: "primer-gc-rich-002"
+    priority: 6
+    condition:
+      gc_content: "> 60"
+    recommend: "primer3_gc_rich"
+    params: {tm: "62-68", dmso: true}
+    reason: "高 GC 含量区域需调整 Tm 范围"
+    tool_id: "primer3"
+
+  - rule_id: "primer-polyploid-003"
+    priority: 7
+    condition:
+      ploidy: ["allopolyploid", "autopolyploid", "paleopolyploid"]
+    recommend: "subgenome_specific_primers"
+    reason: "多倍体物种 → 设计亚基因组特异性引物"
+    tool_id: "primer3"
+
+marker_validation:
+  - rule_id: "val-in-silico-001"
+    priority: 5
+    action: "in_silico_pcr_and_specificity"
+    reason: "先做电子 PCR 验证引物特异性"
+    tool_id: "marker-validation"
+
+  - rule_id: "val-polymorphism-check-002"
+    priority: 6
+    condition:
+      has_population_data: true
+    action: "check_polymorphism_in_population"
+    reason: "在群体中验证多态性"
+    tool_id: "marker-validation"
+
+parental_recommendation:
+  - rule_id: "parent-complementary-001"
+    priority: 10
+    condition:
+      breeding_goal: "pyramiding"
+      target_count: "> 1"
+    recommend: "complementary_parent_selection"
+    reason: "聚合育种 → 选择优良等位基因互补的亲本"
+    tool_id: "parental-recommendation"
+
+  - rule_id: "parent-max-gebv-002"
+    priority: 9
+    condition:
+      breeding_goal: "genetic_gain"
+    recommend: "max_gebv_pairing"
+    reason: "最大遗传进展 → 配 GEBV 最高的亲本组合"
+    tool_id: "parental-recommendation"
+
+  - rule_id: "parent-diversity-003"
+    priority: 8
+    condition:
+      breeding_goal: "pre_breeding"
+    recommend: "max_diversity_cross"
+    reason: "前育种 → 最大化遗传多样性以引入新等位基因"
+    tool_id: "parental-recommendation"
+
+fallback:
+  - rule_id: "marker-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"

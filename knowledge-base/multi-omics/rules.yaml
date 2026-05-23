@@ -1,0 +1,72 @@
+name: multi-omics
+description: "Plant multi-omics integration — transcriptomics, proteomics, metabolomics, epigenomics. Covers MOFA2 (unsupervised factor analysis), DIABLO (supervised classification), mixOmics PLS/sPLS (pairwise), data preprocessing, factor interpretation, and publication-quality visualization. Tailored for plant-specific challenges: polyploid subgenome handling, tissue/developmental stage integration, and non-model species strategies."
+triggers:
+  - "multi-omics"
+  - "integration"
+  - "multi-omics integration"
+  - "mofa"
+  - "somics"
+  - "mixomics"
+  - "dimm"
+  - "data integration"
+
+inputs:
+  - omics_datasets
+  - sample_mapping
+  - experimental_design
+
+outputs:
+  - analysis_report
+  - figures
+  - result_tables
+
+version: "1.0"
+analysis: multi_omics_integration
+
+integration_method:
+  - rule_id: "mo-mofa-unsupervised-001"
+    priority: 10
+    condition:
+      analysis_goal: ["exploratory", "dimension_reduction"]
+    recommend: "mofa2"
+    reason: "无监督探索 → MOFA2 从多组学数据中学习潜在因子"
+    tool_id: "mofa"
+  - rule_id: "mo-diablo-supervised-002"
+    priority: 10
+    condition:
+      analysis_goal: ["classification", "discrimination"]
+      has_class_labels: true
+    recommend: "diablo"
+    reason: "有监督分类 → DIABLO 最大化类别间的组学差异"
+    tool_id: "diablo"
+  - rule_id: "mo-mixomics-pairwise-003"
+    priority: 8
+    condition:
+      omics_count: "2"
+    recommend: "mixomics_pls"
+    reason: "两组学 → mixOmics PLS/sPLS 简单直接"
+    tool_id: "mixomics"
+
+data_preprocessing:
+  - rule_id: "dp-filter-common-samples-001"
+    priority: 10
+    action: "filter_to_common_samples"
+    reason: "仅保留所有组学共有的样本"
+  - rule_id: "dp-normalize-per-omics-002"
+    priority: 10
+    action: "normalize_within_each_omics"
+    reason: "每个组学内部单独归一化"
+
+factor_interpretation:
+  - rule_id: "fi-variance-explained-001"
+    priority: 5
+    condition:
+      method: "mofa2"
+    action: "check_factor_variance_and_top_features"
+    tool_id: "factor-analysis"
+
+fallback:
+  - rule_id: "mo-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"

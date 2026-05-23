@@ -1,0 +1,162 @@
+name: proteomics
+description: "Plant proteomics analysis — from raw MS spectra to differential protein abundance, PPI networks, and PTM analysis. Covers DDA (MaxQuant) and DIA (DIA-NN) workflows, limma-based differential analysis, STRING plant PPI, and phosphorylation analysis. Dual-mode B+C decision system."
+triggers:
+  - "proteomics"
+  - "protein"
+  - "mass spectrometry"
+  - "maxquant"
+  - "dia-nn"
+  - "fragpipe"
+  - "quantitative proteomics"
+  - "ptm"
+
+inputs:
+  - data_profile.json
+  - params.yaml
+  - raw_spectra
+  - sample_metadata
+  - experimental_design
+
+outputs:
+  - analysis_report
+  - figures
+  - result_tables
+
+version: "1.0"
+analysis: proteomics
+
+inputs_required:
+  - data_profile.json
+  - params.yaml
+  - raw_spectra
+  - sample_metadata
+  - experimental_design
+
+# ============================================================
+# Decision Node 1: Quantification Strategy
+# ============================================================
+quantification:
+  - rule_id: "prot-maxquant-dda-001"
+    priority: 10
+    condition:
+      acquisition: "dda"
+    recommend: "maxquant"
+    reason: "DDA → MaxQuant LFQ"
+    tool_id: "maxquant"
+
+  - rule_id: "prot-diann-dia-002"
+    priority: 10
+    condition:
+      acquisition: "dia"
+    recommend: "diann"
+    reason: "DIA → DIA-NN"
+    tool_id: "diann"
+
+  - rule_id: "prot-tmt-quant-003"
+    priority: 9
+    condition:
+      acquisition: "tmt"
+    recommend: "maxquant_tmt"
+    reason: "TMT标记定量 → MaxQuant TMT模式"
+
+  - rule_id: "prot-spectronaut-dia-004"
+    priority: 11
+    condition:
+      acquisition: "dia"
+      prefer_gui: true
+    recommend: "spectronaut"
+    reason: "DIA且有商业许可 → Spectronaut"
+
+# ============================================================
+# Decision Node 2: Differential Analysis
+# ============================================================
+diff_analysis:
+  - rule_id: "prot-limma-001"
+    priority: 10
+    condition:
+      rep_count: ">= 3"
+    recommend: "limma_diff_proteins"
+    tool_id: "diff-analysis"
+
+  - rule_id: "prot-ttest-002"
+    priority: 8
+    condition:
+      rep_count: "< 3"
+    recommend: "ttest_with_warning"
+    reason: "重复<3 → t检验但功效极低"
+
+  - rule_id: "prot-msstats-003"
+    priority: 11
+    condition:
+      has_fractionation: true
+    recommend: "msstats"
+    reason: "有分级分离数据 → MSstats建模"
+
+# ============================================================
+# Decision Node 3: PPI Network
+# ============================================================
+ppi_network:
+  - rule_id: "prot-string-plant-001"
+    priority: 5
+    recommend: "string_db_plant"
+    reason: "STRING DB植物PPI"
+    tool_id: "ppi-network"
+
+  - rule_id: "prot-cytoscape-002"
+    priority: 6
+    condition:
+      has_custom_network: true
+    recommend: "cytoscape_viz"
+    reason: "自定义网络 → Cytoscape可视化"
+
+# ============================================================
+# Decision Node 4: PTM Analysis
+# ============================================================
+ptm:
+  - rule_id: "prot-ptm-motif-001"
+    priority: 5
+    condition:
+      has_ptm_data: true
+    recommend: "motif_x_analysis"
+    reason: "PTM数据 → Motif-x激酶基序分析"
+    tool_id: "ptm-analysis"
+
+  - rule_id: "prot-phospho-enrich-002"
+    priority: 6
+    condition:
+      ptm_type: "phosphorylation"
+    recommend: "kinase_enrichment"
+    reason: "磷酸化 → 激酶富集分析"
+
+  - rule_id: "prot-ptm-nomod-003"
+    priority: 4
+    condition:
+      has_ptm_data: false
+    recommend: "skip_ptm"
+    reason: "无PTM数据 → 跳过PTM分析"
+
+# ============================================================
+# Decision Node 5: Visualization
+# ============================================================
+visualization:
+  - rule_id: "prot-vis-volcano-001"
+    priority: 5
+    recommend: "volcano_heatmap"
+    reason: "火山图+热图 → 差异蛋白展示"
+    tool_id: "visualization"
+
+  - rule_id: "prot-vis-ppi-002"
+    priority: 6
+    condition:
+      has_ppi: true
+    recommend: "ppi_network_viz"
+    reason: "PPI网络 → STRING/Cytoscape网络图"
+
+# ============================================================
+# Fallback
+# ============================================================
+fallback:
+  - rule_id: "prot-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"

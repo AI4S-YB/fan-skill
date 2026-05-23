@@ -1,0 +1,80 @@
+name: grn
+description: "Plant gene regulatory network inference — from expression matrix to TF annotation, network reconstruction (GENIE3/SCENIC), hub gene detection, module analysis, and visualization. Tailored for plant-specific TF families, polyploid homeolog handling, and non-model species strategies."
+triggers:
+  - "gene regulatory network"
+  - "grn"
+  - "co-expression"
+  - "wgcna"
+  - "transcription factor"
+  - "target gene"
+  - "regulome"
+  - "genie3"
+
+inputs:
+  - expression_matrix
+  - tf_list
+  - reference_genome
+
+outputs:
+  - analysis_report
+  - figures
+  - result_tables
+
+version: "1.0"
+analysis: gene_regulatory_network
+
+inference_method:
+  - rule_id: "grn-genie3-standard-001"
+    priority: 10
+    condition:
+      sample_count: ">= 15"
+      tf_annotation: true
+    recommend: "genie3_with_tf_prior"
+    reason: ">=15 samples + TF annotation -> GENIE3 directed network inference"
+    tool_id: "genie3"
+  - rule_id: "grn-scenic-002"
+    priority: 9
+    condition:
+      sample_count: ">= 20"
+      tf_annotation: true
+    recommend: "scenic"
+    reason: ">=20 samples -> SCENIC can detect regulon activity"
+    tool_id: "scenic"
+  - rule_id: "grn-wgcna-undirected-003"
+    priority: 7
+    condition:
+      tf_annotation: false
+    recommend: "wgcna_coexpression"
+    reason: "No TF annotation -> WGCNA undirected co-expression network"
+
+tf_database:
+  - rule_id: "tf-planttfdb-001"
+    priority: 10
+    condition:
+      species_detected: ["oryza_sativa", "zea_mays", "arabidopsis_thaliana", "glycine_max", "solanum_lycopersicum"]
+    recommend: "planttfdb"
+    reason: "Major crop species -> PlantTFDB has complete annotation"
+  - rule_id: "tf-homolog-infer-002"
+    priority: 7
+    condition:
+      species_detected: "unknown"
+    recommend: "homolog_inference"
+    reason: "Non-model species -> infer TFs from Arabidopsis homologs"
+
+network_analysis:
+  - rule_id: "na-hub-detection-001"
+    priority: 5
+    action: "degree_centrality_and_betweenness"
+    reason: "Degree and betweenness centrality identify hub genes"
+  - rule_id: "na-module-002"
+    priority: 6
+    condition:
+      network_size: ">= 500"
+    recommend: "community_detection"
+    reason: ">=500 nodes -> community detection identifies functional modules"
+
+fallback:
+  - rule_id: "grn-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"

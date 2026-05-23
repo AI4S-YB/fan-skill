@@ -1,0 +1,62 @@
+name: genome-annotation
+description: "Plant genome annotation — from repeat masking to gene prediction and functional annotation. Covers RepeatMasker, BRAKER3, EggNOG-mapper, InterProScan, and BUSCO quality assessment. Uses a dual-mode decision system (rule matrix + expert notebook)."
+triggers:
+  - "genome annotation"
+  - "gene prediction"
+  - "repeat annotation"
+  - "augustus"
+  - "braker"
+  - "maker"
+  - "functional annotation"
+  - "transposable element"
+
+inputs:
+  - genome_assembly
+  - rna-seq_reads
+  - protein_evidence
+
+outputs:
+  - analysis_report
+  - figures
+  - result_tables
+
+version: "1.0"
+analysis: genome_annotation
+
+repeat_masking:
+  - rule_id: "anno-repeatmasker-001"
+    priority: 10
+    recommend: "repeatmasker_with_plant_db"
+    reason: "RepeatMasker + 植物重复序列库"
+    tool_id: "repeat-masking"
+
+gene_prediction:
+  - rule_id: "anno-braker3-rnaseq-002"
+    priority: 10
+    condition: { has_rnaseq_data: true }
+    recommend: "braker3_with_rnaseq"
+    reason: "有RNA-seq → BRAKER3+RNA-seq evidence"
+    tool_id: "gene-prediction"
+  - rule_id: "anno-braker3-protein-003"
+    priority: 9
+    condition: { has_rnaseq_data: false }
+    recommend: "braker3_with_protein_hints"
+    reason: "无RNA-seq → BRAKER3+同源蛋白hints"
+
+functional_annotation:
+  - rule_id: "anno-eggnog-interpro-001"
+    priority: 10
+    recommend: "eggnog_mapper_and_interproscan"
+    reason: "EggNOG-mapper + InterProScan联合注释"
+
+qc:
+  - rule_id: "anno-busco-completeness-001"
+    priority: 10
+    recommend: "busco_protein_mode"
+    reason: "BUSCO蛋白质模式评估注释完整性"
+
+fallback:
+  - rule_id: "anno-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"

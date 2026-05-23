@@ -1,0 +1,53 @@
+name: small-rna
+description: "Plant small RNA sequencing data analysis pipeline. Covers miRNA prediction, target gene prediction, degradome analysis, differential expression, and quality control for plant small RNA-seq data."
+triggers:
+  - "small rna"
+  - "mirna"
+  - "sirna"
+  - "pirna"
+  - "srna-seq"
+  - "degradome"
+  - "target prediction"
+  - "phased"
+
+inputs:
+  - sequencing_reads
+  - reference_genome
+  - metadata.csv
+
+outputs:
+  - analysis_report
+  - figures
+  - result_tables
+
+version: "1.0"
+analysis: small_rna
+mirna_prediction:
+  - rule_id: "mirna-plant-species-001"
+    priority: 10
+    condition: { species_detected: ["oryza_sativa", "zea_mays", "arabidopsis_thaliana", "glycine_max"] }
+    recommend: "mirdeep2_with_species_mirbase"
+    reason: "已知物种 → miRDeep2+miRBase已知miRNA"
+    tool_id: "mirna-prediction"
+  - rule_id: "mirna-novel-002"
+    priority: 8
+    condition: { species_detected: "unknown" }
+    recommend: "mirdeep2_novel_discovery"
+    reason: "非模式物种 → miRDeep2从头预测"
+target_prediction:
+  - rule_id: "target-psrna-001"
+    priority: 10
+    recommend: "psRNATarget"
+    reason: "植物miRNA靶基因预测 → psRNATarget是植物标准工具"
+    tool_id: "target-prediction"
+differential_expression:
+  - rule_id: "demirna-deseq2-001"
+    priority: 10
+    condition: { rep_count: ">= 3" }
+    recommend: "deseq2_on_mirna_counts"
+    reason: "≥3重复 → DESeq2差异miRNA分析"
+fallback:
+  - rule_id: "smrna-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"

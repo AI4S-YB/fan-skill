@@ -1,0 +1,73 @@
+name: eqtl
+description: "Plant expression quantitative trait locus (eQTL) analysis — from genotype + expression data to cis/trans-eQTL identification, colocalization with GWAS loci, and multi-tissue eQTL comparison. Uses MatrixEQTL for fast linear model testing, with plant-specific guidance on polyploid mapping complexity and tissue atlas availability."
+triggers:
+  - "eqtl"
+  - "expression qtl"
+  - "qtl mapping of expression"
+  - "matrixeqtl"
+  - "tensorqtl"
+  - "cis-eqtl"
+  - "trans-eqtl"
+  - "gene-variant association"
+
+inputs:
+  - genotype_data
+  - expression_matrix
+  - covariates
+
+outputs:
+  - analysis_report
+  - figures
+  - result_tables
+
+version: "1.0"
+analysis: eqtl_analysis
+
+eqtl_type:
+  - rule_id: "eqtl-cis-standard-001"
+    priority: 10
+    condition:
+      distance_focus: "cis"
+    recommend: "cis_eqtl_matrixeqtl"
+    reason: "cis-eQTL ±1Mb → MatrixEQTL线性模型"
+    tool_id: "cis-trans"
+  - rule_id: "eqtl-trans-002"
+    priority: 9
+    condition:
+      distance_focus: "trans"
+      sample_count: ">= 200"
+    recommend: "trans_eqtl_matrixeqtl"
+    reason: "trans-eQTL需要大样本量"
+    tool_id: "cis-trans"
+
+multiple_testing:
+  - rule_id: "eqtl-fdr-001"
+    priority: 5
+    condition:
+      test_count: ">= 1000000"
+    action: "fdr_0.05_with_permutation"
+    reason: "百万级检验 → FDR+置换双重校正"
+
+colocalization:
+  - rule_id: "eqtl-coloc-gwas-001"
+    priority: 5
+    condition:
+      has_gwas_results: true
+    recommend: "coloc_analysis"
+    reason: "有GWAS结果 → coloc共定位分析"
+    tool_id: "colocalization"
+
+multi_tissue:
+  - rule_id: "eqtl-multi-tissue-001"
+    priority: 5
+    condition:
+      tissue_count: ">= 2"
+    recommend: "tissue_specific_vs_shared_eqtl"
+    reason: "多组织 → 区分组织特异性和共享eQTL"
+    tool_id: "multi-tissue"
+
+fallback:
+  - rule_id: "eqtl-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"

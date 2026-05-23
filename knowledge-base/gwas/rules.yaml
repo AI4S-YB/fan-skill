@@ -1,0 +1,218 @@
+name: gwas
+description: "Plant genome-wide association study — from genotype + phenotype to candidate genes. Covers PLINK QC, population structure correction, GAPIT (CMLM/FarmCPU), BLINK, and MET-GWAS for multi-environment trials. Uses a dual-mode decision system (rule matrix + expert notebook)."
+triggers:
+  - "gwas"
+  - "genome-wide association"
+  - "association mapping"
+  - "manhattan plot"
+  - "qq plot"
+  - "blink"
+  - "farmcpu"
+  - "cmlm"
+
+inputs:
+  - data_profile.json
+  - params.yaml
+
+outputs:
+  - manhattan_plot
+  - qq_plot
+  - significant_snp_table
+  - analysis_report
+
+# GWAS 决策矩阵 — Rule 模式的决策规则
+# 规则按优先级排序，多条同时命中时取 priority 最高的
+
+version: "1.0"
+analysis: gwas
+
+inputs_required:
+  - data_profile.json    # from inspect_data.sh
+  - params.yaml          # user-provided parameters
+
+# ============================================================
+# 决策节点 1: 数据格式转换
+# ============================================================
+data_conversion:
+  - rule_id: "fmt-bed-001"
+    priority: 10
+    condition:
+      format: "bed"
+    action: "skip_conversion"
+    reason: "PLINK binary 格式可直接使用"
+
+  - rule_id: "fmt-vcf-002"
+    priority: 10
+    condition:
+      format: "vcf"
+    action: "plink_make_bed"
+    tool_id: "plink2-convert"
+    command: "plink2 --vcf ${INPUT} --make-bed --out ${OUTPUT}"
+    reason: "VCF 需要转换为 PLINK binary 格式"
+
+  - rule_id: "fmt-hapmap-003"
+    priority: 10
+    condition:
+      format: "hapmap"
+    action: "gapit_import"
+    tool_id: "gapit-cmlm"
+    reason: "Hapmap 格式由 GAPIT 直接读取，不需要转换"
+
+# ============================================================
+# 决策节点 2: QC 策略
+# ============================================================
+qc_strategy:
+  - rule_id: "qc-standard-001"
+    priority: 5
+    condition:
+      snp_count: ">= 10000"
+    action: "standard_qc"
+    params:
+      maf: 0.05
+      geno: 0.1
+      mind: 0.1
+      hwe: 1e-6
+    reason: "标准 QC 参数适用于中等密度以上标记"
+
+  - rule_id: "qc-relaxed-002"
+    priority: 5
+    condition:
+      snp_count: "< 10000"
+    action: "relaxed_qc"
+    params:
+      maf: 0.01
+      geno: 0.1
+      mind: 0.1
+      hwe: 1e-3
+    reason: "标记数少时放宽 MAF 和 HWE 阈值，避免过度过滤"
+
+  - rule_id: "qc-inbred-003"
+    priority: 6
+    condition:
+      species_type: "inbred"
+    action: "skip_hwe_filter"
+    reason: "自交物种不符合 Hardy-Weinberg 平衡假设，跳过 HWE 过滤"
+
+# ============================================================
+# 决策节点 3: GWAS 方法选择 (核心)
+# ============================================================
+gwas_method:
+  - rule_id: "gwas-large-bl-001"
+    priority: 10
+    condition:
+      sample_count: ">= 500"
+      snp_count: ">= 50000"
+      genomic_inflation: "< 1.1"
+    recommend: "blink"
+    reason: "大样本高密度低分层 → BLINK 统计功效最高、速度最快"
+    tool_id: "blink"
+
+  - rule_id: "gwas-stratified-fc-002"
+    priority: 9
+    condition:
+      genomic_inflation: "> 1.05"
+      sample_count: ">= 200"
+      snp_count: ">= 1000"
+    recommend: "farmcpu"
+    reason: "群体分层显著 → FarmCPU 交替迭代有效控制假阳性"
+    tool_id: "gapit-farmcpu"
+
+  - rule_id: "gwas-small-inbred-cmlm-003"
+    priority: 8
+    condition:
+      sample_count: "< 200"
+      species_type: "inbred"
+    recommend: "gapit-cmlm"
+    reason: "小样本近交物种 → CMLM + K 矩阵控制亲缘关系最稳健"
+    tool_id: "gapit-cmlm"
+
+  - rule_id: "gwas-small-outcross-cmlm-004"
+    priority: 8
+    condition:
+      sample_count: "< 200"
+      species_type: "outcross"
+    recommend: "gapit-cmlm"
+    reason: "小样本异交物种 → CMLM + K 矩阵也适用，加 PCA 协变量"
+    tool_id: "gapit-cmlm"
+
+  - rule_id: "gwas-multienv-met-005"
+    priority: 10
+    condition:
+      env_count: "> 1"
+    recommend: "met-gwas"
+    reason: "多环境数据 → MET-GWAS 可分离 G×E 效应"
+    tool_id: "met-gwas"
+
+  - rule_id: "gwas-tetraploid-006"
+    priority: 10
+    condition:
+      ploidy: "autotetraploid"
+    recommend: "gwaspoly"
+    reason: "同源四倍体需剂量感知方法"
+    tool_id: "gwaspoly"
+
+  - rule_id: "gwas-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    reason: "数据特征不在预设规则内，切换到 expert 推理"
+
+# ============================================================
+# 决策节点 4: 协变量策略
+# ============================================================
+covariate_strategy:
+  - rule_id: "cov-pc-only-001"
+    priority: 5
+    condition:
+      species_type: "outcross"
+      genomic_inflation: "< 1.1"
+    recommend: "pca_only"
+    pc_count: 3
+    reason: "异交物种低分层 → PCA 3 个主成分足够"
+
+  - rule_id: "cov-k-only-002"
+    priority: 5
+    condition:
+      species_type: "inbred"
+      sample_count: "< 300"
+    recommend: "k_matrix_only"
+    reason: "近交物种小样本 → K 矩阵比 PCA 更有效"
+
+  - rule_id: "cov-pc-plus-k-003"
+    priority: 6
+    condition:
+      genomic_inflation: "> 1.1"
+    recommend: "pca_plus_k"
+    pc_count: 5
+    reason: "群体分层 → PCA + K 矩阵联合控制"
+
+  - rule_id: "cov-subgenome-004"
+    priority: 7
+    condition:
+      ploidy: "allopolyploid"
+    recommend: "per_subgenome_pca"
+    reason: "异源多倍体 → 每个亚基因组独立 PCA"
+
+# ============================================================
+# 决策节点 5: 显著性阈值
+# ============================================================
+significance_threshold:
+  - rule_id: "sig-bonferroni-standard-001"
+    priority: 5
+    condition:
+      method: ["blink", "farmcpu"]
+    threshold: "5e-8"
+    reason: "标准 Bonferroni 校正 (≈ 1M 独立检验)"
+
+  - rule_id: "sig-bonferroni-relaxed-002"
+    priority: 6
+    condition:
+      snp_count: "< 10000"
+    threshold_formula: "0.05 / snp_count"
+    reason: "标记少时用 0.05/nSNP 作为阈值"
+
+  - rule_id: "sig-suggestive-003"
+    priority: 3
+    threshold: "1e-5"
+    label: "suggestive"
+    reason: "建议性阈值 (1e-5)，用于标记潜在感兴趣区域"

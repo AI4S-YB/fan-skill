@@ -1,0 +1,48 @@
+name: atacseq
+description: "Plant ATAC-seq data analysis pipeline. Covers peak calling with MACS2, differential accessibility analysis with DiffBind+DESeq2, TF footprinting with TOBIAS, motif enrichment analysis, quality control, and visualization for plant ATAC-seq data."
+triggers:
+  - "atac-seq"
+  - "atacseq"
+  - "open chromatin"
+  - "chromatin accessibility"
+  - "tn5"
+  - "nucleosome"
+  - "peak calling"
+  - "footprint"
+
+inputs:
+  - sequencing_reads
+  - reference_genome
+  - metadata.csv
+
+outputs:
+  - analysis_report
+  - figures
+  - result_tables
+
+version: "1.0"
+analysis: atacseq
+peak_calling:
+  - rule_id: "atac-macs2-standard-001"
+    priority: 10
+    recommend: "macs2_atac_mode"
+    reason: "ATAC-seq -> MACS2 --nomodel --shift -100 --extsize 200"
+    tool_id: "peak-calling"
+diff_accessibility:
+  - rule_id: "atac-diffbind-001"
+    priority: 10
+    condition: { rep_count: ">= 2" }
+    recommend: "diffbind_deseq2"
+    reason: ">=2 copies -> DiffBind+DESeq2 differential accessibility"
+    tool_id: "diff-accessibility"
+footprinting:
+  - rule_id: "atac-tobias-001"
+    priority: 5
+    recommend: "tobias_footprinting"
+    reason: "TOBIAS TF footprinting analysis"
+    tool_id: "footprinting"
+fallback:
+  - rule_id: "atac-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
