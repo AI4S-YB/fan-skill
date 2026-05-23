@@ -1,0 +1,70 @@
+test_cases:
+  - name: "standard_ld_pruning"
+    rule_section: ld_pruning
+    input_profile:
+      snp_count: 50000
+    expected:
+      rule_id: "ld-standard-001"
+
+  - name: "relaxed_ld_pruning"
+    rule_section: ld_pruning
+    input_profile:
+      snp_count: 5000
+    expected:
+      rule_id: "ld-relaxed-002"
+
+  - name: "large_dataset_k_range"
+    rule_section: k_range
+    input_profile:
+      sample_count: 200
+    expected:
+      rule_id: "k-large-dataset-001"
+
+  - name: "small_dataset_k_range"
+    rule_section: k_range
+    input_profile:
+      sample_count: 50
+    expected:
+      rule_id: "k-small-dataset-002"
+
+  - name: "strong_structure"
+    rule_section: structure_interpretation
+    input_profile:
+      pc1_variance: 0.25
+    expected:
+      rule_id: "struct-strong-001"
+
+  - name: "moderate_structure"
+    rule_section: structure_interpretation
+    input_profile:
+      pc1_variance: 0.08
+    expected:
+      rule_id: "struct-moderate-002"
+
+  - name: "weak_structure"
+    rule_section: structure_interpretation
+    input_profile:
+      pc1_variance: 0.03
+    expected:
+      rule_id: "struct-weak-003"
+
+  - name: "polyploid_caution"
+    rule_section: structure_interpretation
+    input_profile:
+      ploidy: "allopolyploid"
+    expected:
+      rule_id: "struct-polyploid-004"
+
+  - name: "very_great_fst"
+    rule_section: fst_interpretation
+    input_profile:
+      fst_value: 0.30
+    expected:
+      rule_id: "fst-very-great-001"
+
+  - name: "moderate_fst"
+    rule_section: fst_interpretation
+    input_profile:
+      fst_value: 0.10
+    expected:
+      rule_id: "fst-moderate-003"

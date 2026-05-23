@@ -1,0 +1,82 @@
+test_cases:
+  - name: "large_data_megahit"
+    rule_section: assembly
+    input_profile:
+      data_volume: "large"
+    expected:
+      rule_id: "meta-megahit-standard-001"
+
+  - name: "medium_data_megahit"
+    rule_section: assembly
+    input_profile:
+      data_volume: "medium"
+    expected:
+      rule_id: "meta-megahit-standard-001"
+
+  - name: "small_data_metaspades"
+    rule_section: assembly
+    input_profile:
+      data_volume: "small"
+    expected:
+      rule_id: "meta-metaspades-sensitive-002"
+
+  - name: "hybrid_assembly_with_long_reads"
+    rule_section: assembly
+    input_profile:
+      data_volume: "medium"
+      has_long_reads: true
+    expected:
+      rule_id: "meta-hybrid-assembly-003"
+
+  - name: "default_preprocessing"
+    rule_section: preprocessing
+    input_profile: {}
+    expected:
+      rule_id: "meta-fastp-default-001"
+
+  - name: "host_removal_kneaddata"
+    rule_section: preprocessing
+    input_profile:
+      host_contamination: true
+    expected:
+      rule_id: "meta-kneaddata-host-002"
+
+  - name: "default_binning_metabat2"
+    rule_section: binning
+    input_profile: {}
+    expected:
+      rule_id: "meta-metabat2-001"
+
+  - name: "composition_binning_concoct"
+    rule_section: binning
+    input_profile:
+      binning_method: "composition"
+    expected:
+      rule_id: "meta-concoct-002"
+
+  - name: "ensemble_binning_dastool"
+    rule_section: binning
+    input_profile:
+      binning_consensus: true
+    expected:
+      rule_id: "meta-das-tool-ensemble-004"
+
+  - name: "default_mag_qc_checkm"
+    rule_section: mag_qc
+    input_profile: {}
+    expected:
+      rule_id: "meta-checkm-001"
+
+  - name: "gtdbtk_classification"
+    rule_section: mag_qc
+    input_profile:
+      mag_count: 5
+      classification: true
+    expected:
+      rule_id: "meta-gtdbtk-002"
+
+  - name: "default_functional_annotation"
+    rule_section: annotation
+    input_profile: {}
+    expected:
+      rule_id: "meta-func-annotation-001"

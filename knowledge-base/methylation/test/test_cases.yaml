@@ -1,0 +1,80 @@
+# DNA methylation decision matrix test cases
+# Each rule has at least one triggering case
+
+test_cases:
+  # --- Alignment ---
+  - name: "alignment_wgbs"
+    rule_section: alignment
+    input_profile:
+      protocol: "wgbs"
+    expected:
+      rule_id: "meth-bismark-wgbs-001"
+      recommend: "bismark_wgbs"
+
+  - name: "alignment_rrbs"
+    rule_section: alignment
+    input_profile:
+      protocol: "rrbs"
+    expected:
+      rule_id: "meth-bismark-rrbs-002"
+      recommend: "bismark_rrbs"
+
+  - name: "alignment_wgbs_plant"
+    rule_section: alignment
+    input_profile:
+      protocol: "wgbs"
+      species: "maize"
+    expected:
+      rule_id: "meth-bismark-wgbs-001"
+      recommend: "bismark_wgbs"
+
+  # --- DMR Calling ---
+  - name: "dmr_calling_3_replicates"
+    rule_section: dmr_calling
+    input_profile:
+      rep_count: 3
+    expected:
+      rule_id: "dmr-dss-001"
+      recommend: "dss_dmr"
+
+  - name: "dmr_calling_min_replicates"
+    rule_section: dmr_calling
+    input_profile:
+      rep_count: 2
+    expected:
+      rule_id: "dmr-dss-001"
+      recommend: "dss_dmr"
+
+  - name: "dmr_calling_4_replicates"
+    rule_section: dmr_calling
+    input_profile:
+      rep_count: 4
+    expected:
+      rule_id: "dmr-dss-001"
+      recommend: "dss_dmr"
+
+  # --- Correlation ---
+  - name: "correlation_with_expression"
+    rule_section: correlation
+    input_profile:
+      has_expression_data: true
+    expected:
+      rule_id: "meth-expr-correlation-001"
+      recommend: "methylation_expression_correlation"
+
+  - name: "correlation_rnaseq_available"
+    rule_section: correlation
+    input_profile:
+      has_expression_data: true
+      data_type: "rnaseq"
+    expected:
+      rule_id: "meth-expr-correlation-001"
+      recommend: "methylation_expression_correlation"
+
+  # --- Fallback ---
+  - name: "fallback_no_rules_match"
+    rule_section: fallback
+    input_profile: {}
+    expected:
+      rule_id: "meth-fallback-999"
+      action: "delegate_to_expert"

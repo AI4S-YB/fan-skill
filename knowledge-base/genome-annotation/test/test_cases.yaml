@@ -1,0 +1,86 @@
+# 基因组注释 决策矩阵测试用例
+# 每条 rule 至少一个 case 能触发
+
+test_cases:
+  # --- 重复序列屏蔽 ---
+  - name: "standard_repeat_masking"
+    rule_section: repeat_masking
+    input_profile: {}
+    expected:
+      rule_id: "anno-repeatmasker-001"
+      recommend: "repeatmasker_with_plant_db"
+
+  # --- 基因预测：有 RNA-seq ---
+  - name: "gene_prediction_with_rnaseq"
+    rule_section: gene_prediction
+    input_profile:
+      has_rnaseq_data: true
+    expected:
+      rule_id: "anno-braker3-rnaseq-002"
+      recommend: "braker3_with_rnaseq"
+
+  - name: "gene_prediction_with_rnaseq_prio10"
+    rule_section: gene_prediction
+    input_profile:
+      has_rnaseq_data: true
+    expected:
+      rule_id: "anno-braker3-rnaseq-002"
+      recommend: "braker3_with_rnaseq"
+
+  # --- 基因预测：无 RNA-seq ---
+  - name: "gene_prediction_without_rnaseq"
+    rule_section: gene_prediction
+    input_profile:
+      has_rnaseq_data: false
+    expected:
+      rule_id: "anno-braker3-protein-003"
+      recommend: "braker3_with_protein_hints"
+
+  - name: "gene_prediction_no_data_protein_hints"
+    rule_section: gene_prediction
+    input_profile:
+      has_rnaseq_data: false
+    expected:
+      rule_id: "anno-braker3-protein-003"
+      recommend: "braker3_with_protein_hints"
+
+  # --- 功能注释 ---
+  - name: "functional_annotation_default"
+    rule_section: functional_annotation
+    input_profile: {}
+    expected:
+      rule_id: "anno-eggnog-interpro-001"
+      recommend: "eggnog_mapper_and_interproscan"
+
+  - name: "functional_annotation_with_profile"
+    rule_section: functional_annotation
+    input_profile:
+      genome_size: "medium"
+    expected:
+      rule_id: "anno-eggnog-interpro-001"
+      recommend: "eggnog_mapper_and_interproscan"
+
+  # --- 质控 ---
+  - name: "busco_qc_protein_mode"
+    rule_section: qc
+    input_profile: {}
+    expected:
+      rule_id: "anno-busco-completeness-001"
+      recommend: "busco_protein_mode"
+
+  - name: "busco_qc_draft_assembly"
+    rule_section: qc
+    input_profile:
+      assembly_n50: 50000
+    expected:
+      rule_id: "anno-busco-completeness-001"
+      recommend: "busco_protein_mode"
+
+  # --- fallback ---
+  - name: "no_rules_match_annotation_fallback"
+    rule_section: gene_prediction
+    input_profile:
+      has_rnaseq_data: "unknown"
+    expected:
+      rule_id: "anno-fallback-999"
+      action: "delegate_to_expert"

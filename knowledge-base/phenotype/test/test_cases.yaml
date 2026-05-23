@@ -1,0 +1,76 @@
+test_cases:
+  - name: "multi_env_heritability"
+    rule_section: heritability
+    input_profile:
+      env_count: 3
+      rep_count: 2
+    expected:
+      rule_id: "h2-multi-env-001"
+
+  - name: "single_env_rep_heritability"
+    rule_section: heritability
+    input_profile:
+      env_count: 1
+      rep_count: 3
+    expected:
+      rule_id: "h2-single-env-rep-002"
+
+  - name: "unreplicated_warning"
+    rule_section: heritability
+    input_profile:
+      rep_count: 1
+    expected:
+      rule_id: "h2-unreplicated-003"
+
+  - name: "multi_env_blup"
+    rule_section: breeding_value
+    input_profile:
+      env_count: 3
+      genotype_connected: true
+    expected:
+      rule_id: "bv-multi-env-blup-001"
+
+  - name: "single_env_blup"
+    rule_section: breeding_value
+    input_profile:
+      env_count: 1
+      genotype_random: true
+    expected:
+      rule_id: "bv-single-env-blue-002"
+
+  - name: "blue_fixed_genotype"
+    rule_section: breeding_value
+    input_profile:
+      genotype_random: false
+    expected:
+      rule_id: "bv-fixed-genotype-003"
+
+  - name: "spatial_with_coords"
+    rule_section: spatial_correction
+    input_profile:
+      trial_type: "field"
+      has_row_col_info: true
+    expected:
+      rule_id: "spatial-field-trial-001"
+
+  - name: "spatial_no_coords"
+    rule_section: spatial_correction
+    input_profile:
+      trial_type: "field"
+      has_row_col_info: false
+    expected:
+      rule_id: "spatial-no-coords-002"
+
+  - name: "ammi_for_many_envs"
+    rule_section: met_summary
+    input_profile:
+      env_count: 5
+    expected:
+      rule_id: "met-stability-001"
+
+  - name: "correlation_for_few_envs"
+    rule_section: met_summary
+    input_profile:
+      env_count: 2
+    expected:
+      rule_id: "met-correlation-002"

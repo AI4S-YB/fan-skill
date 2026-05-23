@@ -1,0 +1,86 @@
+test_cases:
+  - name: "dda_acquisition_maxquant"
+    rule_section: quantification
+    input_profile:
+      acquisition: "dda"
+    expected:
+      rule_id: "prot-maxquant-dda-001"
+
+  - name: "dia_acquisition_diann"
+    rule_section: quantification
+    input_profile:
+      acquisition: "dia"
+    expected:
+      rule_id: "prot-diann-dia-002"
+
+  - name: "tmt_quantification"
+    rule_section: quantification
+    input_profile:
+      acquisition: "tmt"
+    expected:
+      rule_id: "prot-tmt-quant-003"
+
+  - name: "dia_with_gui_spectronaut"
+    rule_section: quantification
+    input_profile:
+      acquisition: "dia"
+      prefer_gui: true
+    expected:
+      rule_id: "prot-spectronaut-dia-004"
+
+  - name: "limma_with_3plus_reps"
+    rule_section: diff_analysis
+    input_profile:
+      rep_count: 4
+    expected:
+      rule_id: "prot-limma-001"
+
+  - name: "ttest_with_low_reps"
+    rule_section: diff_analysis
+    input_profile:
+      rep_count: 1
+    expected:
+      rule_id: "prot-ttest-002"
+
+  - name: "msstats_with_fractionation"
+    rule_section: diff_analysis
+    input_profile:
+      rep_count: 4
+      has_fractionation: true
+    expected:
+      rule_id: "prot-msstats-003"
+
+  - name: "string_ppi_default"
+    rule_section: ppi_network
+    input_profile: {}
+    expected:
+      rule_id: "prot-string-plant-001"
+
+  - name: "cytoscape_custom_network"
+    rule_section: ppi_network
+    input_profile:
+      has_custom_network: true
+    expected:
+      rule_id: "prot-cytoscape-002"
+
+  - name: "ptm_motif_x"
+    rule_section: ptm
+    input_profile:
+      has_ptm_data: true
+    expected:
+      rule_id: "prot-ptm-motif-001"
+
+  - name: "phospho_enrichment"
+    rule_section: ptm
+    input_profile:
+      has_ptm_data: true
+      ptm_type: "phosphorylation"
+    expected:
+      rule_id: "prot-phospho-enrich-002"
+
+  - name: "no_ptm_data"
+    rule_section: ptm
+    input_profile:
+      has_ptm_data: false
+    expected:
+      rule_id: "prot-ptm-nomod-003"

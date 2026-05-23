@@ -5,7 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RULES_DIR="${1:-$(dirname "$SCRIPT_DIR")}"
-
+export RULES_DIR
 echo "=== L2: Decision Rule Reachability Test ==="
 echo "RULES_DIR: $RULES_DIR"
 
@@ -45,7 +45,7 @@ def match_condition(condition, profile):
             # list value means "actual must be one of these"
             if actual not in [str(v) for v in val]:
                 return False
-        elif isinstance(val, str) and (val.startswith('>=') or val.startswith('<=') or val.startswith('>') or val.startswith('<')):
+        elif isinstance(val, str) and (val.startswith('>=') or val.startswith('<=') or val.startswith('==') or val.startswith('>') or val.startswith('<')):
             # numeric comparison
             try:
                 if val.startswith('>='):
@@ -53,6 +53,9 @@ def match_condition(condition, profile):
                         return False
                 elif val.startswith('<='):
                     if not (float(actual) <= float(val[2:])):
+                        return False
+                elif val.startswith('=='):
+                    if not (float(actual) == float(val[2:])):
                         return False
                 elif val.startswith('>'):
                     if not (float(actual) > float(val[1:])):

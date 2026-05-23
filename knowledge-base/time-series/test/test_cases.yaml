@@ -1,0 +1,72 @@
+# 时间序列表达分析决策矩阵测试用例
+# 每条 rule 至少一个 case 能触发
+
+test_cases:
+  # --- 预处理 ---
+  - name: "many_timepoints_spline"
+    rule_section: preprocessing
+    input_profile:
+      time_points: 10
+    expected:
+      rule_id: "ts-preprocess-standard-001"
+      recommend: "spline_smoothing"
+
+  - name: "few_timepoints_loess"
+    rule_section: preprocessing
+    input_profile:
+      time_points: 3
+    expected:
+      rule_id: "ts-preprocess-few-points-002"
+      recommend: "loess_smoothing"
+
+  # --- 聚类 ---
+  - name: "large_gene_set_mfuzz"
+    rule_section: clustering
+    input_profile:
+      gene_count: 5000
+    expected:
+      rule_id: "ts-mfuzz-standard-001"
+      recommend: "mfuzz"
+
+  - name: "small_gene_set_kmeans"
+    rule_section: clustering
+    input_profile:
+      gene_count: 500
+    expected:
+      rule_id: "ts-kmeans-few-002"
+      recommend: "kmeans"
+
+  # --- 阶段特异性 ---
+  - name: "many_tissues_tau"
+    rule_section: stage_specificity
+    input_profile:
+      tissue_or_stage_count: 5
+    expected:
+      rule_id: "ts-tau-index-001"
+      recommend: "tau_index"
+
+  - name: "few_tissues_fallback"
+    rule_section: stage_specificity
+    input_profile:
+      tissue_or_stage_count: 2
+    expected:
+      rule_id: "ts-fallback-999"
+      action: "delegate_to_expert"
+
+  # --- 趋势分析 ---
+  - name: "dense_timecourse_stem"
+    rule_section: trend_analysis
+    input_profile:
+      time_points: 8
+    expected:
+      rule_id: "ts-trend-stem-001"
+      recommend: "stem"
+
+  # --- 可视化 ---
+  - name: "dense_timecourse_heatmap_line"
+    rule_section: visualization
+    input_profile:
+      time_points: 10
+    expected:
+      rule_id: "ts-viz-heatmap-line-001"
+      recommend: "heatmap_plus_line"
