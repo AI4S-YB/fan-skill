@@ -1,0 +1,87 @@
+# Small RNA 决策规则测试用例
+# 每条 rule 至少一个 case 能触发
+
+test_cases:
+  # --- mirna_prediction ---
+  - name: "model_species_oryza_mirna"
+    rule_section: mirna_prediction
+    input_profile:
+      species_detected: "oryza_sativa"
+    expected:
+      rule_id: "mirna-plant-species-001"
+      recommend: "mirdeep2_with_species_mirbase"
+
+  - name: "model_species_arabidopsis_mirna"
+    rule_section: mirna_prediction
+    input_profile:
+      species_detected: "arabidopsis_thaliana"
+    expected:
+      rule_id: "mirna-plant-species-001"
+      recommend: "mirdeep2_with_species_mirbase"
+
+  - name: "model_species_zea_mays_mirna"
+    rule_section: mirna_prediction
+    input_profile:
+      species_detected: "zea_mays"
+    expected:
+      rule_id: "mirna-plant-species-001"
+      recommend: "mirdeep2_with_species_mirbase"
+
+  - name: "model_species_glycine_max_mirna"
+    rule_section: mirna_prediction
+    input_profile:
+      species_detected: "glycine_max"
+    expected:
+      rule_id: "mirna-plant-species-001"
+      recommend: "mirdeep2_with_species_mirbase"
+
+  - name: "novel_species_mirna"
+    rule_section: mirna_prediction
+    input_profile:
+      species_detected: "unknown"
+    expected:
+      rule_id: "mirna-novel-002"
+      recommend: "mirdeep2_novel_discovery"
+
+  # --- target_prediction ---
+  - name: "psrna_target"
+    rule_section: target_prediction
+    input_profile: {}
+    expected:
+      rule_id: "target-psrna-001"
+      recommend: "psRNATarget"
+
+  - name: "psrna_target_with_species"
+    rule_section: target_prediction
+    input_profile:
+      species_detected: "oryza_sativa"
+    expected:
+      rule_id: "target-psrna-001"
+      recommend: "psRNATarget"
+
+  # --- differential_expression ---
+  - name: "deseq2_mirna_with_3_replicates"
+    rule_section: differential_expression
+    input_profile:
+      rep_count: 3
+    expected:
+      rule_id: "demirna-deseq2-001"
+      recommend: "deseq2_on_mirna_counts"
+
+  - name: "deseq2_mirna_with_4_replicates"
+    rule_section: differential_expression
+    input_profile:
+      rep_count: 4
+    expected:
+      rule_id: "demirna-deseq2-001"
+      recommend: "deseq2_on_mirna_counts"
+
+  # --- fallback ---
+  - name: "fallback_trigger"
+    rule_section: fallback
+    input_profile:
+      species_detected: "unknown"
+      rep_count: 1
+    expected:
+      rule_id: "smrna-fallback-999"
+      action: "delegate_to_expert"

@@ -1,0 +1,71 @@
+# ChIP-seq 决策规则测试用例
+# 每条 rule 至少一个 case 能触发
+
+test_cases:
+  # --- peak_calling ---
+  - name: "tf_narrow_peak"
+    rule_section: peak_calling
+    input_profile:
+      target_type: "transcription_factor"
+    expected:
+      rule_id: "chip-macs2-tf-001"
+      recommend: "macs2_narrow_peak"
+
+  - name: "histone_broad_peak"
+    rule_section: peak_calling
+    input_profile:
+      target_type: "histone_mark"
+    expected:
+      rule_id: "chip-macs2-histone-002"
+      recommend: "macs2_broad_peak"
+
+  # --- diff_binding ---
+  - name: "diffbind_with_2_replicates"
+    rule_section: diff_binding
+    input_profile:
+      rep_count: 2
+    expected:
+      rule_id: "chip-diffbind-001"
+      recommend: "diffbind_deseq2"
+
+  - name: "diffbind_with_3_replicates"
+    rule_section: diff_binding
+    input_profile:
+      rep_count: 3
+    expected:
+      rule_id: "chip-diffbind-001"
+      recommend: "diffbind_deseq2"
+
+  - name: "diffbind_with_5_replicates"
+    rule_section: diff_binding
+    input_profile:
+      rep_count: 5
+    expected:
+      rule_id: "chip-diffbind-001"
+      recommend: "diffbind_deseq2"
+
+  # --- annotation ---
+  - name: "chipseeker_annotation"
+    rule_section: annotation
+    input_profile: {}
+    expected:
+      rule_id: "chip-annotate-plant-001"
+      recommend: "chipseeker_plant_db"
+
+  - name: "chipseeker_with_replicates"
+    rule_section: annotation
+    input_profile:
+      rep_count: 3
+    expected:
+      rule_id: "chip-annotate-plant-001"
+      recommend: "chipseeker_plant_db"
+
+  # --- fallback ---
+  - name: "fallback_trigger"
+    rule_section: fallback
+    input_profile:
+      sample_count: 1
+      target_type: "unknown"
+    expected:
+      rule_id: "chip-fallback-999"
+      action: "delegate_to_expert"
