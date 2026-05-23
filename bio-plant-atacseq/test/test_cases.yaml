@@ -1,0 +1,87 @@
+# ATAC-seq decision matrix test cases
+# Each rule has at least one triggering case
+
+test_cases:
+  # --- Peak Calling ---
+  - name: "standard_peak_calling"
+    rule_section: peak_calling
+    input_profile:
+      protocol: "atacseq"
+    expected:
+      rule_id: "atac-macs2-standard-001"
+      recommend: "macs2_atac_mode"
+
+  - name: "peak_calling_with_high_read_depth"
+    rule_section: peak_calling
+    input_profile:
+      read_count: 50000000
+    expected:
+      rule_id: "atac-macs2-standard-001"
+      recommend: "macs2_atac_mode"
+
+  - name: "peak_calling_plant_species"
+    rule_section: peak_calling
+    input_profile:
+      species: "rice"
+    expected:
+      rule_id: "atac-macs2-standard-001"
+      recommend: "macs2_atac_mode"
+
+  # --- Differential Accessibility ---
+  - name: "diff_accessibility_3_replicates"
+    rule_section: diff_accessibility
+    input_profile:
+      rep_count: 3
+    expected:
+      rule_id: "atac-diffbind-001"
+      recommend: "diffbind_deseq2"
+
+  - name: "diff_accessibility_min_replicates"
+    rule_section: diff_accessibility
+    input_profile:
+      rep_count: 2
+    expected:
+      rule_id: "atac-diffbind-001"
+      recommend: "diffbind_deseq2"
+
+  - name: "diff_accessibility_4_replicates"
+    rule_section: diff_accessibility
+    input_profile:
+      rep_count: 4
+    expected:
+      rule_id: "atac-diffbind-001"
+      recommend: "diffbind_deseq2"
+
+  # --- Footprinting ---
+  - name: "footprinting_standard"
+    rule_section: footprinting
+    input_profile:
+      analysis_type: "tf"
+    expected:
+      rule_id: "atac-tobias-001"
+      recommend: "tobias_footprinting"
+
+  - name: "footprinting_plant_tf"
+    rule_section: footprinting
+    input_profile:
+      species: "arabidopsis"
+      tf_family: "MYB"
+    expected:
+      rule_id: "atac-tobias-001"
+      recommend: "tobias_footprinting"
+
+  - name: "footprinting_with_motif_db"
+    rule_section: footprinting
+    input_profile:
+      motif_db: "JASPAR2022_plants"
+    expected:
+      rule_id: "atac-tobias-001"
+      recommend: "tobias_footprinting"
+
+  # --- Fallback ---
+  - name: "fallback_no_rules_match"
+    rule_section: fallback
+    input_profile: {}
+    expected:
+      rule_id: "atac-fallback-999"
+      action: "delegate_to_expert"
