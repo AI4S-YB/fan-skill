@@ -1,0 +1,31 @@
+version: "1.0"
+analysis: chipseq
+peak_calling:
+  - rule_id: "chip-macs2-tf-001"
+    priority: 10
+    condition: { target_type: "transcription_factor" }
+    recommend: "macs2_narrow_peak"
+    reason: "TF ChIP → narrow peak模式"
+    tool: "tool-catalog/peak-calling.md"
+  - rule_id: "chip-macs2-histone-002"
+    priority: 10
+    condition: { target_type: "histone_mark" }
+    recommend: "macs2_broad_peak"
+    reason: "组蛋白修饰 → broad peak模式"
+diff_binding:
+  - rule_id: "chip-diffbind-001"
+    priority: 10
+    condition: { rep_count: ">= 2" }
+    recommend: "diffbind_deseq2"
+    reason: "≥2重复 → DiffBind+DESeq2差异结合分析"
+    tool: "tool-catalog/diff-binding.md"
+annotation:
+  - rule_id: "chip-annotate-plant-001"
+    priority: 5
+    recommend: "chipseeker_plant_db"
+    reason: "ChIPseeker+植物OrgDb注释peak到基因"
+fallback:
+  - rule_id: "chip-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
