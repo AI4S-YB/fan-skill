@@ -1,0 +1,78 @@
+# Multi-Omics Integration decision matrix test cases
+# Each rule has at least one test case that triggers it
+
+test_cases:
+  # --- integration_method ---
+  - name: "exploratory_analysis_mofa2"
+    rule_section: integration_method
+    input_profile:
+      analysis_goal: "exploratory"
+      omics_count: 3
+    expected:
+      rule_id: "mo-mofa-unsupervised-001"
+      recommend: "mofa2"
+
+  - name: "dimension_reduction_mofa2"
+    rule_section: integration_method
+    input_profile:
+      analysis_goal: "dimension_reduction"
+      omics_count: 4
+    expected:
+      rule_id: "mo-mofa-unsupervised-001"
+      recommend: "mofa2"
+
+  - name: "classification_with_labels_diablo"
+    rule_section: integration_method
+    input_profile:
+      analysis_goal: "classification"
+      has_class_labels: true
+      omics_count: 3
+    expected:
+      rule_id: "mo-diablo-supervised-002"
+      recommend: "diablo"
+
+  - name: "discrimination_with_labels_diablo"
+    rule_section: integration_method
+    input_profile:
+      analysis_goal: "discrimination"
+      has_class_labels: true
+      omics_count: 2
+    expected:
+      rule_id: "mo-diablo-supervised-002"
+      recommend: "diablo"
+
+  - name: "two_omics_pairwise_mixomics"
+    rule_section: integration_method
+    input_profile:
+      analysis_goal: "correlation"
+      omics_count: 2
+    expected:
+      rule_id: "mo-mixomics-pairwise-003"
+      recommend: "mixomics_pls"
+
+  - name: "fallback_no_matching_goal"
+    rule_section: integration_method
+    input_profile:
+      analysis_goal: "prediction"
+      omics_count: 5
+      has_class_labels: false
+    expected:
+      rule_id: "mo-fallback-999"
+      action: "delegate_to_expert"
+
+  # --- data_preprocessing ---
+  - name: "filter_to_common_samples"
+    rule_section: data_preprocessing
+    input_profile: {}
+    expected:
+      rule_id: "dp-filter-common-samples-001"
+      action: "filter_to_common_samples"
+
+  # --- factor_interpretation ---
+  - name: "mofa_factor_variance_check"
+    rule_section: factor_interpretation
+    input_profile:
+      method: "mofa2"
+    expected:
+      rule_id: "fi-variance-explained-001"
+      action: "check_factor_variance_and_top_features"
