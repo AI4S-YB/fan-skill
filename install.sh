@@ -1,11 +1,11 @@
 #!/bin/bash
-# install.sh — 安装 plant-bioinfo-skills 到 Claude Code
+# install.sh — 安装 fan-skill 到 Claude Code
 set -euo pipefail
 
 SKILLS_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-echo "=== Plant-Bioinfo-Skills Install ==="
+echo "=== Fan-Skill Install ==="
 echo "安装目标: $SKILLS_DIR"
 
 mkdir -p "$SKILLS_DIR"

@@ -1,4 +1,4 @@
-# plant-bioinfo-skills
+# fan-skill
 
 植物农业组学数据分析 Skill 库 — 面向 Claude Code 的决策引导型生物信息学分析工具集。
 
