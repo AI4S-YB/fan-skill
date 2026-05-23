@@ -1,0 +1,99 @@
+# Enviromics 决策矩阵测试用例
+# 每条 rule 至少一个 case 能触发
+
+test_cases:
+  # --- 环境指数构建 ---
+  - name: "multiple_climate_vars_pca"
+    rule_section: env_index
+    input_profile:
+      climate_vars: 5
+    expected:
+      rule_id: "env-index-pca-001"
+      recommend: "pca_env_index"
+
+  - name: "few_climate_vars_direct"
+    rule_section: env_index
+    input_profile:
+      climate_vars: 2
+    expected:
+      rule_id: "env-index-single-002"
+      recommend: "direct_env_variable"
+
+  - name: "single_climate_var_direct"
+    rule_section: env_index
+    input_profile:
+      climate_vars: 1
+    expected:
+      rule_id: "env-index-single-002"
+      recommend: "direct_env_variable"
+
+  # --- G×E modeling ---
+  - name: "large_met_fa_model"
+    rule_section: gxe_modeling
+    input_profile:
+      env_count: 8
+      genotype_count: 120
+    expected:
+      rule_id: "gxe-fa-001"
+      recommend: "factor_analytic_gxe"
+
+  - name: "moderate_env_ammi_gge"
+    rule_section: gxe_modeling
+    input_profile:
+      env_count: 3
+      genotype_count: 30
+    expected:
+      rule_id: "gxe-ammi-002"
+      recommend: "ammi_gge"
+
+  - name: "many_env_few_genotypes_ammi"
+    rule_section: gxe_modeling
+    input_profile:
+      env_count: 6
+      genotype_count: 30
+    expected:
+      rule_id: "gxe-ammi-002"
+      recommend: "ammi_gge"
+
+  - name: "env_index_available_reaction_norm"
+    rule_section: gxe_modeling
+    input_profile:
+      env_index_available: true
+    expected:
+      rule_id: "gxe-reaction-norm-003"
+      recommend: "reaction_norm"
+
+  # --- TPE analysis ---
+  - name: "many_env_tpe_clustering"
+    rule_section: tpe_analysis
+    input_profile:
+      env_count: 10
+    expected:
+      rule_id: "tpe-cluster-envs-001"
+      recommend: "cluster_environments"
+
+  - name: "few_env_no_tpe"
+    rule_section: tpe_analysis
+    input_profile:
+      env_count: 3
+    expected:
+      rule_id: "env-fallback-999"
+      action: "delegate_to_expert"
+
+  # --- Stability ---
+  - name: "always_run_stability"
+    rule_section: stability
+    input_profile: {}
+    expected:
+      rule_id: "stab-multiple-metrics-001"
+      action: "multiple_stability_metrics"
+
+  # --- Fallback ---
+  - name: "no_matching_rule_fallback"
+    rule_section: gxe_modeling
+    input_profile:
+      env_count: 1
+      genotype_count: 10
+    expected:
+      rule_id: "env-fallback-999"
+      action: "delegate_to_expert"
