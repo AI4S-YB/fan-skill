@@ -1,0 +1,85 @@
+test_cases:
+  - name: "nc2_design_gca_sca"
+    rule_section: gca_sca
+    input_profile:
+      design: "nc2"
+    expected:
+      rule_id: "hyb-gca-nc2-001"
+
+  - name: "diallel_design_gca_sca"
+    rule_section: gca_sca
+    input_profile:
+      design: "diallel"
+    expected:
+      rule_id: "hyb-gca-nc2-001"
+
+  - name: "factorial_design"
+    rule_section: gca_sca
+    input_profile:
+      design: "factorial"
+    expected:
+      rule_id: "hyb-gca-factorial-002"
+
+  - name: "pedigree_based_gca"
+    rule_section: gca_sca
+    input_profile:
+      has_pedigree: true
+    expected:
+      rule_id: "hyb-gca-pedigree-003"
+
+  - name: "genomic_heterotic_grouping"
+    rule_section: heterotic_group
+    input_profile: {}
+    expected:
+      rule_id: "hyb-heterotic-genomic-001"
+
+  - name: "pedigree_heterotic_grouping"
+    rule_section: heterotic_group
+    input_profile:
+      has_pedigree: true
+    expected:
+      rule_id: "hyb-heterotic-pedigree-002"
+
+  - name: "phenotype_only_grouping"
+    rule_section: heterotic_group
+    input_profile:
+      has_phenotype: true
+      has_genotype: false
+    expected:
+      rule_id: "hyb-heterotic-phenotype-003"
+
+  - name: "genomic_cross_prediction"
+    rule_section: cross_prediction
+    input_profile:
+      has_genotype: true
+    expected:
+      rule_id: "hyb-genomic-prediction-001"
+
+  - name: "gca_only_prediction"
+    rule_section: cross_prediction
+    input_profile:
+      has_genotype: false
+    expected:
+      rule_id: "hyb-gca-based-prediction-002"
+
+  - name: "bayesian_high_density"
+    rule_section: cross_prediction
+    input_profile:
+      has_genotype: true
+      marker_count: 60000
+      prefer_bayesian: true
+    expected:
+      rule_id: "hyb-bayesian-prediction-003"
+
+  - name: "default_optimal_contribution"
+    rule_section: mate_selection
+    input_profile: {}
+    expected:
+      rule_id: "hyb-mate-selection-001"
+
+  - name: "truncation_for_genetic_gain"
+    rule_section: mate_selection
+    input_profile:
+      objective: "genetic_gain"
+    expected:
+      rule_id: "hyb-mate-genetic-gain-002"
