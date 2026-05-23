@@ -37,16 +37,16 @@ if not decision_sections:
     sys.exit(1)
 print(f'  [OK] rules.yaml: {len(decision_sections)} decision sections')
 
-# Check every rule has rule_id
+# Check every rule has rule_id or id
 rule_count = 0
 for section in decision_sections:
     if isinstance(rules[section], list):
         for rule in rules[section]:
-            if 'rule_id' not in rule:
-                print(f'  [MISSING] rule_id in section {section}')
+            if 'rule_id' not in rule and 'id' not in rule:
+                print(f'  [MISSING] rule_id or id in section {section}')
                 sys.exit(1)
             rule_count += 1
-print(f'  [OK] rules.yaml: {rule_count} rules with rule_id')
+print(f'  [OK] rules.yaml: {rule_count} rules with rule_id or id')
 "
     [ $? -ne 0 ] && ERRORS=$((ERRORS + 1))
 fi
