@@ -20,7 +20,7 @@ heritability:
   - rule_id: "h2-single-env-rep-002"
     priority: 8
     condition:
-      env_count: "== 1"
+      env_count: 1
       rep_count: ">= 2"
     recommend: "anova_h2"
     reason: "单环境有重复 → ANOVA估计广义遗传力"
@@ -29,7 +29,7 @@ heritability:
   - rule_id: "h2-unreplicated-003"
     priority: 6
     condition:
-      rep_count: "== 1"
+      rep_count: 1
     action: "warn_cannot_estimate"
     reason: "无重复 → 无法估计遗传力，只能计算表型描述性统计"
 
@@ -46,7 +46,7 @@ breeding_value:
   - rule_id: "bv-single-env-blue-002"
     priority: 8
     condition:
-      env_count: "== 1"
+      env_count: 1
       genotype_random: true
     recommend: "blup_single_env"
     reason: "基因型作为随机效应 → BLUP"
