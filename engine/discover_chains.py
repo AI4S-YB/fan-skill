@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 """
+[DEPRECATED] Chain discovery via Python keyword matching.
+Superseded by LLM-driven semantic matching in SKILL.md Phase 2 (fix #1, 2026-05-23).
+
+The Agent now reads knowledge-base entries directly and reasons about
+chain feasibility based on inputs/outputs declarations. This script
+is kept for reference and may be revived if hard constraint checking
+is needed in the future.
+"""
+"""
 Fan-Skill Chain Discovery Engine
 Given user goal + available data, find all feasible analysis paths.
 """

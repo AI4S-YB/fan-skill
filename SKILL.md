@@ -39,12 +39,41 @@ For every entry in `knowledge-base/`, read only the first section of
 Use semantic understanding to match the user's goal. The user may express
 their goal in Chinese or English — you do the understanding.
 
+After matching, check for analysis type deviation:
+  - Do the entry's design_gates all apply to the user's scenario?
+  - Is the user's analysis within the entry's typical scope?
+  - If ≥2 dimensions deviate (e.g., candidate genes vs whole-genome, haplotypes vs SNPs):
+    Record the mismatch and suggest expert mode:
+    "匹配到了 [entry] 条目，但你的分析场景存在差异 ([具体差异])。
+     我将使用 B 层专家推理而非严格 C 层规则。"
+
 **Step 2b: Check design gates**
 
 For matched entries, read their `rules.yaml` `design_gates` section.
 Check if the user's experimental design satisfies the requirements:
 - `block` → analysis cannot proceed; explain why; suggest remedy
 - `warn` → can proceed with limitations; inform user
+
+Log EVERY gate check result, not just warnings:
+  bash engine/log_decision.sh \
+    --step design_gate_<gate_id> \
+    --mode rule \
+    --selected <pass|warn|block> \
+    --reason "<result with explanation>"
+
+**When required data or annotations are missing:**
+
+If any matched entry's `inputs` cannot be satisfied by the user's data,
+or if the analysis requires annotations that are unavailable (common for non-model species):
+
+1. **Pause** — do not proceed with incomplete data
+2. **Tell the user precisely what is missing and why it matters**
+3. **Provide options:**
+   a. User provides the missing resource → continue
+   b. User doesn't know where to find it → search public databases:
+      "我在 [NCBI/Phytozome/Ensembl Plants] 上找到了 [resource]. 可以用这个吗？"
+   c. Resource genuinely unavailable → honestly state:
+      "此分析在当前条件下无法完整执行。可以做的: [列出可行部分]"
 
 **Step 2c: Chain discovery**
 
@@ -159,6 +188,28 @@ After the analysis, if you used a missing tool_id, note it:
 
 This way, missing documentation gets flagged naturally during use, rather than
 blocking analysis at validation time.
+
+**B-C Divergence Check (MANDATORY):**
+
+After C-layer rules produce a recommendation and B-layer notebook reasoning is complete,
+check for divergence:
+
+1. What does the C-layer recommend? (highest-priority matching rule)
+2. What does the B-layer suggest? (after reading notebook.md)
+3. If B recommendation ≠ C recommendation:
+   a. Log the divergence:
+      ```bash
+      bash engine/log_decision.sh --step bc_divergence --mode expert \
+        --selected <B_recommends> --overridden_from <C_rule_id> \
+        --reason "B-layer reasoning overrides C-layer because: <specific reason>"
+      ```
+   b. Default to B-layer (expert judgment takes priority when rules don't fit)
+   c. The override must be EXPLICIT and LOGGED — never silently skip a rule
+
+This is how fan-skill handles the inherent tension between structured rules
+and contextual judgment. The rice haplotype analysis taught us this:
+when the notebook says "abandon GWAS thinking" but rules recommend CMLM,
+the divergence must be recorded, not silently resolved.
 
 For long-running analyses: use `engine/run_pipeline.sh` (checkpoint + nohup).
 
