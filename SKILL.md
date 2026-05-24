@@ -107,18 +107,37 @@ The decision log is your audit trail. If someone asks "why did you choose DESeq2
 
 4. Execute analysis based on the selected methods
 
-**When a rule references a `tool_id`:**
+**Tool Documentation Check (MANDATORY — do NOT skip):**
 
-Read `tool-registry/<tool_id>.md`. The level of detail varies:
-- **Full Cookbook** → Follow the code skeleton, adapt `${PLACEHOLDERS}` to the data.
-  The skeleton is a starting point for adaptation, not a fixed script to run blindly.
-- **Basic reference** → Use parameter hints + your own knowledge of the tool.
-  You know DESeq2/PLINK/GAPIT — the reference gives you the right parameters.
-- **Minimal stub** → Rely on your own knowledge; note the gap for later improvement.
+BEFORE writing any analysis code, you MUST read the tool documentation for EVERY
+`tool_id` referenced by the matched rules.
 
-The tool-registry is a quality accelerator, NOT a capability gate. You can always
-invoke tools via Bash regardless of documentation depth. Missing or thin docs
-do NOT block execution — they only reduce the quality of parameter choices.
+```
+For each tool_id in the matched rules:
+  Bash: head -5 tool-registry/<tool_id>.md
+  → Is it Full Cookbook, Basic, or Stub?
+  → If Cookbook: compare the code skeleton's ${PLACEHOLDERS} against the user's data.
+    Confirm each placeholder is resolved to a concrete value before writing code.
+  → If Basic/Stub: note the tool documentation level, then proceed with your knowledge.
+```
+
+**Why this matters:**
+
+Even for tools you know well (DESeq2, PLINK), the Cookbook ensures consistency:
+- The same parameter names across different analyses
+- Plant-specific adjustments (polyploid handling, non-model species strategies)
+- The "when to change" decision table for edge cases
+
+The recent apple RNA-seq test proved this: the code matched the Cookbook perfectly,
+but only because DESeq2 best practices are widely documented. For less common tools
+(GAPIT, MCScanX, GWASpoly), the Cookbook is the difference between correct parameters
+and guesswork.
+
+**After the tool doc check, log the documentation level used:**
+```bash
+bash engine/log_decision.sh --step tool_documentation --mode rule \
+  --selected deseq2 --reason "Full Cookbook: lfcThreshold=1 (2-rep strategy from parameter decision table)"
+```
 
 After the analysis, if you used tools with thin or missing documentation,
 note it: *"此次分析使用了 X，tool-registry 文档较薄。建议补充。"*
