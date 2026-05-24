@@ -21,40 +21,94 @@ outputs:
   - busco_completeness
   - analysis_report
 
-version: "1.0"
+version: "2.0"
 analysis: genome_annotation
 
 repeat_masking:
-  - rule_id: "anno-repeatmasker-001"
+  - rule_id: "anno-repeatmasker-model-001"
     priority: 10
-    recommend: "repeatmasker_with_plant_db"
-    reason: "RepeatMasker + 植物重复序列库"
+    condition: { species_type: "model_plant", has_repeat_library: true }
+    recommend: "repeatmasker_with_repbase_plant"
+    reason: "模式植物且有现成重复库 → RepeatMasker + Repbase植物部分。拟南芥、水稻等模式物种在Repbase中有完整的重复序列条目，同源屏蔽速度快且假阳性率低。使用--species参数指定物种或近缘物种。屏蔽结果直接用于下游基因预测，软屏蔽模式（-xsmall）推荐。"
+    tool_id: "repeat-masking"
+  - rule_id: "anno-repeatmodeler-non-model-002"
+    priority: 10
+    condition: { species_type: "non_model_plant" }
+    recommend: "repeatmodeler2_de_novo_library"
+    reason: "非模式植物 → RepeatModeler2从头构建物种特异性重复库 + RepeatMasker屏蔽。大多数植物无现成重复库，从头预测是必需的。RepeatModeler2自动运行RECON和RepeatScout进行de novo预测。对LTR逆转录转座子（植物重复序列最大组分），额外使用LTRharvest+LTRdigest可显著提高LTR识别。屏蔽后建议检查重复序列含量是否在合理范围（30-85%取决于基因组大小）。"
+    tool_id: "repeat-masking"
+  - rule_id: "anno-repeat-edta-003"
+    priority: 9
+    condition: { species_type: "plant", need_te_classification: true }
+    recommend: "edta_comprehensive_te_annotation"
+    reason: "需要详细TE分类 → EDTA（Extensive de-novo TE Annotator）全流程。EDTA整合了LTRharvest、RepeatModeler、TIR-Learner、HelitronScanner等多个工具，对TE家族进行系统分类（LTR/Copia、LTR/Gypsy、TIR/DTA等）。植物TE分类对于理解基因组演化至关重要。EDTA输出可直接用于RepeatMasker的物种特异性库。"
     tool_id: "repeat-masking"
 
 gene_prediction:
-  - rule_id: "anno-braker3-rnaseq-002"
+  - rule_id: "anno-braker3-rnaseq-001"
     priority: 10
-    condition: { has_rnaseq_data: true }
-    recommend: "braker3_with_rnaseq"
-    reason: "有RNA-seq → BRAKER3+RNA-seq evidence"
+    condition: { has_rnaseq_data: true, rnaseq_quality: "good", rnaseq_tissues: ">= 3" }
+    recommend: "braker3_with_rnaseq_and_protein"
+    reason: "有高质量多组织RNA-seq → BRAKER3 + RNA-seq + ProtHint蛋白hints。RNA-seq提供最精确的外显子-内含子边界证据，蛋白hints捕获低表达基因。多组织（叶+根+花）确保了基因空间覆盖。这是植物基因组注释的最佳实践（gold standard）。预期基因数应在20,000-45,000（取决于基因组大小和物种）。"
     tool_id: "gene-prediction"
-  - rule_id: "anno-braker3-protein-003"
+  - rule_id: "anno-braker3-protein-only-002"
     priority: 9
-    condition: { has_rnaseq_data: false }
+    condition: { has_rnaseq_data: false, has_protein_evidence: true }
     recommend: "braker3_with_protein_hints"
-    reason: "无RNA-seq → BRAKER3+同源蛋白hints"
+    reason: "无RNA-seq但有蛋白证据 → BRAKER3 + ProtHint蛋白hints。使用OrthoDB Viridiplantae蛋白集。此策略只能找到保守基因（预期漏掉30-40%的物种特异性基因）。基因边界预测精度低于RNA-seq方案。互补策略：从NCBI SRA中寻找同一属的公共RNA-seq数据辅助。"
+    tool_id: "gene-prediction"
+  - rule_id: "anno-gemoma-reference-003"
+    priority: 9
+    condition: { has_close_reference_annotation: true, phylogenetic_distance: "< 30Mya" }
+    recommend: "gemoma_with_reference_species"
+    reason: "有近缘参考注释 → GeMoMa跨物种基因预测。如果近缘物种（同属或同科，分化<30Mya）有高质量注释，GeMoMa可基于保守基因结构进行预测。特别适合多倍体（可分别用不同亚基因组对应的二倍体参考）。支持整合多个参考物种提高预测覆盖度。结果应结合从头预测方法（GeneMark-ES）识别物种特异性基因。"
+    tool_id: "gene-prediction"
+  - rule_id: "anno-maker-complex-004"
+    priority: 8
+    condition: { need_manual_curation: true, evidence_types: ">= 3" }
+    recommend: "maker2_evidence_integration"
+    reason: "需要人工审编和最大证据整合 → MAKER2完整流程。MAKER2适合参考基因组级别的发表质量注释：可同时整合RNA-seq、蛋白、EST、从头预测等多源证据。需要人工配置（AUGUSTUS训练、证据权重设置）。计算时间长（大基因组可能需要数周），建议在集群上运行。注释结果可溯源至每种证据类型。"
+    tool_id: "gene-prediction"
 
 functional_annotation:
-  - rule_id: "anno-eggnog-interpro-001"
+  - rule_id: "anno-eggnog-mapper-001"
     priority: 10
-    recommend: "eggnog_mapper_and_interproscan"
-    reason: "EggNOG-mapper + InterProScan联合注释"
+    condition: { need_go_and_pathway: true }
+    recommend: "eggnog_mapper_plant_db"
+    reason: "需要GO/KEGG/COG注释 → EggNOG-mapper（Viridiplantae数据库）。植物必须使用Viridiplantae层级的EggNOG数据库而非通用数据库（通用数据库缺少大量植物特有直系同源群）。产出包括GO术语、KEGG通路、COG分类、EC编号和直系同源群归属。处理速度约1000蛋白/分钟，适合大规模注释。"
+    tool_id: "functional-annotation"
+  - rule_id: "anno-interproscan-002"
+    priority: 10
+    condition: { need_domain_and_structure: true }
+    recommend: "interproscan_full_analysis"
+    reason: "需要蛋白结构域和功能位点 → InterProScan完整分析（包括Pfam、PROSITE、SMART、Superfamily、Gene3D等）。InterProScan提供EggNOG缺少的信息：跨膜螺旋（TMHMM）、信号肽（SignalP）、 coiled-coil regions、亚细胞定位信号。对植物特有结构域（如NB-ARC、LRR、RLK/Pelle激酶结构域）的注释质量好。推荐使用--goterms --pathways参数。"
+    tool_id: "functional-annotation"
+  - rule_id: "anno-merchant-plant-003"
+    priority: 7
+    condition: { need_plant_specific_pathway: true, species_type: "plant" }
+    recommend: "merchant_plant_metabolic_pathways"
+    reason: "需要植物特异代谢通路注释 → Mercator4 + MapMan。Mercator4专门设计用于植物代谢通路注释，对次生代谢通路（黄酮、萜类、生物碱等）的分类远比通用工具精细。MapMan可视化框架提供代谢通路级别的直观展示。与EggNOG/InterProScan互补——前者偏代谢，后者双工具偏功能和结构。"
+    tool_id: "functional-annotation"
 
 qc:
-  - rule_id: "anno-busco-completeness-001"
+  - rule_id: "anno-busco-protein-001"
     priority: 10
-    recommend: "busco_protein_mode"
-    reason: "BUSCO蛋白质模式评估注释完整性"
+    condition: { species_type: "plant" }
+    recommend: "busco_protein_mode_plant_lineage"
+    reason: "植物注释完整性评估 → BUSCO蛋白模式 + 植物lineage。使用embryophyta_odb10或更特异的lineage。Complete > 90%为优良，80-90%为良好。注意区分Complete Single和Complete Duplicated——多倍体中D偏高（10-30%）是正常的，但Fragmented+Missing合计应<15%。同时检查是否使用了正确的lineage（如误用eudicots_odb10评估单子叶植物）。"
+    tool_id: "qc"
+  - rule_id: "anno-gene-count-sanity-002"
+    priority: 10
+    condition: { predicted_gene_count: "> 80000" }
+    recommend: "check_for_te_contamination_and_repeat_masking_issues"
+    reason: "预测基因数 > 80,000 → 可能存在TE污染或重复屏蔽不足。正常植物基因组基因数范围：拟南芥~27,000、水稻~39,000、玉米~44,000、小麦~107,000（六倍体）。如果二倍体基因数 > 80,000，首先检查重复序列是否充分屏蔽（RepeatMasker运行后重复序列含量应 > 基因组大小的30%），其次检查是否存在haplotype duplication（特别是高杂合度物种）。"
+    tool_id: "qc"
+  - rule_id: "anno-polyploid-qc-003"
+    priority: 9
+    condition: { ploidy: ">= 4" }
+    recommend: "check_subgenome_gene_count_balance"
+    reason: "多倍体注释QC → 检查亚基因组间基因数平衡。多倍体（如四倍体棉花、六倍体小麦）的各亚基因组基因数应大致相等（偏差<15%）。如果A亚基因组40K基因而B亚基因组60K基因，可能存在亚基因组偏倚的证据（如RNA-seq主要来自含A亚基因组的祖先种）。需在注释报告中说明亚基因组不平衡的原因和处理方法。"
+    tool_id: "qc"
 
 fallback:
   - rule_id: "anno-fallback-999"

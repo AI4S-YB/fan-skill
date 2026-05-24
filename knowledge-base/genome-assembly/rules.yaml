@@ -21,50 +21,93 @@ outputs:
   - busco_report
   - analysis_report
 
-version: "1.0"
+version: "2.0"
 analysis: genome_assembly
+
 assembler:
   - rule_id: "asm-hifiasm-hifi-001"
     priority: 10
     condition: { sequencing_type: "pacbio_hifi" }
     recommend: "hifiasm"
-    reason: "PacBio HiFi -> hifiasm optimal"
+    reason: "PacBio HiFi → hifiasm最优选择。HiFi reads的高准确性（QV30+）和长读长（15-25Kb）特性使hifiasm能产生高度连续的组装。hifiasm内置的phased assembly功能对植物基因组特别重要——可以直接产出haplotype-resolved组装（hap1/hap2），这对于区分杂合区域和真实重复序列至关重要。推荐HiFi覆盖度30-40x。"
     tool_id: "hifiasm"
   - rule_id: "asm-flye-ont-002"
     priority: 10
     condition: { sequencing_type: "ont" }
     recommend: "flye"
-    reason: "ONT -> Flye optimized"
+    reason: "ONT → Flye优化设计。Flye的repeat graph算法对ONT reads的错误模式（indel富集）做了专门优化，能更好地处理植物基因组中的长重复序列（LTR逆转录转座子、rDNA arrays）。推荐ONT覆盖度50-60x（补偿ONT reads较高的错误率）。Q20+ chemistry（R10.4.1+）下30-40x也可接受。"
     tool_id: "flye"
   - rule_id: "asm-hybrid-003"
     priority: 9
     condition: { has_short_reads: true, has_long_reads: true }
-    recommend: "hybrid_assembly"
-    reason: "Long+short reads -> hybrid assembly for improved accuracy"
+    recommend: "hifiasm_with_hic_or_masurca_hybrid"
+    reason: "长读长+短读长 → hifiasm（含Hi-C数据）或MaSuRCA混合组装。hifiasm支持集成Hi-C数据实现染色体水平phased assembly。如果HiFi reads覆盖度不足（<20x）但有Illumina short reads，MaSuRCA的混合策略可以利用短reads填补gap。对于植物，混合组装在重复序列区域可能优于纯长读长组装。"
+  - rule_id: "asm-polyploid-004"
+    priority: 10
+    condition: { ploidy: ">= 3" }
+    recommend: "hifiasm_with_n_hap_parameter"
+    reason: "多倍体物种 → hifiasm设置正确的--n-hap参数。多倍体植物（小麦6x、马铃薯4x、油菜4x）组装时需要告知assembler预期的haplotype数量。hifiasm的--n-hap参数控制分型的haplotype数。对于同源多倍体（autopolyploid），分型极其困难——预期组装结果中会出现较多ambiguous区域。"
+    tool_id: "hifiasm"
+
 polishing:
   - rule_id: "pol-medaka-ont-001"
     priority: 10
     condition: { sequencing_type: "ont" }
     recommend: "medaka"
+    reason: "ONT组装 → Medaka神经网络校正。Medaka使用深度学习方法校正ONT组装中的系统性错误（特别是均聚物区域的indel）。需要使用与basecalling model匹配的Medaka model（如r941_min_hac_g507）。对于植物大基因组，可先按contig分批运行Medaka以降低内存消耗。"
     tool_id: "polishing"
   - rule_id: "pol-gcpp-hifi-002"
     priority: 10
     condition: { sequencing_type: "pacbio_hifi" }
-    recommend: "gcpp"
+    recommend: "gcpp_arrow"
+    reason: "HiFi组装 → gcpp (Arrow) polishing。HiFi reads已具有高准确性（>99.9%），Arrow polishing通常只产生微小改善（0.01-0.1% QV提升）。对高度重复的植物基因组区域，polishing有时会将重复序列间的微小差异抹平——如果组装后BUSCO Duplicated大幅减少，检查是否过度polishing。"
     tool_id: "polishing"
+  - rule_id: "pol-pilon-short-003"
+    priority: 8
+    condition: { has_short_reads: true, assembly_error_rate: "> 0.1%" }
+    recommend: "pilon_short_read_polishing"
+    reason: "有Illumina短reads且错误率偏高 → Pilon短读长polishing。Illumina短reads的准确性（>99.9%）可以校正常见于ONT长读长组装中的indel错误。Pilon需要2-3轮迭代以获得最佳结果。注意短reads无法比对到高度重复区域（>80%相似度），这些区域无法被polishing。"
+    tool_id: "polishing"
+
 qc:
-  - rule_id: "qc-busco-merqury-001"
+  - rule_id: "qc-busco-plant-001"
     priority: 10
-    recommend: "busco_and_merqury"
-    reason: "BUSCO completeness + Merqury k-mer evaluation"
+    condition: { species_type: "plant" }
+    recommend: "busco_plant_lineage"
+    reason: "植物基因组质量评估 → BUSCO植物专用lineage。根据物种分类选择最特异的数据集：embryophyta_odb10（通用陆地植物）、eudicots_odb10（双子叶）、liliopsida_odb10（单子叶）、或更细的目的/科水平lineage。同时建议运行通用和特异两个lineage——通用lineage告诉你'缺了什么基因'，特异lineage告诉你'在近缘物种中缺了什么基因'。"
     tool_id: "qc"
+  - rule_id: "qc-merqury-kmer-002"
+    priority: 10
+    condition: { has_short_reads: true }
+    recommend: "merqury_kmer_spectra"
+    reason: "有短reads → Merqury k-mer评估。Merqury提供三个关键指标：QV（碱基准确性）、Completeness（k-mer完整性）和k-mer spectra图（可视化倍性和重复）。植物的k-mer spectra图比动物更复杂（因高杂合度和多倍性），第二个峰（2n或杂合峰）的位置和形状提供了杂合度和倍性的辅助信息。"
+    tool_id: "qc"
+  - rule_id: "qc-purge-dups-003"
+    priority: 9
+    condition: { busco_duplicated: "> 15%", ploidy: "== 2" }
+    recommend: "purge_dups_haplotig_removal"
+    reason: "二倍体BUSCO Duplicated > 15% → 可能存在haplotig冗余。使用purge_dups根据read深度分布识别和移除冗余haplotig。如果purge_dups后Duplicated显著降低但仍>10%，考虑该物种可能有近期WGD历史或组装存在过度的haplotype separation。多倍体（ploidy >= 3）此规则不适用——预期D偏高。"
+    tool_id: "qc"
+
 scaffolding:
-  - rule_id: "scaf-hic-001"
-    priority: 5
+  - rule_id: "scaf-hic-yahs-001"
+    priority: 10
     condition: { has_hic_data: true }
     recommend: "yahs_or_salsa_hic"
-    reason: "Has Hi-C -> chromosome-level scaffolding"
+    reason: "有Hi-C数据 → YAHS或SALSA2染色体水平scaffolding。植物Hi-C scaffold推荐使用YAHS（计算效率高）或SALSA2（处理大基因组好）。植物染色体数量范围大（n=4到n=100+），Hi-C contact map中预期看到清晰的对角线信号和染色体疆界。Hi-C reads量建议>100M PE reads。"
     tool_id: "scaffolding"
+  - rule_id: "scaf-no-hic-genetic-002"
+    priority: 7
+    condition: { has_hic_data: false, has_genetic_map: true }
+    recommend: "genetic_map_based_scaffolding"
+    reason: "无Hi-C但有遗传图谱 → 遗传图谱辅助scaffolding。使用ALLMAPS或CHROMONASTER将contig按遗传图谱位置排序。分辨率取决于遗传标记密度和重组率，通常只能到pseudo-chromosome而非染色体水平。对育种群体（RIL/F2）通常已构建遗传图谱，这是常见的低预算scaffolding方案。"
+    tool_id: "scaffolding"
+  - rule_id: "scaf-no-hic-ragtag-003"
+    priority: 6
+    condition: { has_hic_data: false, has_close_reference: true }
+    recommend: "ragtag_reference_guided_scaffolding"
+    reason: "无Hi-C但有近缘参考基因组 → RagTag参考引导scaffolding。RagTag利用近缘物种染色体信息对contig进行排序和定向。仅适用于同属或同科物种（分化时间<20Mya），否则共线性不足。结果应标注为'参考引导'而非de novo染色体组装，因为可能存在结构性重排未被检测。"
+
 fallback:
   - rule_id: "asm-fallback-999"
     priority: 0

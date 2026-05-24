@@ -21,42 +21,100 @@ outputs:
   - pathway_mapping_table
   - analysis_report
 
-version: "1.0"
+version: "2.0"
 analysis: metabolomics
 
 peak_detection:
   - rule_id: "metab-xcms-lc-001"
     priority: 10
     condition: { platform: "lc_ms" }
-    recommend: "xcms"
-    reason: "LC-MS → XCMS峰检测和对齐"
+    recommend: "xcms3"
+    reason: "LC-MS → XCMS3峰检测和对齐。XCMS是LC-MS非靶向代谢组学最通用的选择。对植物代谢组学数据（通常有1000-10000个特征），XCMS3的peak detection（centWave算法）对高分辨数据（Orbitrap/Q-TOF）优化好。参数提示：植物次生代谢物的峰宽范围通常比标准代谢物宽（特别是疏水性化合物在反相柱上峰宽较宽），peakwidth设置应适当放宽（如c(5, 30)而非默认的c(5, 20)）。"
     tool_id: "peak-detection"
-  - rule_id: "metab-mzmine-gc-002"
+  - rule_id: "metab-mzmine-gc-nmr-002"
     priority: 10
-    condition: { platform: "gc_ms" }
-    recommend: "mzmine"
-    reason: "GC-MS → MZmine更适合"
+    condition: { platform: ["gc_ms", "nmr"] }
+    recommend: "mzmine3"
+    reason: "GC-MS或NMR → MZmine3更适合。MZmine3提供GC-MS特有的EI谱库搜索（NIST/MoNA/GMD集成）和交互式峰积分检查。NMR数据中MZmine3可处理1D和2D NMR（J-resolved, HSQC等）。对植物挥发物（GC-MS常用平台），MZmine3的ADAP峰检测算法对色谱峰的积分准确度优于XCMS。"
+    tool_id: "peak-detection"
+  - rule_id: "metab-msdial-lipidomics-003"
+    priority: 9
+    condition: { platform: "lc_ms_ms", data_type: "lipidomics" }
+    recommend: "ms_dial_for_lipidomics"
+    reason: "脂质组学数据 → MS-DIAL。MS-DIAL对植物脂质组学（磷脂、甘油脂、鞘脂、固醇脂等）有专门的鉴定流程和参考库（LipidBlast）。提供脂质类别、碳链长度、双键数的注释。与XCMS/MZmine互补——后者更适合一般代谢物，MS-DIAL在脂质鉴定上有优势。"
 
 diff_analysis:
-  - rule_id: "metab-limma-001"
+  - rule_id: "metab-limma-standard-001"
     priority: 10
     condition: { rep_count: ">= 3" }
-    recommend: "limma_diff_metabolites"
-    reason: "≥3重复 → limma差异代谢物"
+    recommend: "limma_trend_diff_metabolites"
+    reason: "≥3生物学重复 → limma-trend差异代谢物分析。limma的经验贝叶斯方差调节（empirical Bayes moderation）对小样本量的植物代谢组实验（n=3-6常见）提供稳健的方差估计。使用limma-trend（而非voom）因为代谢组数据的mean-variance关系与RNA-seq不同（不需要精确权重）。log2 fold change + adjusted p-value + 95% CI应同时报告。"
+    tool_id: "diff-analysis"
+  - rule_id: "metab-limma-small-n-002"
+    priority: 9
+    condition: { rep_count: "== 2" }
+    recommend: "limma_with_cautious_interpretation"
+    reason: "仅2个重复 → limma可行但需谨慎。统计效力很低（仅能检测fold change > 3-4倍的代谢物）。建议不进行多重检验校正（或使用更宽松的q < 0.2），报告全部p值但不依赖其排序。建议使用火山图中效应量（log2FC）和p值联合筛选候选代谢物，优先取fold change大的特征。"
+    tool_id: "diff-analysis"
+  - rule_id: "metab-ttest-single-003"
+    priority: 5
+    condition: { rep_count: "< 2" }
+    recommend: "fold_change_ranking_only"
+    reason: "无重复 → 无法做统计推断。只能基于fold change排序。不要运行t-test（1 vs 1的t-test无统计意义）。如果为探索性实验（如分析单个突变体的代谢物pool），报告fold change的top hits并标注受限于无重复的局限性。推荐后续增加重复验证。"
+    tool_id: "diff-analysis"
+
+normalization:
+  - rule_id: "metab-norm-pqn-or-vsn-001"
+    priority: 10
+    condition: { platform: ["lc_ms", "gc_ms"] }
+    recommend: "pqn_or_vsn_normalization"
+    reason: "LC-MS/GC-MS → PQN或VSN归一化。Probabilistic Quotient Normalization (PQN) 基于样本间大多数代谢物不变（most features not differentially abundant）的假设，鲁棒性高。VSN (variance stabilizing normalization) 同时校正heteroscedasticity（方差随均值变化）。植物粗提物样本间总离子强度可能差异大（因组织含水量、色素含量），PQN通常优于仅基于总离子流（TIC）的简单归一化。"
+    tool_id: "normalization"
+  - rule_id: "metab-norm-combat-batch-002"
+    priority: 9
+    condition: { has_batch_effect: true }
+    recommend: "combat_or_qc_rlsc_batch_correction"
+    reason: "存在批次效应 → ComBat或QC-RLSC批次校正。植物代谢组学批次效应常见（不同日期提取、不同LC-MS运行日）。ComBat基于经验贝叶斯方法调整批次间均值和方差。QC-RLSC（Quality Control-Robust LOESS Signal Correction）利用QC样本在运行序列中的信号趋势进行非线性校正。注意：批次校正不应消除真实的生物学差异——在校正前后分别做PCA检查分组是否被保留。"
+    tool_id: "normalization"
 
 pathway_mapping:
-  - rule_id: "metab-plantcyc-001"
+  - rule_id: "metab-plantcyc-primary-001"
     priority: 10
-    recommend: "plantcyc_and_kegg_plant"
-    reason: "植物代谢通路 → PlantCyc + KEGG Plant"
+    condition: { pathway_type: "plant_secondary_metabolism" }
+    recommend: "plantcyc_with_metacyc"
+    reason: "植物次生代谢通路 → PlantCyc（首选）+ MetaCyc（补充核心代谢）。PlantCyc包含600+植物特异通路（黄酮、苯丙素、萜类、生物碱、芥子油苷等），覆盖度远超KEGG。但PlantCyc的初级代谢通路（TCA循环、糖酵解）不如MetaCyc全面（后者经过实验验证）。建议：初级代谢用MetaCyc，次生代谢用PlantCyc。"
+    tool_id: "pathway"
+  - rule_id: "metab-kegg-cross-species-002"
+    priority: 9
+    condition: { need_cross_species_comparison: true }
+    recommend: "kegg_plant_pathway"
+    reason: "需要跨物种比较 → KEGG Plant。KEGG的参考通路（reference pathway）提供了一个通用框架，可以将多个物种的代谢组数据映射到同一张通路上进行比较。如果研究涉及不同植物物种的代谢差异（如拟南芥vs水稻vs玉米），KEGG Plant的通用性比PlantCyc更好。但KEGG对植物特异次生代谢通路的覆盖不足。"
+    tool_id: "pathway"
+  - rule_id: "metab-msea-unknown-003"
+    priority: 8
+    condition: { identified_metabolites: "< 20%", need_pathway_context: true }
+    recommend: "msea_or_chemical_class_enrichment"
+    reason: "代谢物鉴定率 < 20% → 不推荐传统通路富集分析。替代策略：使用CANOPUS预测的化合物类别进行化学类别富集分析（如'黄酮类显著富集'），而非声称特定通路被激活。或使用MS2-based分子网络与已知化合物簇共定位来推断通路参与。诚实报告鉴定率和富集分析的局限性。"
     tool_id: "pathway"
 
 annotation:
   - rule_id: "metab-ms2-sirius-001"
-    priority: 5
+    priority: 10
     condition: { has_ms2: true }
-    recommend: "sirius_csi_fingerid"
-    reason: "有MS/MS → SIRIUS+CSI:FingerID结构鉴定"
+    recommend: "sirius_csi_fingerid_canopus"
+    reason: "有MS/MS数据 → SIRIUS+CSI:FingerID+CANOPUS全流程。SIRIUS从同位素模式+MS/MS碎片树推断分子式；CSI:FingerID将MS/MS谱与结构数据库匹配；CANOPUS预测化合物类别。植物代谢组中60-80%的特征无数据库匹配，CANOPUS即使在没有具体结构匹配时也能提供化合物类别信息（ClassyFire分类）。植物天然产物结构预测推荐使用扩展的植物天然产物数据库（COCONUT、NPAtlas）。"
+    tool_id: "metabolite-identification"
+  - rule_id: "metab-gnps-molecular-networking-002"
+    priority: 9
+    condition: { has_ms2: true, need_unknown_discovery: true }
+    recommend: "gnps_feature_based_molecular_networking"
+    reason: "需要发现未知代谢物 → GNPS Feature-Based Molecular Networking (FBMN)。FBMN基于MS/MS谱相似性将代谢物特征连接成分子网络——未知特征如果与已知物相邻（cosine similarity > 0.7），可以推断其可能的化学家族或结构修饰（如糖苷化、甲基化、羟化）。这在植物代谢组学中极其有用，因为糖苷化和修饰变异是普遍现象。结合MASST（质谱搜索工具）探索在公共数据中是否存在类似的MS/MS谱。"
+    tool_id: "metabolite-identification"
+  - rule_id: "metab-nmr-structure-003"
+    priority: 8
+    condition: { platform: "nmr", need_structure_elucidation: true }
+    recommend: "nmr_2d_structure_elucidation_with_chenomx"
+    reason: "NMR数据+结构鉴定需求 → Chenomx + 2D NMR解析。NMR提供绝对的化学位移和耦合常数，可以直接推导官能团和连接方式。对完全未知的植物天然产物，NMR是结构鉴定的金标准。Chenomx提供常用的植物代谢物NMR谱库。结合1D 1H、COSY、HSQC、HMBC进行逐步结构推导。"
 
 fallback:
   - rule_id: "metab-fallback-999"

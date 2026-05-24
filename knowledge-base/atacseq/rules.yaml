@@ -21,27 +21,82 @@ outputs:
   - footprint_table
   - analysis_report
 
-version: "1.0"
+version: "2.0"
 analysis: atacseq
+
 peak_calling:
   - rule_id: "atac-macs2-standard-001"
     priority: 10
+    condition: { data_type: "atac_seq" }
     recommend: "macs2_atac_mode"
-    reason: "ATAC-seq -> MACS2 --nomodel --shift -100 --extsize 200"
+    reason: "ATAC-seq → MACS2专有模式（--nomodel --shift -100 --extsize 200）。Tn5转座酶切割产生9bp staggered cut，--shift -100补偿正链偏移（+4bp）和负链偏移（-5bp），使信号中心对准Tn5结合位点。--extsize 200模拟开放染色质区域的典型核小体间距离。--keep-dup all保留所有reads（ATAC-seq不推荐去重，因为Tn5对不同开放区域的切割效率不同，duplicates可能不是PCR产物而是独立的Tn5事件）。"
     tool_id: "peak-calling"
+  - rule_id: "atac-q-value-plant-002"
+    priority: 9
+    condition: { genome_size: "> 2Gb", species_type: "plant" }
+    recommend: "macs2_stricter_qvalue"
+    reason: "大基因组植物 → 使用更严格的q值阈值（-q 0.01）。植物大基因组（玉米、大麦、小麦）中随机开放区域信号的背景噪声更高，默认q=0.05会产生大量来自重复序列区域的假阳性peak。使用更严格的阈值过滤后仍可获得50,000-100,000个peak（对玉米这样的基因组而言是合理的范围）。"
+    tool_id: "peak-calling"
+  - rule_id: "atac-subsample-003"
+    priority: 7
+    condition: { read_count: "> 200M", species_type: "plant" }
+    recommend: "subsample_reads_before_peak_calling"
+    reason: "reads数 > 200M → 子采样reads后再call peak。植物叶绿体DNA可占到总reads的50-80%（绿色组织），去除cpDNA后核基因组reads可能仍然很多。大量reads会延长MACS2运行时间且不提高peak calling精度。子采样至50-80M高质量核基因组reads通常足够。"
+    tool_id: "peak-calling"
+
 diff_accessibility:
-  - rule_id: "atac-diffbind-001"
+  - rule_id: "atac-diffbind-deseq2-001"
+    priority: 10
+    condition: { rep_count: ">= 3" }
+    recommend: "diffbind_deseq2"
+    reason: "≥3生物学重复 → DiffBind+DESeq2差异可及性分析。使用consensus peak set（至少2个重复共有）以确保稳健性。在dba.count时设置bUseSummarizeOverlaps=TRUE。植物ATAC-seq的样本间变异通常大于动物细胞系（植物组织异质性、环境效应），DESeq2的shrinkage estimator适合这种场景。"
+    tool_id: "diff-accessibility"
+  - rule_id: "atac-diffbind-edger-002"
+    priority: 9
+    condition: { rep_count: "== 2" }
+    recommend: "diffbind_edger_with_consensus_peaks"
+    reason: "仅2个重复 → DiffBind+edgeR。使用consensus peak set（2个重复共有）以减少噪声。FDR阈值放宽至 < 0.1 以弥补统计效力不足。结果应附加fold change方向一致性的手动检查（两个重复的fold change方向应一致）。"
+    tool_id: "diff-accessibility"
+  - rule_id: "atac-no-rep-pearson-003"
+    priority: 6
+    condition: { rep_count: "< 2" }
+    recommend: "pearson_correlation_only"
+    reason: "无重复 → 无法做统计推断。只能计算样本间peak信号的Pearson/Spearman相关性。如果两个样本（如处理前后）是同一个体的配对本，可以考虑使用Fisher's exact test对每个peak独立比较，但多重检验校正后可信度有限。结果应明确标注为探索性分析。"
+    tool_id: "diff-accessibility"
+
+footprinting:
+  - rule_id: "atac-tobias-standard-001"
     priority: 10
     condition: { rep_count: ">= 2" }
-    recommend: "diffbind_deseq2"
-    reason: ">=2 copies -> DiffBind+DESeq2 differential accessibility"
-    tool_id: "diff-accessibility"
-footprinting:
-  - rule_id: "atac-tobias-001"
-    priority: 5
     recommend: "tobias_footprinting"
-    reason: "TOBIAS TF footprinting analysis"
+    reason: "≥2重复 → TOBIAS全流程TF footprints分析。TOBIAS的ATACorrect步骤校正Tn5切割偏差（植物基因组AT含量高、染色质结构不同于动物），BINDetect步骤利用重复信息统计检验差异footprint。植物建议使用JASPAR Plants motif集合。注意TOBIAS对测序深度要求高（>50M reads/样本），低深度时footprint信号弱。"
     tool_id: "footprinting"
+  - rule_id: "atac-wellington-002"
+    priority: 8
+    condition: { rep_count: "< 2", need_footprint: true }
+    recommend: "wellington_footprinting"
+    reason: "无重复但需要footprint → Wellington footprinting。Wellington基于单个样本的Tn5切割模式偏差识别footprint，不需要重复。结果应用HINT-ATAC交叉验证以提高可靠性。Wellington对测序深度的要求比TOBIAS低（30M reads可接受）。"
+    tool_id: "footprinting"
+
+quality_control:
+  - rule_id: "atac-qc-tsse-001"
+    priority: 10
+    condition: { tss_enrichment: "< 5" }
+    recommend: "check_tn5_efficiency_and_nuclei_prep"
+    reason: "TSS富集分数 < 5 → ATAC-seq质量可能不足。植物ATAC-seq的理想TSS富集分数应 > 7（优秀 > 10）。低TSSE可能原因：Tn5酶切效率不足、核分离不完全（释放了细胞器DNA）、组织起始量不足。植物细胞壁去除和核分离是ATAC-seq质量的关键决定因素。"
+    tool_id: "quality-control"
+  - rule_id: "atac-qc-chloroplast-002"
+    priority: 10
+    condition: { chloroplast_reads: "> 50%", tissue_type: ["leaf", "seedling", "shoot"] }
+    recommend: "remove_cp_dna_and_reevaluate"
+    reason: "叶绿体reads > 50% → 绿色组织ATAC-seq的正常现象。叶片和幼苗中cpDNA可占总reads的50-80%。去除cpDNA reads后重新计算比对率和TSSE。评估核基因组ATAC质量应以去除cpDNA后的reads为准。如果去除cpDNA后剩余reads < 20M，考虑增加测序量。"
+    tool_id: "quality-control"
+  - rule_id: "atac-qc-fragment-distribution-003"
+    priority: 8
+    condition: { nucleosome_free_peak: "absent_or_weak" }
+    recommend: "check_cell_lability_and_tn5_ratio"
+    reason: "无核小体free峰（<150bp）→ Tn5酶切条件可能不佳。正常ATAC-seq在fragment size distribution中应有明显的小片段峰（<150bp，对应开放染色质）。如果缺失此峰，可能是TAGmentation时间太短（酶量不足）或核DNA过于浓缩导致Tn5无法接触DNA。调整Tn5酶量:细胞核比例是解决方案。"
+
 fallback:
   - rule_id: "atac-fallback-999"
     priority: 0

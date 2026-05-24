@@ -22,45 +22,99 @@ outputs:
   - differential_abundance_table
   - analysis_report
 
-version: "1.0"
+version: "2.0"
 analysis: amplicon_sequencing
 
 denoising:
-  - rule_id: "amp-dada2-001"
+  - rule_id: "amp-dada2-standard-001"
     priority: 10
-    recommend: "dada2"
-    reason: "DADA2 → ASV水平分辨率"
+    condition: { read_quality: "good", platform: "illumina" }
+    recommend: "dada2_asv"
+    reason: "Illumina数据质量良好 → DADA2产生ASV（Amplicon Sequence Variant）。ASV分辨率达到单核苷酸水平，可跨研究比较。植物微生物组研究中ASV是首选（优于OTU），因为土壤和根际微生物多样性极高，97% OTU聚类会掩盖种内变异。注意设置合适的truncLen参数（根据质量profile确定）。"
     tool_id: "dada2"
-  - rule_id: "amp-deblur-002"
-    priority: 8
+  - rule_id: "amp-deblur-fixed-length-002"
+    priority: 9
+    condition: { read_quality: "good", read_length: "fixed", target: "16S_V4" }
     recommend: "qiime2_deblur"
-    reason: "QIIME2 Deblur → 固定长度的ASV"
+    reason: "固定读长（如16S V4区~253bp） → QIIME2 Deblur。Deblur更适合固定读长数据（所有reads对齐到相同位置），对植物微生物组中常见的低丰度ASV/OTU检测较好。内置的left-min-trim和Hamming distance error profile基于16S。如果reads因不同区域长度不同，应使用DADA2。"
+    tool_id: "deblur"
+  - rule_id: "amp-dada2-low-biomass-003"
+    priority: 8
+    condition: { biomass: "low", sample_type: ["endosphere", "phyllosphere", "seed"] }
+    recommend: "dada2_with_pooled_pseudo_samples"
+    reason: "低生物量样本（根内圈/叶圈/种子） → DADA2 + pool=TRUE参数。低生物量样本中每个样本的reads数少，单独去噪可能导致稀有ASV被误判为错误。pool=TRUE合并所有样本进行去噪，能更好地保留低丰度真实ASV。但会引入交叉样本的污染风险——确保阴性对照同时处理。"
 
 taxonomy:
   - rule_id: "amp-silva-16s-001"
     priority: 10
     condition: { target: "16S" }
-    recommend: "silva_138"
-    reason: "16S → SILVA数据库"
+    recommend: "silva_138_1"
+    reason: "16S rRNA → SILVA 138.1数据库。植物微生物组的标准选择。SILVA对植物相关细菌（根瘤菌、假单胞菌、芽孢杆菌、链霉菌等）覆盖度高。注意过滤掉注释为Chloroplast和Mitochondria的ASV（植物源序列污染）。使用assignTaxonomy的minBoot参数 >= 50（默认）即可，不要用100（过于严格且损失大量中置信度注释）。"
     tool_id: "taxonomy"
   - rule_id: "amp-unite-its-002"
     priority: 10
     condition: { target: "ITS" }
-    recommend: "unite"
-    reason: "ITS → UNITE真菌数据库"
+    recommend: "unite_9"
+    reason: "ITS → UNITE 9.0真菌数据库。植物真菌微生物组的唯一推荐选择。UNITE的dynamic clustering使分类体系持续更新。对于植物病原真菌（镰刀菌属Fusarium、链格孢属Alternaria、锈菌等）和菌根真菌（球囊霉亚门Glomeromycotina），UNITE的参考序列覆盖度好。使用species hypothesis (SH)实现可重复分类。"
+    tool_id: "taxonomy"
+  - rule_id: "amp-pr2-18s-003"
+    priority: 8
+    condition: { target: "18S" }
+    recommend: "pr2_or_silva_18s"
+    reason: "18S rRNA → PR2（Protist Ribosomal Reference）数据库。用于真核微生物（原生生物、藻类、卵菌）分类。PR2对土壤原生生物（cercozoa, ciliates, amoebozoa）分类细致。可结合SILVA 18S部分补充真菌和植物18S注释。植物根际土壤中捕食细菌的原生生物在18S数据中占重要比例。"
+    tool_id: "taxonomy"
 
 diversity:
-  - rule_id: "amp-core-metrics-001"
+  - rule_id: "amp-core-diversity-001"
     priority: 10
-    recommend: "core_diversity_metrics"
-    reason: "α多样性(Shannon/Faith) + β多样性(Bray-Curtis/UniFrac)"
+    condition: { analysis_type: "full" }
+    recommend: "core_diversity_metrics_plus_phylogenetic"
+    reason: "完整多样性分析 → alpha多样性（Shannon + Faith's PD + Observed features）+ beta多样性（Bray-Curtis + Weighted/Unweighted UniFrac）。Faith's PD需要构建系统发育树（QIIME2 phylogeny align-to-tree-mafft-fasttree）。植物微生物组通常使用两种距离矩阵互补：Bray-Curtis反映丰度差异，UniFrac反映进化差异。"
+    tool_id: "diversity"
+  - rule_id: "amp-phyloseq-ag-context-002"
+    priority: 9
+    condition: { experiment_type: "agricultural", factor_count: ">= 2" }
+    recommend: "phyloseq_multifactor_diversity"
+    reason: "农业多因素实验（如施肥x灌溉x品种） → phyloseq多因素多样性分析。使用adonis2（PERMANOVA）的多因素公式评估主效应和交互效应。植物根际微生物组的效应大小排序通常是：土壤类型 > 施肥 > 灌溉 > 品种。如果品种效应不显著但交互效应显著（如品种x施肥），这是很有意义的农业微生物组发现。"
+    tool_id: "diversity"
+  - rule_id: "amp-time-series-003"
+    priority: 8
+    condition: { has_time_series: true, time_points: ">= 3" }
+    recommend: "q2_longitudinal_or_vegan_temporal"
+    reason: "有时间序列（如不同生长阶段） → QIIME2 longitudinal或vegan时间距离分析。植物微生物组随生长阶段显著变化（苗期→营养生长→开花→成熟）。时间效应通常大于处理效应。使用Bray-Curtis距离与生长天数回归，或使用CCA/RDA纳入时间和处理作为解释变量。使用paired analysis（同一样本不同时间点的配对比较）。"
 
 diff_abundance:
-  - rule_id: "amp-ancom-001"
+  - rule_id: "amp-ancom-bc-001"
     priority: 10
-    condition: { group_count: ">= 2" }
+    condition: { group_count: ">= 2", sample_size: ">= 5" }
     recommend: "ancom_bc"
-    reason: "ANCOM-BC差异丰度分析"
+    reason: "≥2组且每组≥5样本 → ANCOM-BC差异丰度分析。ANCOM-BC对微生物组数据的compositionality（组成性偏差）进行bias correction，且对稀疏数据（大量0值）比DESeq2更稳健。在农业场景中（如施肥vs不施肥、病害vs健康），ANCOM-BC的log fold change可直接解释为某分类群在处理组中的相对丰度变化倍数。"
+    tool_id: "diff-abundance"
+  - rule_id: "amp-aldex2-small-n-002"
+    priority: 9
+    condition: { group_count: ">= 2", sample_size: "< 5" }
+    recommend: "aldex2"
+    reason: "小样本量（每组3-4样本） → ALDEx2。ALDEx2的贝叶斯方法对低样本量的离散度估计更稳健（通过Monte Carlo sampling from Dirichlet distribution）。产生的effect size和within-group variance提供了比单纯p值更丰富的判断依据。注意ALDEx2对非常稀疏的ASV（如仅在1-2个样本中出现）可能不稳定。"
+    tool_id: "diff-abundance"
+  - rule_id: "amp-deseq2-cautious-003"
+    priority: 7
+    condition: { group_count: ">= 2", use_with_caution: true }
+    recommend: "deseq2_with_appropriate_normalization"
+    reason: "DESeq2（谨慎使用）→ 仅在使用合适的归一化方法时可用。DESeq2设计用于RNA-seq（绝对count而非相对比例），直接用于微生物组数据可能产生高假阳性。如果使用DESeq2，应用poscounts estimator和IHW多重检验校正。注意与ANCOM-BC结果比较——两个方法一致的ASV是更可信的候选。"
+    tool_id: "diff-abundance"
+
+plant_host_filtering:
+  - rule_id: "amp-pna-clamp-001"
+    priority: 10
+    condition: { sample_type: ["endosphere", "phyllosphere"], plant_dna_contamination: "high" }
+    recommend: "pna_clamp_experimental_and_bioinformatic_removal"
+    reason: "根内圈/叶圈样本植物DNA污染高 → 实验PNA夹 + 生物信息学过滤双重策略。PNA夹在PCR阶段阻断植物线粒体和叶绿体16S扩增；生物信息学步骤通过SILVA注释过滤Chloroplast/Mitochondria ASV。双重过滤后植物来源reads应<5%。如果仍>20%，表明PNA夹效率不足或引物对植物序列的倾向性过强。"
+    tool_id: "host-filtering"
+  - rule_id: "amp-rhizosphere-no-pna-002"
+    priority: 8
+    condition: { sample_type: "rhizosphere_soil", plant_dna_contamination: "low" }
+    recommend: "bioinformatic_filtering_only"
+    reason: "根际土壤样本 → 仅生物信息学过滤通常足够。根际土壤中植物DNA比例通常<5%，仅需在分类注释后过滤去掉Chloroplast和Mitochondria即可。如果根际土壤中植物来源reads > 10%，检查取样时是否混入了根组织碎片（根际土取样时应注意去除可见的根段）。"
 
 fallback:
   - rule_id: "amp-fallback-999"
