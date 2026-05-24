@@ -82,10 +82,4 @@
 |------|------|------|
 | `visualization` | Publication-quality figures | Analysis output |
 
-## Plant-Specific Capabilities
-
-- **Polyploid-aware**: auto-detection, subgenome-specific analysis
-- **Self/cross-pollinated**: different GWAS and GS strategies
-- **12 crop species cheatsheet**: reference genomes, LD decay, breeding systems
-- **Non-model species strategy**: Mercator annotation, cross-species inference
-- **Multi-environment trial (MET)**: standard in plant breeding
+**Universal crop support**: works with any species that has a reference genome. Auto-detects ploidy, breeding system, and chromosome naming.

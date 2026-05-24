@@ -31,10 +31,6 @@ Fan-skill will automatically match your intent to the knowledge base, check your
 - Python 3.10+ (for data inspection and GFF3 parsing)
 - Individual analyses may require additional tools (PLINK, GAPIT, BWA, etc.). Run `engine/check_env.sh` to check.
 
-## Supported Species
-
-Rice, maize, wheat, soybean, cotton, rapeseed, Arabidopsis, tomato, potato, barley, sorghum, sugarcane — and any species with a reference genome.
-
 ## What's Next
 
 - See all 30 analysis capabilities: [Capability Catalog](capability-catalog.md)

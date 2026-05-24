@@ -49,6 +49,8 @@ User says "find genes controlling grain weight"
     Analysis report + decision log + figures
 ```
 
+Validated on apple RNA-seq and rice candidate gene analysis. Each decision is auditable.
+
 ### B+C Dual-Mode
 
 | Layer | Role | Form |
@@ -94,10 +96,6 @@ cp templates/notebook-template.md knowledge-base/<name>/notebook.md
 # + consult-guide.md + analysis-primer.md
 engine/validate_entry.sh knowledge-base/<name>/
 ```
-
-## Supported Species
-
-Rice, maize, wheat, soybean, cotton, rapeseed, Arabidopsis, tomato, potato, barley, sorghum, sugarcane — and any species with a reference genome.
 
 ## License
 
