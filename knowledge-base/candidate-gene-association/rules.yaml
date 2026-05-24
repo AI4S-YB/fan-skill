@@ -1,0 +1,233 @@
+name: candidate-gene-association
+description: "候选基因区域关联分析 — 在预选基因区域内寻找与性状相关的 SNP 或单倍型。区别于全基因组 GWAS：检验次数少用 FDR 而非 Bonferroni，优先考虑基因级单倍型降维，关注候选集内显著性而非全基因组显著性。"
+triggers:
+  - "候选基因"
+  - "candidate gene"
+  - "单倍型关联"
+  - "haplotype association"
+  - "已知基因"
+  - "候选区域"
+  - "candidate region"
+  - "基因级单倍型"
+  - "gene-level haplotype"
+
+inputs:
+  - data_profile.json
+  - genotype_data
+  - phenotype_data
+  - candidate_gene_list
+  - species_info
+  - params.yaml
+
+outputs:
+  - gene_level_associations
+  - haplotype_associations
+  - ranked_candidates
+  - analysis_report
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "cand-genelist-required"
+    rule: "必须有候选基因列表才能做候选基因关联分析"
+    check: "has_candidate_gene_list == true"
+    severity: "block"
+    on_fail: "没有候选基因列表 → 无法做候选基因关联分析。候选基因分析的前提是用户预先选定感兴趣的基因或基因组区域。如果没有候选基因列表，建议使用 GWAS（全基因组扫描）。"
+  - id: "cand-genelist-size"
+    rule: "候选基因数量应在合理范围内（通常 10-500 个）"
+    check: "candidate_gene_count >= 10"
+    severity: "warn"
+    on_fail: "候选基因数量过少（< 10）→ 关联分析的统计框架优势不明显。对于极少数候选基因，直接比较等位变异与表型的相关性可能更直观。"
+  - id: "cand-genotype-coverage"
+    rule: "基因型数据必须覆盖候选区域"
+    check: "has_candidate_region_genotypes == true"
+    severity: "block"
+    on_fail: "基因型数据未覆盖候选区域 → 无法进行关联检验。需要确认 VCF 文件中包含候选基因区域内的变异位点。"
+  - id: "cand-phenotype-required"
+    rule: "必须有表型数据（数值型或等级型）"
+    check: "has_phenotype_data == true"
+    severity: "block"
+    on_fail: "没有表型数据 → 无法做关联分析。关联分析需要将基因型变异与表型变异联系起来。"
+
+# 候选基因关联分析决策矩阵
+# 规则按优先级排序，多条同时命中时取 priority 最高的
+
+version: "1.0"
+analysis: candidate_gene_association
+
+inputs_required:
+  - data_profile.json     # from inspect_data.sh
+  - genotype_data         # VCF for candidate regions
+  - phenotype_data        # numeric phenotype
+  - candidate_gene_list   # gene IDs or genomic coordinates
+  - params.yaml           # user-provided parameters
+
+# ============================================================
+# 决策节点 1: 分析粒度
+# ============================================================
+analysis_unit:
+  - rule_id: "cand-unit-haplotype-001"
+    priority: 10
+    condition:
+      snp_density: "high"
+      species_type: "inbred"
+      snp_per_gene: ">= 5"
+    recommend: "gene_level_haplotype"
+    reason: "高密度标记 + 自交物种 → 基因级单倍型降维，减少检验次数，直接观察纯合单倍型，提高生物学解释性"
+    tool_id: "haplotype-analysis"
+
+  - rule_id: "cand-unit-haplotype-outcross-002"
+    priority: 9
+    condition:
+      snp_density: "high"
+      species_type: "outcross"
+      snp_per_gene: ">= 5"
+    recommend: "statistical_phasing_then_haplotype"
+    reason: "高密度标记 + 异交物种 → 需先统计 phasing 再构建单倍型，注意 phasing 不确定性"
+    tool_id: "haplotype-analysis"
+
+  - rule_id: "cand-unit-single-snp-003"
+    priority: 8
+    condition:
+      snp_density: "low"
+      snp_per_gene: "< 5"
+    recommend: "single_snp"
+    reason: "低密度标记 → 每个 SNP 独立检验，基因为单位汇总显著 SNP 数"
+    tool_id: "association-test"
+
+# ============================================================
+# 决策节点 2: 关联检验方法
+# ============================================================
+association_method:
+  - rule_id: "cand-method-spearman-001"
+    priority: 10
+    condition:
+      phenotype_distribution: "non_normal"
+      phenotype_type: "numeric"
+    recommend: "spearman_rank"
+    reason: "表型非正态 → Spearman 秩相关，对离群值稳健，不依赖正态假设"
+    tool_id: "association-test"
+
+  - rule_id: "cand-method-pearson-002"
+    priority: 8
+    condition:
+      phenotype_distribution: "normal"
+      phenotype_type: "numeric"
+    recommend: "pearson"
+    reason: "表型正态 → Pearson 相关系数，统计功效最高"
+    tool_id: "association-test"
+
+  - rule_id: "cand-method-kruskal-003"
+    priority: 10
+    condition:
+      phenotype_type: "ordinal"
+    recommend: "kruskal_wallis"
+    reason: "等级型表型 → Kruskal-Wallis 秩和检验"
+    tool_id: "association-test"
+
+  - rule_id: "cand-method-glm-004"
+    priority: 11
+    condition:
+      has_covariates: true
+      sample_count: ">= 100"
+    recommend: "generalized_linear_model"
+    reason: "有协变量 + 足够样本 → GLM 可同时控制群体结构和环境效应"
+    tool_id: "association-test"
+
+# ============================================================
+# 决策节点 3: 稀有变异处理
+# ============================================================
+rare_variant:
+  - rule_id: "cand-maf-relaxed-001"
+    priority: 10
+    condition:
+      test_count: "< 500"
+      candidate_gene_count: "< 100"
+    recommend: "maf_0.01"
+    reason: "检验次数少 → 可降低 MAF 阈值至 0.01，增加罕见功能等位变异的检测机会"
+  - rule_id: "cand-maf-standard-002"
+    priority: 8
+    condition:
+      test_count: ">= 500"
+    recommend: "maf_0.05"
+    reason: "检验次数多 → 用标准 MAF 0.05 控制假阳性"
+  - rule_id: "cand-maf-singleton-filter-003"
+    priority: 5
+    condition:
+      sample_count: "< 50"
+    recommend: "filter_singletons"
+    reason: "小群体 → 仅出现一次的变异无法统计检验，过滤掉"
+
+# ============================================================
+# 决策节点 4: 多重检验校正
+# ============================================================
+multiple_testing:
+  - rule_id: "cand-mt-fdr-001"
+    priority: 10
+    condition:
+      test_count: "< 1000"
+    recommend: "bh_fdr_0.10"
+    reason: "检验次数少 (<1000) → FDR (Benjamini-Hochberg) 比 Bonferroni 更合适，允许更高检出率。候选基因分析用 FDR 0.10 是植物领域常见做法"
+  - rule_id: "cand-mt-fdr-strict-002"
+    priority: 9
+    condition:
+      test_count: "< 100"
+    recommend: "bh_fdr_0.05"
+    reason: "检验次数很少 (<100) → 可以使用更严格的 FDR 0.05"
+  - rule_id: "cand-mt-bonferroni-003"
+    priority: 8
+    condition:
+      test_count: ">= 1000"
+    recommend: "bonferroni_0.05_over_n"
+    reason: "检验次数多 → Bonferroni 控制 FWER，阈值 = 0.05/n_tests"
+
+# ============================================================
+# 决策节点 5: 群体结构处理
+# ============================================================
+population_structure:
+  - rule_id: "cand-pop-skip-001"
+    priority: 10
+    condition:
+      subpopulation_uniform: true
+      species_type: "inbred"
+    recommend: "skip_structure_correction"
+    reason: "亚群内遗传均匀 + 自交物种 → 无需群体结构校正，候选区域内 LD 结构本身已足够"
+  - rule_id: "cand-pop-pca-002"
+    priority: 8
+    condition:
+      subpopulation_uniform: false
+      has_subpopulations: true
+    recommend: "pca_covariates"
+    reason: "存在亚群结构 → 将前 2-3 个 PCA 主成分作为协变量加入模型"
+  - rule_id: "cand-pop-kmatrix-003"
+    priority: 7
+    condition:
+      sample_count: ">= 50"
+      species_type: "inbred"
+      genomic_inflation: "> 1.1"
+    recommend: "kinship_matrix"
+    reason: "样本充足 + 近交物种 + 有分层 → 用亲缘关系 K 矩阵控制复杂系谱结构"
+
+# ============================================================
+# 决策节点 6: 候选基因排序
+# ============================================================
+ranking:
+  - rule_id: "cand-rank-multi-dim-001"
+    priority: 10
+    condition:
+      has_functional_annotation: true
+    recommend: "multi_dimension_scoring"
+    reason: "有功能注释 → 综合效应量、显著性、单倍型稳健性（跨环境一致性）、功能注释相关性、文献支持进行多维排序"
+  - rule_id: "cand-rank-stat-only-002"
+    priority: 8
+    condition:
+      has_functional_annotation: false
+    recommend: "statistical_ranking_only"
+    reason: "无功能注释 → 仅基于统计指标排序（效应量 + p 值 + 单倍型解释的表型变异比例）"
+
+fallback:
+  - rule_id: "cand-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
