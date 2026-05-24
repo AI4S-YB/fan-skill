@@ -124,6 +124,16 @@ data.frame(cluster = 1:nrow(centers),
 | FDR_threshold | 0.05 | Significance cutoff for enriched profiles |
 | slope_threshold | 0.02 | Slope cutoff for up/down trend labeling |
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| n_profiles | 50 | If no profiles enriched, reduce to 20-30; if all genes concentrated in one profile, increase to 80-100 | Too many profiles dilutes enrichment power; too few merges biologically distinct patterns |
+| n_permutations | 1000 | Increase to 5000-10000 for publication figures | Higher permutation counts stabilize empirical p-values, especially for small gene sets |
+| FDR_threshold | 0.05 | Relax to 0.1 for exploratory analysis of noisy plant stress data | Plant stress responses have high biological variability; strict FDR may discard real but subtle trends |
+| slope_threshold | 0.02 | Raise to 0.05 for noisy datasets (field-grown plants); lower to 0.01 for tightly controlled growth chamber experiments | Prevents minor expression fluctuations from being labeled as biologically meaningful trends |
+| correlation_method | pearson | Switch to spearman for non-linear expression trajectories | Spearman captures monotonic trends that pearson misses (common in developmental gradients) |
+
 ## Plant-Specific Notes
 
 - **Circadian oscillating profiles**: add a sine-wave template

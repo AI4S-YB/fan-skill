@@ -100,6 +100,16 @@ dev.off()
 | algorithm | Hartigan-Wong | k-means algorithm variant |
 | scaling | z-score | Standardization method before clustering |
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| centers (k) | Gap statistic estimate | For focused gene sets (TFs only, hormone pathway <100 genes), manually set k=3-6 regardless of gap statistic | Biological signal in focused gene sets is structured into few patterns; gap statistic may underestimate k for small, structured datasets |
+| nstart | 25-50 | For large datasets (>5000 genes), reduce to 10-15 to save computation; for publication, increase to 100 | Higher nstart improves stability by exploring more starting configurations; cost scales linearly with nstart |
+| iter.max | 100 | If convergence warning ("did not converge in 100 iterations"), increase to 500 | Hartigan-Wong typically converges quickly; non-convergence suggests poor cluster structure or inappropriate k |
+| scaling | z-score | For expression data already in normalized counts (TPM/FPKM), consider log2-transform + z-score; for fold-change data, use raw values | Z-score on untransformed counts amplifies high-expression gene variance; log transform first for count data |
+| Gene count thresholds | Remove genes with sd=0 | For larger k values (>=10), pre-filter to genes with variance > median variance | Clustering all genes (including flat profiles) when k is large creates degenerate clusters dominated by noise; variable-gene filtering improves biological interpretability |
+
 ## Plant-Specific Notes
 
 - **Small focused gene sets** (e.g., TFs only, hormone pathway genes):
@@ -111,6 +121,7 @@ dev.off()
 - **Time-point ordering**: k-means ignores temporal order (unlike spline
   or STEM). If temporal adjacency matters strongly, verify that adjacent
   time points fall in the same half of the cluster center profile.
+- **Gene count thresholds for k-means**: k-means works best with 100-5000 genes. Below 50 genes, individual gene behavior dominates and clusters are unreliable. Above 10,000 genes, use Mfuzz (soft clustering) or first reduce dimensionality via PCA, then cluster PC scores.
 
 ## Common Errors
 

@@ -74,6 +74,16 @@ dev.off()
 | threshold | 0.5 | Minimum membership score for "confident" assignment |
 | seed | -- | Set for reproducibility; Mfuzz is non-deterministic |
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| m (fuzzifier) | 1.5 | For sharp on/off patterns (stress response), lower to 1.1-1.3; for graded developmental transitions, raise to 1.8-2.0 | Controls cluster boundary softness; low m approaches hard clustering (cleaner patterns), high m allows genes to bridge clusters (captures biological gradients) |
+| centers (cluster count) | `mestimate()` auto-estimate | If mestimate returns 1 (all genes similar), manually set 4-8 and pre-filter to top 50% variable genes | Auto-estimation fails when expression patterns are homogeneous; filtering to variable genes reveals hidden sub-patterns |
+| membership threshold | 0.5 | For core regulon definition, raise to 0.7; for exploratory GO enrichment per cluster, lower to 0.3 | Higher thresholds yield smaller, highly confident gene sets; lower thresholds include transitional genes that may have dual functions |
+| standardize method | z-score (gene-wise) | For absolute expression level comparisons (e.g., cross-species), consider using log2-transformed raw values without standardization | Standardization removes baseline expression differences; preserved when comparing absolute levels across conditions |
+| Minimum time points | >=5 | With 3-4 time points, reduce m to 1.1-1.2 and use fewer centers (k=3-6) | Mfuzz cluster shapes become ambiguous with few time points; soft clustering with limited temporal resolution can produce unstable memberships |
+
 ## Plant-Specific Notes
 
 - **Paralog expression**: soft clustering captures the graded divergence
@@ -86,6 +96,7 @@ dev.off()
   developmental series. Stress-specific subsets usually cluster into 4-8 groups.
 - **Maize**: with subgenome expression divergence, run Mfuzz on each
   subgenome separately, then compare cluster assignments.
+- **Time point count sensitivity**: Mfuzz cluster reliability drops with fewer than 5 time points. The fuzzifier parameter (m) cannot compensate for sparse temporal sampling — with only 3 time points, even m=2.0 cannot distinguish linear from transient patterns. For dense time courses (>12 points), Mfuzz may over-cluster into too many subtly different groups — increase m to 1.8-2.0 and visually merge similar cluster centers.
 
 ## Common Errors
 

@@ -138,12 +138,24 @@ def calculate_cfd(mismatch_positions):
 | Genic filter | Exclude CDS off-targets | Off-targets in exons are high-risk |
 | CFD threshold | > 0.8 | High specificity |
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| Max mismatches | 3 | For large plant genomes (>1Gb), consider 4 mismatches; for small genomes (<200Mb), limit to 2 | Large genomes have exponentially more chance matches — 3 mismatches in wheat may return thousands of hits; conversely, small genomes need stricter filtering |
+| DNA bulge size | 1 | For Cas12a, set to 0 (Cas12a has different indel tolerance); for SpCas9-NG, keep at 1 | Different Cas enzymes have different bulge tolerance profiles; Cas12a is less tolerant of DNA bulges |
+| RNA bulge size | 1 | Set to 0 for stringent specificity screening | RNA bulges are biologically possible but rare; removing them reduces false-positive off-target calls |
+| Genomic search scope | Nuclear genome only | **Always include chloroplast and mitochondrial genomes** | Cas9/gRNA can enter organelles in plant cells; organellar off-target edits have been experimentally confirmed |
+| CFD threshold | >0.8 | For essential/cell-cycle genes, raise to >0.9; for non-coding targets, accept >0.7 | Higher stringency needed when off-target editing in essential genes could be lethal |
+
 ## Plant-Specific Notes
 
+- **Large genome scan strategy**: For species with large genomes (wheat 17Gb, barley 5Gb, maize 2.4Gb), run Cas-OFFinder chromosome-by-chromosome rather than on the whole genome. A whole-genome scan with 3 mismatches on wheat can run for days and produce millions of candidate off-targets. Split the genome file by chromosome and run parallel jobs, then merge results.
 - Repetitive genome regions: sgRNAs matching repeat elements = hundreds of off-targets -> reject
 - Chloroplast/mitochondrial DNA: Cas9 can enter organelles — include organellar genomes in off-target search
 - Homeologous genes in polyploids: "off-target" may be intentional (targeting all homeologs)
 - Check off-targets in promoter regions (<1kb upstream) — potential regulation disruption
+- **Transgene-free editing**: When generating transgene-free edited plants, off-target mutations are heritable and cannot be segregated away. Increase specificity stringency (require specificity score >95, 0 off-targets with <=2 mismatches) for any sgRNA used in transgene-free pipelines.
 
 ## Off-Target Risk Classification
 

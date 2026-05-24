@@ -115,6 +115,16 @@ hc_kmeans <- cutree(hclust(dist(env_scaled), method = "ward.D2"), k = optimal_k)
 table(km$cluster, hc_kmeans)  # Agreement between methods
 ```
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| Number of environments | >= 5 | With 3-4 environments, use hierarchical clustering only (skip k-means); report TPEs as tentative | K-means requires sufficient samples per cluster; < 5 environments yields unstable centroids and low bootstrap support |
+| alpha (climate weight) | 0.5 | Climate data is low-quality or sparse -> lower to 0.2-0.3; genetic correlations unreliable (few genotypes) -> raise to 0.7-0.8 | Balances two independent data sources; poor-quality data should have less influence on combined distance |
+| distance method | euclidean | When climate variables have different units (rainfall mm vs temperature C), use manhattan or scale all variables first | Euclidean distance is sensitive to variable scale differences common in environmental data |
+| clustering method | ward.D2 | For highly correlated environments, try average linkage; for detecting outliers, use single linkage | Ward.D2 minimizes within-cluster variance but can be sensitive to outliers |
+| optimal_k method | silhouette | If silhouette is flat across k values, use gap statistic or majority vote across NbClust indices | No single index is universally reliable; consensus across methods is stronger |
+
 ## Plant Relevance
 
 - **Dynamic TPEs**: TPE boundaries shift with climate change. Always note the
@@ -126,6 +136,8 @@ table(km$cluster, hc_kmeans)  # Agreement between methods
 - **Within-TPE variation**: Even within a TPE, there is substantial
   environment-to-environment variation. TPEs are useful abstractions, not
   perfect predictions.
+- **Minimum environments for reliable clusters**: TPE delineation requires at least 5 environments for clustering-based methods. With fewer environments, use pairwise genetic correlations and expert knowledge to group environments manually. Bootstrap Jaccard similarity below 0.75 indicates the cluster is unreliable — consider merging or re-evaluating.
+- **GxE-driven TPE revision**: As new genotypes are deployed, genotype-by-environment interaction patterns may change. TPEs defined on historical cultivars may not apply to new breeding material. Re-evaluate TPE boundaries when the genetic base of your breeding program shifts significantly.
 
 ## Common Errors
 
@@ -134,3 +146,5 @@ table(km$cluster, hc_kmeans)  # Agreement between methods
 | Silhouette < 0.2 | No genuine clustering structure | Don't force clusters; report continuous gradients |
 | All env in one TPE | Homogeneous environments | TPE analysis not informative for this dataset |
 | TPE assignment unstable | Few environments or redundant variables | Use bootstrap to assess stability |
+| K-means returns single-env cluster | k set too high relative to sample count | Reduce k; single-environment TPEs are not actionable for breeding |
+| Climate + genetic TPEs disagree | Different signals in climate vs genetic data | Report both separately; disagreement itself is informative — environments with similar climate but different genetic correlations suggest hidden GxE factors |

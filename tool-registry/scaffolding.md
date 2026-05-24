@@ -162,7 +162,27 @@ hicPlotMatrix -m hic_matrix.h5 \
 ## 植物 Hi-C Scaffolding 注意事项
 
 1. **植物基因组大小**: 小麦 (17Gb) 或玉米 (2.4Gb) 的大基因组需要更大的 bin size (100-500kb) 以降低噪音
-2. **多倍体**: 异源多倍体的亚基因组之间可能存在较强的 Hi-C 信号（homeologous interactions），导致染色体分群错误
+2. **多倍体**: 异源多倍体的亚基因组之间可能存在较强的 Hi-C 信号（homeologous interactions），导致染色体分群错误。**Polyploid phasing**: For allopolyploids, consider phasing subgenomes before scaffolding. Run YAHS or SALSA separately per subgenome if homeologous exchanges cause mis-joining. Check the contact map for inter-subgenome signal that exceeds intra-chromosome background.
 3. **端粒-着丝粒信号**: 植物着丝粒通常较大（以 Mb 计），Hi-C 信号在此区域可能有特殊模式
 4. **叶绿体和线粒体**: 细胞器不参与 Hi-C 相互作用（没有核小体），在 Hi-C 分析中出现随机信号，在 scaffolding 前需去除
 5. **酶切位点密度**: 植物基因组 AT 含量高，DpnII (GATC) 的位点密度通常足够
+
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| --no-contig-ec (YAHS) | enabled | Disable (remove flag) for draft assemblies with known misassemblies that need correction | Error correction can introduce new misjoins; only enable when you trust the contig-level assembly |
+| -l / --min-contig (YAHS) | 50000 | Lower to 10000 for fragmented assemblies; raise to 100000 for high-quality assemblies | Short contigs may lack sufficient Hi-C contacts for confident placement; very short contigs placed randomly add noise |
+| --enzyme / -e | DpnII (GATC) | Must match the actual enzyme used in your Hi-C library preparation | Enzyme mismatch causes incorrect in silico digestion and broken contact normalization — values become meaningless |
+| Bin size (HiCExplorer) | 50000 | For large plant genomes (>2Gb), increase to 100000-500000; for small genomes (<200Mb), reduce to 10000-25000 | Balances contact map resolution vs noise; insufficient contacts per bin at small bin sizes in large genomes |
+| `-m` (SALSA2 misassembly correction) | yes | Set to `no` if your contig-level assembly is already manually curated | Misassembly correction may incorrectly split genuine chromosomal rearrangements common in plant genomes |
+
+## Common Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| YAHS "no contacts found" | Hi-C reads not properly aligned as pairs | Ensure BWA uses -5SP flags for Hi-C paired-end alignments |
+| Chromosome count disagrees with karyotype | Homeologous interactions in polyploid cause inter-subgenome joining | Phase subgenomes first; check if inter-subgenome contact signal exceeds background |
+| "Christmas tree" pattern misinterpreted as misassembly | Normal centromeric Hi-C pattern in plants | Centromeres in plants show strong intra-chromosomal contacts radiating from a central point — this is expected, do not correct |
+| Scaffold N50 drops after scaffolding | Misassembly correction removed true joins | Reduce correction stringency; manually review corrected breakpoints |
+| Contact map shows complete diagonal absence | Contigs are shorter than bin size | Decrease bin size to be smaller than median contig length |

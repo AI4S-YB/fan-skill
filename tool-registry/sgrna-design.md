@@ -101,13 +101,25 @@ python chopchop.py \
 | Avoid | TTTT (>=4T) | Pol III terminator signal |
 | Avoid | GCG at position 1 | Reduced expression from U6 promoter |
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| Specificity score (MIT) | >80 | For polyploid genomes, require >90; for non-coding targets, accept >70 | Polyploids have homeologous copies that increase off-target risk; non-coding off-targets are less likely to cause functional disruption |
+| Efficiency score (Doench) | >50 | For essential genes where partial KO is acceptable, accept >30; for complete KO requirement, require >60 | Lower efficiency sgRNAs may still produce sufficient editing for some applications |
+| GC content range | 40-60% | For AT-rich plant genomes (e.g., rice at 43% GC), accept 30-70%; for GC-rich regions, accept up to 75% | Many crop genomes deviate from the 40-60% mammalian optimum; sgRNA expression and stability vary with GC content |
+| Target position in CDS | First 30-50% of CDS | Target a constitutive exon shared by all isoforms; avoid the first 5-10% if alternative start codons exist | Early STOP codons ensure complete KO; isoform-specific exons may leave functional splice variants |
+| Max off-targets with 0-1mm | 0 | For polyploid homeolog targeting, intentional mismatches to non-target subgenomes are acceptable | Distinguish between undesirable off-targets and intentional multi-copy targeting in polyploids |
+| PAM type | NGG (SpCas9) | For AT-rich regions lacking NGG, use Cas9-NG (NG PAM) or Cas12a (TTTV PAM) | AT-rich plant genomes may have sparse NGG sites in target regions |
+
 ## Plant-Specific Notes
 
-- For polyploids: check if sgRNA targets one or all subgenome copies
+- For polyploids: check if sgRNA targets one or all subgenome copies. **Polyploid target specificity**: Design sgRNAs that either (a) uniquely target one subgenome by exploiting subgenome-specific SNPs in the protospacer, or (b) target all homeologs simultaneously by selecting conserved regions. Each strategy has different design constraints — specificity vs pan-subgenome editing.
 - Use U3/U6 promoters optimized for your species (OsU3 for rice, TaU6 for wheat, AtU6-26 for Arabidopsis)
 - For multiplex editing: tRNA-gRNA or Csy4 polycistronic systems
 - First exon targeting: ensure the target exon is present in all splice variants
 - Check target site in all available cultivars/varieties (SNPs in target site = failed editing)
+- **Large plant genomes**: In species with large repetitive genomes (wheat 17Gb, maize 2.4Gb), sgRNAs matching repetitive elements will produce hundreds of off-targets. Always mask repetitive regions before sgRNA design using RepeatMasker or species-specific repeat libraries.
 
 ## sgRNA Filtering Script
 

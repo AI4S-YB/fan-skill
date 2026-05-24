@@ -111,12 +111,24 @@ qiime taxa filter-table \
 | --p-perc-identity | Minimum percent identity (BLAST) |
 | --p-exclude | Taxa to exclude (comma-separated) |
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| --p-confidence | 0.7 | Lower to 0.5 for genus-level calls in poorly characterized microbiomes; raise to 0.9 for phylum-only surveys | Balances precision vs recall; plant-associated taxa often have incomplete reference databases |
+| Classifier choice (16S vs ITS) | SILVA for bacteria/archaea; UNITE for fungi | For plant microbiome, run BOTH classifiers separately and merge | 16S primers do not amplify fungal ITS; plant microbiomes contain both bacteria and fungi — a single classifier misses half the community |
+| --p-trunc-len | 250 (V4) | Use 460 for V3-V4, 290 for V4-V5; set to 0 for full-length 16S | Must match the expected amplicon length of your primer pair |
+| --p-perc-identity (BLAST) | 0.97 | Lower to 0.90 for environmental samples with novel taxa | Plant-associated habitats (rhizosphere, phyllosphere) contain undescribed species that fail strict identity thresholds |
+| --p-exclude | "Chloroplast,Mitochondria" | Add "Viridiplantae" to also remove plant nuclear-encoded rRNA | Plant nuclear rRNA (18S, 28S) can co-amplify and be misclassified as fungal |
+
 ## Plant-Specific Considerations
 
 - ALWAYS filter Chloroplast and Mitochondria after taxonomy assignment for plant samples
+- **ITS vs 16S for plant microbiome**: Plant microbiome studies require both 16S (bacteria/archaea) and ITS (fungi). Process each marker separately with its own classifier — bacteria use SILVA/GreenGenes, fungi use UNITE. Never assign taxonomy to ITS reads with a 16S classifier or vice versa. For holistic microbiome analysis, merge the two OTU/ASV tables after taxonomy assignment.
 - For nifH, amoA, or other functional gene amplicons, use custom databases (e.g., FunGene, custom BLAST DBs)
 - Root endosphere samples: expect 30-60% chloroplast/mitochondria reads even with PNA clamps
 - Soil/rhizosphere: expect < 5% plant-derived reads
+- **Phyllosphere samples**: Expect 10-40% chloroplast reads from plant tissue contamination; consider using chloroplast-excluding PNA clamps during PCR
 
 ## Common Errors
 
