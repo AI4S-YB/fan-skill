@@ -91,9 +91,19 @@ For each step in the selected chain:
 
 **When a rule references a `tool_id`:**
 
-The `tool_id` field points to documentation in `tool-registry/`. Read
-`tool-registry/<tool_id>.md` for optimal parameters, common errors, and
-plant-specific notes before executing.
+Read `tool-registry/<tool_id>.md`. The level of detail varies:
+- **Full Cookbook** → Follow the code skeleton, adapt `${PLACEHOLDERS}` to the data.
+  The skeleton is a starting point for adaptation, not a fixed script to run blindly.
+- **Basic reference** → Use parameter hints + your own knowledge of the tool.
+  You know DESeq2/PLINK/GAPIT — the reference gives you the right parameters.
+- **Minimal stub** → Rely on your own knowledge; note the gap for later improvement.
+
+The tool-registry is a quality accelerator, NOT a capability gate. You can always
+invoke tools via Bash regardless of documentation depth. Missing or thin docs
+do NOT block execution — they only reduce the quality of parameter choices.
+
+After the analysis, if you used tools with thin or missing documentation,
+note it: *"此次分析使用了 X，tool-registry 文档较薄。建议补充。"*
 
 **If `tool_id` documentation is missing:**
 
