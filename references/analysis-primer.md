@@ -1,129 +1,49 @@
-# 面向生物学家的分析方法速查
+# 面向生物学家的分析方法速查 -- 索引
 
-每项分析：一句话解释 + 能回答什么 + 不能回答什么 + 需要什么数据。
+每项分析的详细"白话说"解读已移至各自的知识条目中。此文件为索引。
 
----
+## 如何使用
 
-## GWAS (全基因组关联分析)
+每个分析类型的 `analysis-primer.md` 都包含：
+- 一句话解释（这个分析做什么）
+- 能回答什么 / 不能回答什么
+- 典型输出文件及其含义
+- 常见结果模式和如何解读
 
-**一句话**：在全基因组范围内寻找与你的性状相关的遗传位点。
+根据你需要了解的分析类型，点击下方链接跳转到对应文件。
 
-**能回答**：
-- 哪些基因组区域可能控制这个性状？
-- 这些区域的影响有多大（解释多少表型变异）？
-- 不同染色体上是否有多个关联信号？
+## 分析类型索引
 
-**不能回答**：
-- 这个位点就是因果基因吗？（需要进一步功能验证，如基因编辑）
-- 为什么品种 A 的性状比品种 B 好？（GWAS 看的是群体内的变异，不是品种间的比较）
-- 这个标记在不同环境中还能用吗？（需要多环境验证）
+| 分析类型 | 文件路径 |
+|---------|---------|
+| GWAS (全基因组关联分析) | `knowledge-base/gwas/analysis-primer.md` |
+| 基因组选择 (Genomic Selection) | `knowledge-base/genomic-selection/analysis-primer.md` |
+| RNA-seq 差异表达 | `knowledge-base/rnaseq/analysis-primer.md` |
+| 群体遗传结构 | `knowledge-base/population/analysis-primer.md` |
+| 比较基因组学 | `knowledge-base/comparative/analysis-primer.md` |
+| 分子标记 | `knowledge-base/marker/analysis-primer.md` |
+| QTL 作图 | `knowledge-base/qtl-mapping/analysis-primer.md` |
+| 小 RNA 测序 | `knowledge-base/small-rna/analysis-primer.md` |
+| 蛋白质组学 | `knowledge-base/proteomics/analysis-primer.md` |
+| 时间序列表达 | `knowledge-base/time-series/analysis-primer.md` |
+| 变异检测 (Variant Calling) | `knowledge-base/variant-calling/analysis-primer.md` |
+| 扩增子测序 (16S/ITS) | `knowledge-base/amplicon/analysis-primer.md` |
+| ATAC-seq | `knowledge-base/atacseq/analysis-primer.md` |
+| ChIP-seq | `knowledge-base/chipseq/analysis-primer.md` |
+| CRISPR 设计 | `knowledge-base/crispr/analysis-primer.md` |
+| Enviromics | `knowledge-base/enviromics/analysis-primer.md` |
+| eQTL | `knowledge-base/eqtl/analysis-primer.md` |
+| 基因组注释 | `knowledge-base/genome-annotation/analysis-primer.md` |
+| 基因组组装 | `knowledge-base/genome-assembly/analysis-primer.md` |
+| 基因型填充 | `knowledge-base/genotype-imputation/analysis-primer.md` |
+| 基因调控网络 (GRN) | `knowledge-base/grn/analysis-primer.md` |
+| 杂种预测 | `knowledge-base/hybrid-prediction/analysis-primer.md` |
+| 代谢组学 | `knowledge-base/metabolomics/analysis-primer.md` |
+| 宏基因组学 | `knowledge-base/metagenomics/analysis-primer.md` |
+| 甲基化组学 | `knowledge-base/methylation/analysis-primer.md` |
+| 多组学整合 | `knowledge-base/multi-omics/analysis-primer.md` |
+| 泛基因组 | `knowledge-base/pan-genome/analysis-primer.md` |
+| 表型分析 | `knowledge-base/phenotype/analysis-primer.md` |
+| 科研可视化 | `knowledge-base/visualization/analysis-primer.md` |
 
-**你的数据需要**：
-- 基因型数据（SNP芯片、GBS、或重测序）— 至少 500 个标记
-- 表型数据（数值型）— 至少 100 个样本
-- 物种参考基因组（用于注释显著位点附近的基因）
-
----
-
-## 基因组选择 (GS / Genomic Selection)
-
-**一句话**：用全基因组标记预测每个材料的育种值，选出最好的做亲本。
-
-**能回答**：
-- 哪些材料应该选做下一代的亲本？
-- 某个材料作为亲本，后代的预期表现如何？
-- 如果选前 10% 的材料做亲本，预期性状能提高多少？
-
-**不能回答**：
-- 哪个基因控制这个性状？（GS 不找因果基因，只做全基因组预测）
-- 这个预测在不同环境中还准确吗？（如果训练数据只有一个环境，不能外推）
-- 为什么这个材料表现好？（GS 给出的是统计预测，不是机理解释）
-
-**你的数据需要**：
-- 基因型数据 — 至少 1,000 个标记
-- 表型数据（数值型）— 至少 100 个有表型的训练样本
-- 如果是多性状或多环境，样本数需要相应增加
-
----
-
-## RNA-seq 差异表达分析
-
-**一句话**：找出处理组和对照组之间哪些基因的表达量发生了显著变化。
-
-**能回答**：
-- 处理引起了哪些基因的表达变化？（上调了多少/下调了多少）
-- 这些变化涉及哪些生物学通路？（如光合作用、胁迫响应、激素信号）
-- 哪些基因的变化最大（可能是关键的响应基因）？
-
-**不能回答**：
-- 这个基因的表达变化是处理的原因还是结果？（相关性 ≠ 因果性）
-- 蛋白水平也变了吗？（mRNA 变化不一定对应蛋白变化）
-- 这个基因功能是什么？（需要功能注释，参考拟南芥或水稻同源基因的功能）
-
-**你的数据需要**：
-- 处理组 + 对照组，每组至少 3 个生物学重复
-- 物种的参考基因组和基因注释
-- 如果做通路富集分析，还需要该物种的通路数据库
-
----
-
-## 群体遗传结构分析
-
-**一句话**：分析你的样本之间有没有遗传亚群，亚群之间的关系是怎样。
-
-**能回答**：
-- 这些样本可以分为几个遗传亚群？
-- 哪些样本在遗传上更接近？
-- 不同亚群之间的遗传差异有多大？
-
-**不能回答**：
-- 为什么会有这些亚群？（需要结合地理分布、育种历史信息）
-- 不同的亚群在表型上有差异吗？（需要结合表型数据分析）
-- 亚群分类后该选哪些样本做 GWAS？（需要结合具体的分析目标）
-
-**你的数据需要**：
-- 基因型数据 — 至少 1,000 个不连锁的标记
-- 样本不需要有预先的群体标签（这是分析要发现的）
-- 如果有群体的地理来源或品种类型信息，可以辅助解释结果
-
----
-
-## 比较基因组学
-
-**一句话**：比较不同物种或同一物种不同个体的基因组，找出进化中保守的区域和变化。
-
-**能回答**：
-- 这个基因组在进化中经历过几次全基因组加倍（WGD）？
-- 某个基因家族（如抗病基因）扩大了还是缩小了？
-- 哪些基因受到正选择（快速进化）——可能在适应环境中起重要作用？
-
-**不能回答**：
-- 基因家族扩大一定意味着功能重要性增加吗？（不一定，有些是"进化的垃圾"）
-- 受正选择的基因一定与适应性相关吗？（需要功能实验验证）
-- Ks 峰值精确对应了什么地质事件？（只能给出大致时间范围）
-
-**你的数据需要**：
-- 至少一个物种的基因组序列 + 基因注释 (GFF3)
-- 如果做多物种比较，每个物种都需要蛋白序列
-- CDS 序列（用于 Ks 和 dN/dS 分析）
-
----
-
-## 分子标记开发
-
-**一句话**：把 GWAS 或 QTL 找到的显著位点，转化为可以在实验室使用的检测标记。
-
-**能回答**：
-- 怎样方便地检测一个特定的 SNP？
-- 这个标记在育种群体中有多态性吗（能区分不同的等位基因吗）？
-- 哪两个亲本杂交，后代最有可能聚合优良等位基因？
-
-**不能回答**：
-- 标记检测到的等位基因一定与性状相关吗？（取决于原始 GWAS/QTL 发现的可靠性）
-- 这个标记在别的群体中还有效吗？（需要验证）
-- 标记开发和验证的成本是多少？（取决于通量和平台）
-
-**你的数据需要**：
-- 目标 SNP/InDel 的位置和侧翼序列（≥200 bp 上下游）
-- 物种参考基因组（用于验证引物特异性）
-- 如果要做亲本推荐，需要多个亲本的基因型数据
+**注意**: 此索引不再包含详细解读内容。所有详细的白话解读都在对应条目自己的 `analysis-primer.md` 中。新增分析类型时，只需在对应知识条目中创建 `analysis-primer.md` 并在此处添加一行索引，无需修改此文件的其他内容。

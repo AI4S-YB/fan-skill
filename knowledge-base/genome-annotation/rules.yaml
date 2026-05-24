@@ -115,3 +115,20 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+
+design_gates:
+  - id: "anno-assembly-available"
+    rule: "基因组注释需要基因组组装序列 (FASTA)"
+    check: "has_genome_assembly == true"
+    severity: "block"
+    on_fail: "没有基因组组装序列 → 无法进行基因预测和注释。确保组装达到 scaffold 或染色体水平（N50 > 1Mb 时可获得较好的注释结果）。"
+  - id: "anno-rnaseq-evidence"
+    rule: "推荐有 RNA-seq 数据辅助注释（强烈建议多组织）"
+    check: "has_rnaseq_data == true"
+    severity: "warn"
+    on_fail: "无 RNA-seq 数据 → 只能依靠蛋白同源证据预测基因，会遗漏 30-40% 的物种特异性基因。基因边界和外显子-内含子结构预测精度显著降低。"
+  - id: "anno-busco-check"
+    rule: "注释完成后必须用 BUSCO 评估完整性"
+    check: "busco_complete >= 80"
+    severity: "warn"
+    on_fail: "BUSCO Complete < 80% → 注释完整性不足。可能原因：组装质量差、重复屏蔽不足（导致假基因预测过多）、或 lineage 数据集选择不正确。植物推荐使用 embryophyta_odb10。"

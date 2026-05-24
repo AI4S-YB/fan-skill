@@ -23,6 +23,25 @@ outputs:
   - significant_snp_table
   - analysis_report
 
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "gwas-markers-minimum"
+    rule: "至少 500 个标记才能做 GWAS"
+    check: "snp_count >= 500"
+    severity: "block"
+    on_fail: "标记数 < 500 → 无法做全基因组关联。考虑候选基因关联分析。"
+  - id: "gwas-samples-minimum"
+    rule: "至少 100 个样本"
+    check: "sample_count >= 100"
+    severity: "warn"
+    on_fail: "样本量 < 100 → 统计功效只能检测大效应位点。"
+  - id: "gwas-numeric-phenotype"
+    rule: "表型必须是数值型"
+    check: "phenotype_is_numeric == true"
+    severity: "block"
+
 # GWAS 决策矩阵 — Rule 模式的决策规则
 # 规则按优先级排序，多条同时命中时取 priority 最高的
 

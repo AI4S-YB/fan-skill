@@ -121,3 +121,20 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+
+design_gates:
+  - id: "amp-negative-control"
+    rule: "扩增子测序需要阴性对照（blank control）以识别试剂污染"
+    check: "has_negative_control == true"
+    severity: "block"
+    on_fail: "无阴性对照 → 无法区分真实微生物信号和试剂/环境污染。低生物量样本（根内圈、叶圈）尤其受影响。至少包含提取空白和PCR空白对照。"
+  - id: "amp-replicates"
+    rule: "每组至少 3 个生物学重复用于差异丰度分析"
+    check: "replicates_per_group >= 3"
+    severity: "warn"
+    on_fail: "每组 < 3 个重复 → 差异丰度分析的统计功效很低。ANCOM-BC 和 ALDEx2 在小样本下仍可运行，但结果应标注为探索性分析。"
+  - id: "amp-host-filtering"
+    rule: "植物样本必须过滤叶绿体和线粒体来源的 ASV"
+    check: "host_filtering_applied == true"
+    severity: "block"
+    on_fail: "植物样本中宿主细胞器 DNA 可占 reads 的 10-80%。未过滤会导致微生物多样性被严重高估或稀释。通过 SILVA/UNITE 注释后过滤 Chloroplast 和 Mitochondria。"

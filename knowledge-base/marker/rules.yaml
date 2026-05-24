@@ -147,3 +147,20 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+
+design_gates:
+  - id: "marker-population-type"
+    rule: "分子标记分析需要明确群体类型（F2/RIL/DH/自然群体等）"
+    check: "has_population_type == true"
+    severity: "block"
+    on_fail: "未指定群体类型 → 无法选择合适的分析方法。不同群体类型（F2/RIL/DH/BC/自然群体）的遗传结构和分析方法完全不同。"
+  - id: "marker-trait-data"
+    rule: "标记-性状关联分析需要表型数据"
+    check: "has_phenotype_data == true"
+    severity: "block"
+    on_fail: "仅有标记数据没有表型 → 只能做标记本身的分析（多态性、遗传多样性），不能做标记-性状的关联。"
+  - id: "marker-density"
+    rule: "标记密度应适合目标分析：QTL 作图 ≥ 200 标记，GWAS ≥ 500 标记"
+    check: "marker_count >= 200"
+    severity: "warn"
+    on_fail: "标记数 < 200 → 遗传图谱密度低，QTL 置信区间会很宽（> 20 cM）。对于 GWAS，标记数 < 500 无法覆盖全基因组。"

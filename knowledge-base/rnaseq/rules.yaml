@@ -24,6 +24,19 @@ outputs:
   - go_enrichment
   - analysis_report
 
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "rnaseq-control-group"
+    rule: "必须有对照组"
+    check: "has_control_group == true"
+    severity: "block"
+  - id: "rnaseq-replicates"
+    rule: "每组 ≥ 3 个生物学重复"
+    check: "replicates_per_group >= 3"
+    severity: "warn"
+
 version: "1.0"
 analysis: rnaseq_de
 

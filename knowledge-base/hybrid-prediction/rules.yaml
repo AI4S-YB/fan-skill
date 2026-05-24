@@ -154,3 +154,20 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+
+design_gates:
+  - id: "hybrid-training-population"
+    rule: "杂种预测需要训练群体（包含杂种及其亲本的表型和基因型数据）"
+    check: "has_training_population == true"
+    severity: "block"
+    on_fail: "没有训练群体 → 无法建立杂种表现预测模型。需要至少一组已经做了杂交和表型鉴定的训练数据来训练模型。"
+  - id: "hybrid-parental-genotypes"
+    rule: "需要亲本的基因型数据以预测杂种的基因型"
+    check: "has_parental_genotypes == true"
+    severity: "block"
+    on_fail: "没有亲本基因型 → 无法推演杂种的基因型组合。杂种预测的核心是从亲本基因型推断可能的杂种等位基因构成。"
+  - id: "hybrid-training-size"
+    rule: "训练群体中的杂种数量至少 50 个才能获得基本的预测准确性"
+    check: "hybrid_count >= 50"
+    severity: "warn"
+    on_fail: "训练杂种数 < 50 → 预测准确性可能很低。杂种预测的准确性同时受训练群体大小和杂种间遗传关系影响。增加训练杂种的数量或使用基因组最佳线性无偏预测 (GBLUP) 来利用亲缘关系信息。"

@@ -71,3 +71,20 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+
+design_gates:
+  - id: "multi-matched-samples"
+    rule: "多组学整合需要同一批样本或配对样本的不同组学数据"
+    check: "samples_matched_across_omics == true"
+    severity: "block"
+    on_fail: "不同组学数据来自不同样本 → 无法区分分子关联和样本间差异。多组学整合的核心假设是不同层次的分子数据反映同一个体的生物学状态。"
+  - id: "multi-individual-qc"
+    rule: "每个单独组学层必须在整合前通过各自的质量控制"
+    check: "individual_omics_qc_passed == true"
+    severity: "block"
+    on_fail: "某个组学层 QC 不通过 → 该层的噪声会在整合分析中传播到其他层，降低整体分析可靠性。Garbage in, garbage out。"
+  - id: "multi-integration-method"
+    rule: "整合方法的选择应基于生物学问题（相关性/预测/网络/因果推断）"
+    check: "integration_method_specified == true"
+    severity: "warn"
+    on_fail: "整合方法选择不当 → 可能产生误导性结论。相关性方法（稀疏 CCA）适合探索性分析；网络方法（WGCNA 跨层）适合模块发现；因果推断（中介分析）需要特定的实验设计。"

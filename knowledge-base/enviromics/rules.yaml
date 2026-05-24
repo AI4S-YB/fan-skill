@@ -84,3 +84,20 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+
+design_gates:
+  - id: "env-multi-env-data"
+    rule: "Enviromics 分析需要多环境数据（至少 2 个环境）"
+    check: "env_count >= 2"
+    severity: "block"
+    on_fail: "单一环境 → 无法估计 G×E 互作效应，也无法做环境聚类或 TPE 划分。至少需要 2+ 个环境的表型和环境协变量数据。"
+  - id: "env-data-quality"
+    rule: "环境数据需要覆盖关键气候变量（温度、降水等）"
+    check: "has_climate_variables == true"
+    severity: "warn"
+    on_fail: "缺少关键气候变量 → 环境指数 (environmental index) 可能无法充分表征环境差异。至少应包含温度 (Tmin/Tmax/Tmean) 和降水 (Precipitation)。可从公共数据库（WorldClim、NASA POWER）获取。"
+  - id: "env-genotype-count"
+    rule: "G×E 方差分解需要足够的基因型数量"
+    check: "genotype_count >= 10"
+    severity: "warn"
+    on_fail: "基因型数量 < 10 → G×E 方差组分估计不稳定。AMMI/GGE 模型对基因型数量不足敏感，推荐 ≥ 20 个基因型。"

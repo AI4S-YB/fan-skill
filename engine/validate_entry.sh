@@ -8,7 +8,7 @@ ERRORS=0
 echo "=== Validating: $ENTRY_DIR ==="
 
 # Check required files
-for f in rules.yaml notebook.md; do
+for f in rules.yaml notebook.md consult-guide.md analysis-primer.md; do
     if [ -f "$ENTRY_DIR/$f" ]; then
         echo "  [OK] $f"
     else
@@ -16,6 +16,27 @@ for f in rules.yaml notebook.md; do
         ERRORS=$((ERRORS + 1))
     fi
 done
+
+# Check minimum line counts for new module files
+if [ -f "$ENTRY_DIR/consult-guide.md" ]; then
+    LINES=$(wc -l < "$ENTRY_DIR/consult-guide.md" | tr -d ' ')
+    if [ "$LINES" -ge 30 ]; then
+        echo "  [OK] consult-guide.md: $LINES lines (>= 30)"
+    else
+        echo "  [FAIL] consult-guide.md: $LINES lines (< 30 required)"
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
+if [ -f "$ENTRY_DIR/analysis-primer.md" ]; then
+    LINES=$(wc -l < "$ENTRY_DIR/analysis-primer.md" | tr -d ' ')
+    if [ "$LINES" -ge 20 ]; then
+        echo "  [OK] analysis-primer.md: $LINES lines (>= 20)"
+    else
+        echo "  [FAIL] analysis-primer.md: $LINES lines (< 20 required)"
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
 
 # Validate rules.yaml structure
 if [ -f "$ENTRY_DIR/rules.yaml" ]; then

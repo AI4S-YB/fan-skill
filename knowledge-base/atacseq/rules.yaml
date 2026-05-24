@@ -102,3 +102,20 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+
+design_gates:
+  - id: "atac-biological-replicates"
+    rule: "差异可及性分析需要生物学重复（至少 2 个）"
+    check: "replicates_per_group >= 2"
+    severity: "block"
+    on_fail: "无生物学重复 → 无法区分处理效应和个体间染色质可及性差异。可以描述 peak 的存在/缺失，但不能统计检验差异。"
+  - id: "atac-tissue-quality"
+    rule: "植物组织必须新鲜且在核分离前保持完整"
+    check: "tissue_quality_good == true"
+    severity: "warn"
+    on_fail: "降解组织 → 线粒体和叶绿体 DNA 释放增加，Tn5 对开放染色质的特异性降低。TSS 富集分数 < 5 时结果可靠性显著下降。"
+  - id: "atac-chloroplast-aware"
+    rule: "绿色组织（叶、幼苗）的叶绿体 reads 占比预期很高"
+    check: "chloroplast_reads_handled == true"
+    severity: "warn"
+    on_fail: "叶片/幼苗 ATAC-seq 中 cpDNA reads 通常占 50-80%。需要去除 cpDNA reads 后重新评估。如果去除后剩余 < 20M reads，考虑增加测序量。"

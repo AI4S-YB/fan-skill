@@ -121,3 +121,20 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+
+design_gates:
+  - id: "chip-input-control"
+    rule: "ChIP-seq 必须有 Input 对照或 Mock IP 对照"
+    check: "has_input_control == true"
+    severity: "block"
+    on_fail: "没有 Input 对照 → 无法区分真实富集信号和染色质开放性/拷贝数变异的背景。peak calling 必须用 Input 作为背景模型。"
+  - id: "chip-antibody-validated"
+    rule: "抗体必须经过验证（ChIP-grade 或已发表的植物 ChIP 验证）"
+    check: "antibody_validated == true"
+    severity: "block"
+    on_fail: "未验证抗体 → ChIP 信号可能来自非特异性结合。植物中许多商业抗体是为人/小鼠设计的，对植物蛋白的交叉反应需要实验验证。FRiP < 5% 是抗体质量不足的常见指标。"
+  - id: "chip-replicates"
+    rule: "差异结合分析每组至少 2 个生物学重复"
+    check: "replicates_per_group >= 2"
+    severity: "warn"
+    on_fail: "无重复 → 只能进行定性比较（peak 重叠/不重叠），不能做统计检验。DiffBind 需要重复来计算离散度。"

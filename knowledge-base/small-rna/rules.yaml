@@ -116,3 +116,20 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+
+design_gates:
+  - id: "srna-size-selection"
+    rule: "小 RNA 测序需要验证片段大小选择（18-30nt 区间）"
+    check: "size_selection_verified == true"
+    severity: "block"
+    on_fail: "未验证大小选择 → 如果片段选择失败，文库中可能含有大量降解的 mRNA 片段和其他非 sRNA 序列，干扰 miRNA 鉴定。检查 reads 长度分布是否在 18-30nt 范围内呈预期分布（miRNA 峰在 21-22nt，siRNA 峰在 24nt）。"
+  - id: "srna-mirbase"
+    rule: "已知 miRNA 鉴定需要 miRBase 数据库"
+    check: "mirbase_available == true"
+    severity: "warn"
+    on_fail: "非模式物种在 miRBase 中收录有限 → 依赖已知 miRNA 鉴定可能只能发现少数保守 miRNA。需要结合 de novo 预测（miRDeep2）才能发现物种特异性 miRNA。"
+  - id: "srna-replicates"
+    rule: "差异表达分析每组至少 3 个生物学重复"
+    check: "replicates_per_group >= 3"
+    severity: "warn"
+    on_fail: "每组 < 3 个重复 → 小 RNA 表达的生物学变异较大，统计功效不足。DESeq2 仍可运行但结果可靠性降低。"

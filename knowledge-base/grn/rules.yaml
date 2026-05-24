@@ -79,3 +79,20 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+
+design_gates:
+  - id: "grn-expression-data"
+    rule: "基因调控网络推断需要表达矩阵（至少 15 个样本）"
+    check: "has_expression_matrix == true"
+    severity: "block"
+    on_fail: "没有表达矩阵 → 无法构建基因调控网络。需要多个样本/条件的表达量数据来估计基因间的共表达关系。样本数 < 15 时相关性估计极不稳定。"
+  - id: "grn-sample-diversity"
+    rule: "表达数据应包括多种条件/处理/扰动以充分探索调控关系"
+    check: "condition_count >= 2"
+    severity: "warn"
+    on_fail: "单一条件/组织 → 只能推断该条件下活跃的调控关系，大量的条件特异性调控会被遗漏。建议至少包含 2-3 种不同的处理或发育阶段。"
+  - id: "grn-tf-annotation"
+    rule: "定向网络推断需要转录因子注释"
+    check: "has_tf_annotation == true"
+    severity: "warn"
+    on_fail: "无 TF 注释 → 只能做无向共表达网络（WGCNA），不能推断 TF→靶基因的调控方向。可以从 PlantTFDB 或同源推断获取 TF 列表。"

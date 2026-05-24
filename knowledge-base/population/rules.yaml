@@ -126,3 +126,20 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+
+design_gates:
+  - id: "pop-sampling-adequate"
+    rule: "群体遗传分析需要足够的个体数来代表群体的多样性"
+    check: "sample_count >= 20"
+    severity: "warn"
+    on_fail: "样本量 < 20 → 群体结构推断可能不稳定（ADMIXTURE 的 cross-validation error 波动大），等位基因频率谱的代表性不足。对于 PCA，< 20 个体可能产生不可靠的主成分。"
+  - id: "pop-marker-coverage"
+    rule: "群体遗传分析需要全基因组分布的标记"
+    check: "snp_count >= 1000"
+    severity: "warn"
+    on_fail: "标记数 < 1000 → 全基因组代表性不足。Fst 扫描和选择性清除分析的分辨率低。PCA 仍然可行（少量标记也能反映群体结构），但精确定量的能力受限。"
+  - id: "pop-outgroup"
+    rule: "系统发育分析和 D 统计量 (ABBA-BABA) 需要外群"
+    check: "has_outgroup == true or analysis_type not in ['phylogeny', 'introgression']"
+    severity: "block"
+    on_fail: "没有外群 → 无法确定 ancestral state。NJ/ML 树可以构建但根无法确定。D 统计量 (ABBA-BABA) 必须指定外群来推断 ancestral allele。"
