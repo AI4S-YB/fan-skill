@@ -97,6 +97,15 @@ summary(out.im, perms = operm, alpha = 0.05, pvalues = TRUE)
 | method | "em" (standard) or "hk" (Haley-Knott, faster) | EM more accurate, HK faster for large datasets |
 | n.perm | 1000 for n>=100, 500 for n<100 | Permutation count for LOD threshold |
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| step | 1 cM (dense) / 2 cM (sparse) | Ultra-dense map (>10K markers): use 0.5 cM; coarse map (<500 markers): use 5 cM | Smaller step captures more QTL position resolution; larger step reduces computation time dramatically |
+| n.perm | 1000 | n < 100: use 500; n > 500: use 2000; genome-wide significance not needed: skip | More samples require more permutations to estimate extreme quantiles; permutations are the runtime bottleneck |
+| method | "em" | Large datasets (>1000 markers x >500 individuals): use "hk"; need dominance model: use "em" | Haley-Knott regression is ~10x faster but slightly less accurate for small effect QTL; EM supports all models including dominance |
+| error.prob | 0.001 (SSR/microarray) | GBS/DArT: use 0.01; imputed GBS: use 0.005; whole-genome sequence: use 0.0001 | Error rate assumptions must match genotyping technology; overestimation flattens LOD profile |
+
 ## Plant-Specific Notes
 
 - **F2 coding**: Plant F2 populations use AA/AB/BB coding. Make sure `genotypes` parameter matches your data — some plant data use 0/1/2 or A/H/B.

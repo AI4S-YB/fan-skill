@@ -6,6 +6,15 @@ motif enrichment (RcisTarget), and scores regulon activity per sample (AUCell).
 
 **Best for:** >= 20 samples, TF annotation available, regulon activity needed.
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| minGenes | 20 | Small TF families (<10 members): lower to 10; large genomes (wheat, maize): raise to 50 | Small modules with few genes are less likely to represent real regulons; large genomes produce more spurious co-expression |
+| motif database | Species-specific (cisTarget) | Non-model plant: use Arabidopsis motifs as proxy; well-annotated model (Arabidopsis, rice): use DAP-seq + ChIP-seq combined | Plant motif databases are incomplete; Arabidopsis motifs can identify conserved binding preferences across angiosperms |
+| nes_threshold (ctx) | 3.0 | Low recovery (<50 regulons): reduce to 2.5; excess regulons (>500): raise to 4.0 | Normalized enrichment score controls the stringency of motif-based pruning; non-model species often need relaxed thresholds |
+| auc_threshold (binarization) | 0.05 | Sparse data (<100 cells): use 0.10; dense scRNA-seq: auto-detect via bimodal distribution | Binarization threshold depends on signal-to-noise ratio; sparse data has lower AUC values overall |
+
 ## Prerequisites
 
 - R 4.0+ or Python 3.8+ (pySCENIC)

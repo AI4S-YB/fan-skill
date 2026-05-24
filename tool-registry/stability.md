@@ -3,6 +3,15 @@
 **Goal:** Identify genotypes with consistent performance across environments
 using multiple stability metrics for cross-validation
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| Number of environments | >= 6 | <4 environments: use only static stability (CV, Var); 4-6 environments: add Shukla, use caution with FW regression | Regression-based metrics (FW, Eberhart-Russell) become unreliable with few environments; variance components need sufficient levels to estimate |
+| Replicates per environment | >= 3 | 2 reps: skip Shukla variance and S2di; unreplicated trials: use only spatial-corrected BLUPs | Shukla and S2di require within-environment error variance; without replication, only ranking-based metrics (Pi) work |
+| MET environment range | Diverse (contrasting years x locations) | All optimal environments: use dynamic stability (b); all stress environments: use static stability (CV, Var) | The definition of "stability" depends on the target population of environments; b estimates require environmental variation to regress against |
+| GGE biplot scaling | "sd" (standard deviation) | Trait with vastly different scales across environments: use "none"; equal variance assumption across environments: use "svd" | Scaling affects the relative weight of each environment in the biplot; sd centers environments to unit variance while svd gives equal weight |
+
 ## Prerequisites
 - R 4.0+, packages: `metan`, `agricolae`, `stats`, `tidyverse`
 - Multi-environment phenotype data: genotype × environment × trait

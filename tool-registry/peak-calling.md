@@ -4,6 +4,16 @@
 
 Peak calling 是 ATAC-seq 分析的核心步骤，用于识别开放染色质区域。ATAC-seq 的数据特征与 ChIP-seq 不同，需要专门的参数设置。
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| qvalue (FDR) | 0.05 | Low signal-to-noise data: relax to 0.10; high-quality replicates with strong enrichment: tighten to 0.01 | ATAC-seq in plants can have higher background due to organelle DNA contamination; strict cutoff may miss genuine open regions in low-coverage datasets |
+| extsize | 200 | Nucleosome-free regions focus: use 100; nucleosome positioning analysis: use 147 | Tn5 cuts ~9 bp from binding site; 200 bp captures the protected region between two adjacent Tn5 insertion events |
+| shift | -100 | Paired-end data with actual fragment lengths: set to 0; Tn5 calibration experiment available: adjust empirically | Compensates for the known ~4-5 bp offset of Tn5 insertion on each strand of the cut site relative to the binding midpoint |
+| --nomodel | always on | Never turn off | Tn5 transposase cutting is fundamentally different from sonication; MACS2's model assumes ChIP-seq fragment distribution which does not apply to ATAC-seq |
+| --keep-dup | all | Very deep sequencing (>100M mapped reads): consider "auto" | ATAC-seq open chromatin regions legitimately produce reads at identical positions due to Tn5 insertion preference; removing duplicates loses signal in highly accessible regions |
+
 ## 推荐工具
 
 ### 1. MACS2 (ATAC-seq 模式) -- 金标准
@@ -80,3 +90,12 @@ Genrich -t sample1.bam,sample2.bam,sample3.bam \
    - 拟南芥叶片: ~20,000-40,000 peaks
    - 水稻叶片: ~30,000-60,000 peaks
    - 玉米叶片: ~50,000-100,000 peaks
+
+## Common Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| Too few peaks called (<5,000) | Stringent qvalue or low sequencing coverage | Relax -q to 0.10; verify >=25M uniquely mapped reads per sample after organelle removal |
+| Peaks enriched in organelle genome coordinates | Mitochondria/chloroplast reads not removed before peak calling | Filter BAM to nuclear chromosomes only before peak calling; use `samtools view -L nuclear_regions.bed` |
+| MACS2 crashes with "pair-ended" error | BAM not coordinate-sorted or index missing | `samtools sort -o sorted.bam input.bam && samtools index sorted.bam` |
+| Broad, flat signal without discrete narrow peaks | Low Tn5 efficiency or over-fixed tissue | Check Tn5 enzyme activity with positive control; verify nuclei isolation protocol; consider adding 0.1% digitonin |

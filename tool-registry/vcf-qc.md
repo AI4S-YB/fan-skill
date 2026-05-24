@@ -3,6 +3,17 @@
 **Goal:** Filter raw variant calls to a high-confidence set
 **Best for:** All VCF pipelines; choose hard filtering or VQSR based on sample count
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| QD | 2.0 | Low-coverage data (5-10x): relax to 1.5; very deep data (>100x): raise to 5.0 | Low coverage reduces confidence per base; deep data benefits from stricter threshold |
+| FS | 60.0 | Polyploids: relax by 20-30% (80-90); inbred diploids: keep or tighten to 50 | Homeologous reads in polyploids cause apparent strand bias; inbred lines have cleaner allele balance |
+| MQ | 40.0 | Low-coverage (5-10x): relax to 30; repetitive plant genomes: raise to 50 | Shorter reads and repeats reduce average mapping quality; high-repeat genomes need stricter MQ |
+| SOR | 3.0 | Polyploids: relax to 4.0; low-quality reference: relax to 5.0 | Strand odds ratio is inflated by mapping ambiguity in polyploid/repetitive genomes |
+| MQRankSum | -12.5 | Small sample sets (<20): disable or relax to -15.0 | Rank sum statistics lose power with small sample sizes; false negatives increase |
+| ReadPosRankSum | -8.0 | Ancient DNA or degraded samples: relax to -10.0 | Degraded DNA has biased read position distribution toward fragment ends |
+
 ## Prerequisites
 - Raw VCF from GATK/bcftools/DeepVariant
 - bcftools or GATK

@@ -3,6 +3,15 @@
 **Goal:** Map identified metabolites to plant metabolic pathways and perform enrichment analysis
 **Best for:** Interpreting metabolomics results in a biological context
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| Database choice | PlantCyc (primary) + KEGG (visualization) | Non-model crop: prioritize PlantCyc; model species (Arabidopsis, rice): KEGG is sufficient | PlantCyc has 600+ curated plant pathways vs KEGG's ~150; non-model species metabolomes are better represented in PlantCyc |
+| species code | Ath (Arabidopsis) as proxy | Well-annotated crop: use species-specific (osa, zma, sly, gmx); no close relative: use "ko" (KEGG Orthology) | Organism-specific codes enable species-tailored pathway rendering; ko is universal across plants but loses species-specific reactions |
+| limit (color scale) | 2 (log2FC) | Metabolomics dynamic range >100-fold: increase to 4-5; subtle changes (<2-fold): reduce to 1 | The color mapping range should capture the data distribution; compressing range loses resolution, expanding washes out signal |
+| bins (color steps) | 10 | Publication-quality figure: increase to 20; quick exploration: reduce to 5 | More bins produce smoother color gradients but may clutter small pathway maps |
+
 ## Prerequisites
 - Metabolite identifiers or names (from annotation)
 - PlantCyc and/or KEGG database access

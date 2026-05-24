@@ -4,6 +4,16 @@
 
 转录因子足迹分析（TF Footprinting）利用 ATAC-seq 数据中 Tn5 切割模式的变化来推断特定转录因子在基因组上的结合位置。当 TF 结合 DNA 时，会在结合位点附近产生一个"足迹"——即 Tn5 切割受到保护的信号。
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| --window | 50 | Narrow footprints (ARF, GRF families): reduce to 30; broad binding TFs (MADS-box): increase to 100 | Window size determines footprint detection resolution; plant TF families have different footprint widths depending on DNA binding domain structure |
+| --score_method | "bound" | Low coverage data (<30M reads): use "difference"; well-powered data (>50M reads): use "bound" | "bound" uses flanking accessibility to normalize footprint scores; "difference" is simpler but sensitive to coverage noise at low depth |
+| motif database | JASPAR Plants (non-redundant) | Non-model crop: supplement with PlantTFDB motifs; well-studied species: include DAP-seq derived motifs | JASPAR Plants covers conserved motifs across species; family-specific and species-specific binding preferences need custom databases for comprehensive analysis |
+| --pvalue (BINDetect) | 0.05 | Exploratory hypothesis generation: 0.10; high-confidence regulatory inference: 0.01 | Balance between discovering novel regulators in underexplored plant systems (relax) and minimizing false positives for well-characterized pathways (tighten) |
+| --min_score | 0.5 | Divergent species (gymnosperms, ferns): reduce to 0.3; conserved angiosperm crops: keep 0.5 | Motif match stringency; lower scores capture more divergent binding sites in evolutionarily distant plant lineages |
+
 ## 推荐工具
 
 ### 1. TOBIAS (Transcription factor Occupancy prediction By Investigation of ATAC-seq Signal) -- 金标准
@@ -131,3 +141,12 @@ rgt-hint footprinting \
 ### 差异 Footprint
 - **differential_score > 0**: 处理组中 TF 结合增强
 - **differential_score < 0**: 处理组中 TF 结合减弱
+
+## Common Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| TOBIAS ATACorrect "signal too weak" or all-zero tracks | Low sequencing coverage or poor Tn5 efficiency | Increase sequencing depth to >50M uniquely mapped reads per sample; verify nuclei isolation quality with positive control tissue |
+| Footprint scores near zero for all TFs | Wrong motif database or species mismatch | Use JASPAR Plants non-redundant collection specifically; verify motif format is MEME; confirm genome FASTA matches species |
+| No significant differential TFs in BINDetect | Insufficient biological difference between conditions or overly strict threshold | Verify experimental design has true biological contrast; consider lowering pvalue to 0.10 for hypothesis generation |
+| TOBIAS ScoreMotifs fails with "motif too long" warning | Plant TF motifs often longer than animal motifs (MADS-box proteins have 10+ bp core motifs) | Pre-process motif file to trim flanking low-information-content bases; set appropriate motif width cutoff |

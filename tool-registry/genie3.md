@@ -5,6 +5,15 @@ random forest regression trees to predict each gene's expression from TF express
 
 **Best for:** >= 15 samples, TF annotation available, directed edge inference.
 
+## Key Parameter Decisions
+
+| Parameter | Standard value | When to change | Why |
+|-----------|:---:|------|------|
+| nTrees / n_estimators | 1000 | Quick exploration: 500; publication final: 2000; >20,000 genes: use GRNBoost2 | Each tree captures a random subset of relationships; more trees stabilize edge weights at the cost of linear runtime increase |
+| K (candidate regulators) | sqrt(n_genes) | TF-poor species (<100 known TFs): use "all"; TF-rich species (>3000 TFs): use sqrt(n_TFs) | K controls the random subset of regulators tested at each tree node; "all" TFs ensures complete search for poorly annotated plants |
+| threshold (edge filtering) | 0.001 | Dense network (>100K edges): raise to 0.005; sparse network (<5K edges): lower to 0.0005 | Post-hoc threshold controls final network density; use network connectedness metrics to calibrate |
+| TF list source | PlantTFDB / PlantRegMap | Non-model species: use OrthoFinder with Arabidopsis TFs; specific family analysis: custom list from InterPro/Pfam | TF annotation quality directly determines network completeness; many plant species lack curated TF lists |
+
 ## Prerequisites
 
 - R 4.0+ or Python 3.8+
