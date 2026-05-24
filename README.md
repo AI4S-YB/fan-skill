@@ -9,10 +9,19 @@ AI-powered plant bioinformatics and breeding analysis engine. From biological qu
 ```bash
 git clone git@github.com:AI4S-YB/fan-skill.git
 cd fan-skill
-bash install.sh
+
+# Install for your AI coding agent:
+bash install-claude.sh     # Claude Code
+bash install-codex.sh      # Codex CLI
+bash install-gemini.sh     # Gemini CLI
+bash install-opencode.sh   # OpenCode
+bash install-all.sh        # Auto-detect and install for all
+
+# Or use the universal installer:
+# npx skills add AI4S-YB/fan-skill
 ```
 
-Open Claude Code and describe your biological question:
+Then describe your biological question:
 
 > "I have 300 rice accessions with GBS data and 3 years of yield. Find genes controlling grain weight."
 

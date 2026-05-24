@@ -5,7 +5,16 @@
 ```bash
 git clone git@github.com:AI4S-YB/fan-skill.git
 cd fan-skill
-bash install.sh
+
+# 选择你的 AI 编程 Agent 安装:
+bash install-claude.sh     # Claude Code
+bash install-codex.sh      # Codex CLI
+bash install-gemini.sh     # Gemini CLI
+bash install-opencode.sh   # OpenCode
+bash install-all.sh        # 自动检测并全部安装
+
+# 或使用通用安装器:
+# npx skills add AI4S-YB/fan-skill
 ```
 
 ## 第一次使用
