@@ -87,7 +87,38 @@ For each step in the selected chain:
 1. Load `knowledge-base/<entry>/rules.yaml` (C-layer: decision rules)
 2. Load `knowledge-base/<entry>/notebook.md` (B-layer: expert reasoning)
 3. Match data profile to methods using the C-layer rules
-4. Execute analysis, logging decisions via `engine/log_decision.sh`
+
+**Decision Logging (MANDATORY — do NOT skip):**
+
+After EVERY decision point in the C-layer rules, you MUST call `engine/log_decision.sh`.
+This is how fan-skill achieves auditability — the core value of the B+C architecture.
+
+```bash
+bash engine/log_decision.sh \
+  --step <decision_node_name> \
+  --mode <rule|expert|hybrid_fallback> \
+  --selected <method_or_tool> \
+  --reason "<why this choice>"
+```
+
+Example from a real analysis:
+```bash
+bash engine/log_decision.sh \
+  --step gwas_method_selection \
+  --mode hybrid_fallback \
+  --selected gapit-cmlm \
+  --reason "732 SNPs < 1000 threshold, BLINK/FarmCPU unsuitable for this density"
+```
+
+Also log:
+- **Experimental design gates** (C-layer pass/warn/block results)
+- **Parameter choices** (why alpha=0.05, why lfcThreshold=1)
+- **Data transformations** (filtering thresholds, normalization choices)
+- **Tool documentation level** (Full Cookbook / Basic / Stub — so missing docs are tracked)
+
+The decision log is your audit trail. If someone asks "why did you choose DESeq2 over edgeR for this analysis?", the answer must be in the log.
+
+4. Execute analysis based on the selected methods
 
 **When a rule references a `tool_id`:**
 
