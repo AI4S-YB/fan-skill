@@ -16,6 +16,8 @@ bash install.sh
 
 fan-skill 会引导对话、匹配知识库、推荐分析路径、执行分析、生成报告。
 
+详见：**[Quick Start / 快速开始](docs/quick-start.md)** · **[Analysis Capabilities / 分析能力](docs/capability-catalog.md)** · **[Contributing / 贡献指南](docs/contributing.md)**
+
 ## 架构
 
 ```
