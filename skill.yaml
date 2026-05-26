@@ -1,0 +1,25 @@
+name: fan-skill
+version: 2.3.0
+display_name: "Fan-Skill: Plant Bioinformatics Engine"
+description: >
+  AI-powered plant bioinformatics and breeding analysis engine.
+  From biological question to publication-ready results —
+  consultation, analysis, interpretation, and visualization.
+  Knowledge-base driven with B+C dual-mode decision architecture.
+author: AI4S-YB
+license: MIT
+homepage: https://github.com/AI4S-YB/fan-skill
+runtime:
+  type: skill
+  min_fan_version: "0.1.0"
+provides:
+  - id: consult-analysis
+    description: Guide users from biological question to analysis plan through structured consultation
+  - id: design-experiment
+    description: Design bioinformatics experiments using 29 knowledge-base entries
+  - id: knowledge-matching
+    description: Match user goals to knowledge-base entries with deviation detection
+  - id: visualize-data
+    description: Generate publication-quality visualizations from analysis results
+requires: []
+layout: standard
