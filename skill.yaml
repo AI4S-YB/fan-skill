@@ -22,4 +22,6 @@ provides:
   - id: visualize-data
     description: Generate publication-quality visualizations from analysis results
 requires: []
+keywords: [bioinformatics, plant, breeding, genomics, transcriptomics, phylogeny, gwas, genomic-selection]
+category: core
 layout: standard
