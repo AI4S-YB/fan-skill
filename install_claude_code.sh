@@ -54,13 +54,11 @@ check_site() {
     esac
 }
 
-if check_site "GitHub"  "https://github.com" && \
-   check_site "YouTube" "https://www.youtube.com" && \
-   check_site "Google"  "https://www.google.com"; then
+if check_site "GitHub"  "https://github.com"; then
     USE_FOREIGN=true
-    info "国外站点全部可达，将使用国外源安装"
+    info "GitHub 可达，将使用国外源安装"
 else
-    info "国外站点不可达，将使用国内镜像源安装"
+    info "GitHub 不可达，将使用国内镜像源安装"
 fi
 
 # ── Install target selection ────────────────────────────────────────
