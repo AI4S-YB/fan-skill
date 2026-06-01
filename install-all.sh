@@ -28,6 +28,13 @@ if [ -d "$HOME/.gemini" ] || command -v gemini &>/dev/null 2>&1; then
     INSTALLED=$((INSTALLED + 1))
 fi
 
+# OpenCode (project-level, check for .opencode directory or opencode command)
+if [ -d "$SCRIPT_DIR/.opencode" ] || command -v opencode &>/dev/null 2>&1; then
+    echo "  Detected: OpenCode"
+    bash "$SCRIPT_DIR/install-opencode.sh"
+    INSTALLED=$((INSTALLED + 1))
+fi
+
 if [ $INSTALLED -eq 0 ]; then
     echo "No supported agents detected. Install manually:"
     echo "  bash install-claude.sh    # Claude Code"
