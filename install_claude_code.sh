@@ -13,7 +13,7 @@ err()   { echo -e "${RED}[ERR]${NC}   $*"; }
 header(){ echo -e "\n${CYAN}=== $* ===${NC}"; }
 
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-NVM_VERSION="v0.40.3"
+NVM_VERSION="v0.40.3"  # Can be updated to latest: https://github.com/nvm-sh/nvm/releases
 NVM_GITEE="https://gitee.com/mirrors/nvm.git"
 NODE_MIRROR="https://npmmirror.com/mirrors/node"
 NPM_REGISTRY="https://registry.npmmirror.com"
@@ -124,8 +124,12 @@ else
         fi
     else
         info "从 Gitee 镜像克隆 nvm..."
-        git clone --depth 1 -b "$NVM_VERSION" "$NVM_GITEE" "$NVM_DIR" 2>/dev/null
-        info "nvm 克隆完成: $NVM_DIR"
+        if git clone --depth 1 -b "$NVM_VERSION" "$NVM_GITEE" "$NVM_DIR" 2>/dev/null; then
+            info "nvm 克隆完成: $NVM_DIR"
+        else
+            err "nvm 克隆失败，请检查网络或手动安装 nvm"
+            exit 1
+        fi
     fi
 fi
 
