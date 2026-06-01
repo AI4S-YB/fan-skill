@@ -9,15 +9,28 @@ INSTALL_DIR="$SKILLS_DIR/fan-skill"
 echo "=== Fan-Skill Install (Codex CLI) ==="
 echo "Install target: $INSTALL_DIR"
 
-rm -rf "$INSTALL_DIR"
+# Create parent directory first
+mkdir -p "$SKILLS_DIR"
+
+# Backup existing installation if user has modifications
+if [ -d "$INSTALL_DIR" ]; then
+    echo "  Existing installation found, removing..."
+    rm -rf "$INSTALL_DIR"
+fi
 mkdir -p "$INSTALL_DIR"
 
-for component in SKILL.md engine knowledge-base tool-registry references templates theme; do
+# Copy all required components (including skill.yaml and docs)
+for component in SKILL.md skill.yaml engine knowledge-base tool-registry references templates theme docs; do
     if [ -e "$SCRIPT_DIR/$component" ]; then
         echo "  Installing: $component"
         cp -rp "$SCRIPT_DIR/$component" "$INSTALL_DIR/$component"
     fi
 done
+
+# Verify installation
+if [ ! -f "$INSTALL_DIR/skill.yaml" ]; then
+    echo "Warning: skill.yaml not found, installation may be incomplete"
+fi
 
 echo "=== Installation complete ==="
 echo "fan-skill installed to: $INSTALL_DIR"
