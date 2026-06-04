@@ -104,6 +104,38 @@ For each step in the selected chain:
 2. Load `knowledge-base/<entry>/notebook.md` (B-layer: expert reasoning)
 3. Match data profile to methods using the C-layer rules
 
+**Decision Node Coverage Check (MANDATORY — do NOT skip ANY node):**
+
+R3 evaluation revealed the #1 cause of C1 (流程完整性) and C2 (工具准确性) failures:
+the Agent read rules.yaml but selectively output only a subset of decision nodes.
+A missed decision node = a lost analysis module = a C1/C2 failure point.
+
+BEFORE writing the analysis plan, scan EVERY decision section in the matched
+`rules.yaml`. Each section (e.g., `de_method`, `qc_strategy`, `enrichment_database`,
+`rna_editing`, `selection_pressure`) represents a mandatory analysis module.
+
+For EVERY decision node in rules.yaml (excluding `fallback` and `design_gates`):
+
+| Outcome | Action |
+|---------|--------|
+| **Rule matched** (condition satisfied) | MUST include this module in the analysis plan with the recommended tool + params |
+| **No rule matched** (no condition satisfied) | MUST explicitly state: "⚠️ 规则未命中 [node_name]: [why data didn't match any condition]. 切换到 B 层推理。" — then include the module anyway using B-layer notebook reasoning |
+| **Module missing from output** | This is a **bug**. Fix it before delivering. |
+
+Output a coverage self-check before delivering the plan:
+
+```
+rules.yaml 决策节点覆盖: [matched_count]/[total_count]
+  已覆盖: node_1 (rule_id=xxx), node_2 (rule_id=xxx), ...
+  未命中/手动覆盖: node_x (原因), ...
+  遗漏: NONE (verified)
+```
+
+This closes the gap between "the KB has the answer" and "the Agent actually outputs it."
+The R3 data is clear: organelle-genome has `rna_editing` and `selection_pressure` rules,
+comparative-genomics has `divergence_time`, `pairwise_kaks`, and `ltr_analysis` rules —
+all were in the KB but Agent skipped them in output. This check prevents that.
+
 **Decision Logging (MANDATORY — do NOT skip):**
 
 After EVERY decision point in the C-layer rules, you MUST call `engine/log_decision.sh`.
@@ -276,6 +308,7 @@ Analysis report + decision log + figures.
 3. **One question at a time.** Progressive elicitation.
 4. **Honesty over precision.** What the data CAN and CANNOT say.
 5. **User control.** `decision_mode: rule | expert | hybrid` at every level.
+6. **No silent rule skipping.** Every decision node in rules.yaml must be addressed — matched, explicitly skipped with reason, or delegated to B-layer. A silent omission is a bug.
 
 ## Files at Your Disposal
 
@@ -312,6 +345,11 @@ Analysis report + decision log + figures.
 7. 扩展/高级分析模块（根据项目类型: RNA编辑、Ka/Ks、LTR、WGCNA、motif分析、ncRNA注释、降维分析、批次校正等）
 
 每个模块类型至少包含一个具体的分析步骤（工具+参数）。缺失≥2个核心模块 → C1=0分。
+
+**自检清单必须与 Phase 4 的 Decision Node Coverage Check 结果交叉验证**：
+- Phase 4 覆盖检查给出的 `[matched_count]/[total_count]` 确保 rules.yaml 的每个决策节点都已被处理
+- 7 类模块自检确保这些节点在输出结构中没有遗漏
+- 两项检查都通过 → 方可交付方案。
 
 **方案最低行数要求**
 
