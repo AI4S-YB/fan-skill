@@ -217,6 +217,58 @@ For long-running analyses: use `engine/run_pipeline.sh` (checkpoint + nohup).
 
 Analysis report + decision log + figures.
 
+**标准化输出模板**
+
+每个分析方案统一包含以下 7 个 section：
+
+```
+## 1. 数据画像（强制标注数据状态）
+- 物种信息
+- 数据量统计
+- 文件格式
+- 关键数据特征（如测序深度、重复数、覆盖度等）
+- **【强制】数据状态标签: "\*\*数据状态\*\*: FULL/PARTIAL/EMPTY --- [说明]"**
+
+## 2. 知识库匹配
+- 匹配条目："[entry_name]" 或 "⚠️ 无直接匹配，基于通用推理"
+- 如果无匹配，需明确说明，便于后续针对性补全知识库
+
+## 3. 设计门禁检查
+- 逐项列出 pass/warn/block
+- 每项需说明检查内容和结果
+- block 项需提供解决方案
+
+## 4. 方法推荐
+- 推荐的分析方法和工具
+- 标注规则 ID 来源（如 "rule_id: de-standard-deseq2-001"）
+- 参数设置及其依据
+
+## 5. 标准流程
+- 分阶段展示完整分析流程
+- 每个阶段标注工具 + 关键参数
+- 包含命令行示例
+
+## 6. 风险提示
+- 来自 B 层 notebook 的风险提示
+- 实验设计限制
+- 数据质量风险
+- 结果解读注意事项
+
+## 7. 能回答什么 / 不能回答什么
+- 明确说明分析的边界
+- 需要额外实验验证的内容
+- 后续分析建议
+```
+
+**知识库匹配标注规范**
+
+第 2 节的"无匹配"标注是关键：让用户和评测者明确知道哪些方案是有知识库背书的、哪些是 Agent 通用推理。这是后续针对性补全知识库的入口。
+
+标注格式：
+- 有匹配：`匹配条目: "gene-family"`
+- 无匹配：`⚠️ 无直接匹配，基于通用推理。建议新建 [xxx] 知识条目。`
+- 部分匹配：`匹配条目: "rnaseq" (部分匹配，denovo场景需补充)`
+
 ## Key Principles
 
 1. **Knowledge-base first.** Always search `knowledge-base/` before generating ad-hoc code.
@@ -238,3 +290,29 @@ Analysis report + decision log + figures.
 | Validation | `engine/validate_entry.sh` | Entry quality check |
 | Dependencies | `engine/install_deps.sh` | Auto-install missing software |
 | References | `references/` | Species cheatsheet, DB guide, QC thresholds, pitfalls |
+
+**C4数据状态标签强制规范**
+
+第 1 节"数据画像"中必须使用标准标签标注数据状态。三个标准标签：
+- `**数据状态**: FULL — [说明哪些数据完整可用]`
+- `**数据状态**: PARTIAL — [说明哪些数据缺失]`
+- `**数据状态**: EMPTY — [说明数据为何不可用，如非植物数据已移除]`
+
+违例判定: 仅列出文件名/大小但无显式 FULL/PARTIAL/EMPTY 状态标签 → C4=0分。
+
+**模块完整性自检清单**
+
+方案生成后必须逐项检查以下7类分析模块是否全部覆盖：
+1. 数据预处理/质控模块
+2. 核心分析方法模块（组装/比对/定量/变异检测等）
+3. 统计检验与显著性评估模块
+4. 功能注释/富集分析模块
+5. 结果可视化模块
+6. 质量控制与评估模块
+7. 扩展/高级分析模块（根据项目类型: RNA编辑、Ka/Ks、LTR、WGCNA、motif分析、ncRNA注释、降维分析、批次校正等）
+
+每个模块类型至少包含一个具体的分析步骤（工具+参数）。缺失≥2个核心模块 → C1=0分。
+
+**方案最低行数要求**
+
+每个方案至少300行（非植物/EMPTY项目至少150行），确保足够的分析深度。过短方案（<150行）将导致多维度失分。

@@ -1,0 +1,484 @@
+name: single-cell
+description: "Plant single-cell RNA-seq analysis. Covers quality control, normalization, dimension reduction, clustering, cell type annotation, and trajectory analysis. Full pipeline from raw data to cell type identification."
+triggers:
+  - "single cell"
+  - "scRNA-seq"
+  - "single-cell"
+  - "单细胞"
+  - "10x genomics"
+  - "seurat"
+  - "scanpy"
+  - "cell type"
+  - "trajectory"
+  - "pseudotime"
+
+inputs:
+  - raw_fastq
+  - count_matrix
+  - sample_metadata
+  - reference_genome
+
+outputs:
+  - filtered_cells
+  - umap_coordinates
+  - clusters
+  - cell_annotations
+  - markers
+  - trajectory_results
+  - analysis_report
+
+version: "1.0"
+analysis: single_cell_rnaseq
+
+inputs_required:
+  - count_matrix
+  - sample_metadata
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "sc-raw-data"
+    rule: "必须有原始数据或count矩阵"
+    check: "has_count_matrix == true or has_raw_fastq == true"
+    severity: "block"
+    on_fail: "没有单细胞数据 → 无法进行分析。需要提供FASTQ文件或count矩阵（barcodes × genes）。"
+  - id: "sc-cell-number"
+    rule: "细胞数量足够（建议≥1000）"
+    check: "cell_count >= 1000"
+    severity: "warn"
+    on_fail: "细胞数量不足 → 聚类和注释结果可能不可靠。建议每个样本至少1000个高质量细胞。"
+  - id: "sc-gene-annotation"
+    rule: "有参考基因组和注释"
+    check: "has_gene_annotation == true"
+    severity: "block"
+    on_fail: "没有基因注释 → 无法进行count矩阵构建和下游分析。"
+  - id: "sc-sample-info"
+    rule: "有样本信息（条件/重复）"
+    check: "has_sample_metadata == true"
+    severity: "warn"
+    on_fail: "无样本信息 → 差异分析和批次校正可能受限。"
+  - id: "sc-marker-genes"
+    rule: "有细胞类型marker基因参考"
+    check: "has_marker_genes == true"
+    severity: "warn"
+    on_fail: "无marker基因参考 → 细胞类型注释可能不准确。建议准备相关组织/细胞的已知marker列表。"
+
+# ============================================================
+# 决策节点 1: 数据处理流程
+# ============================================================
+data_processing:
+  - rule_id: "proc-cellranger-001"
+    priority: 10
+    condition:
+      platform: "10x_genomics"
+      has_raw_fastq: true
+    recommend: "cellranger_count"
+    reason: "10x原始数据 → Cell Ranger标准流程。10x Genomics官方流程，从FASTQ到count矩阵一步完成。"
+    tool_id: "cellranger"
+    params:
+      expect_cells: 3000
+
+  - rule_id: "proc-star-solo-002"
+    priority: 9
+    condition:
+      platform: "smart_seq2"
+      has_raw_fastq: true
+    recommend: "star_solo"
+    reason: "Smart-seq2数据 → STARsolo。适合全长转录本的单细胞定量。"
+    tool_id: "star"
+    params:
+      solo_type: "CB_UMI_Simple"
+      solo_cb_len: 16
+      solo_umi_len: 10
+      out_filter_multimap_nmax: 20
+
+  - rule_id: "proc-matrix-ready-003"
+    priority: 8
+    condition:
+      has_count_matrix: true
+    recommend: "skip_to_analysis"
+    reason: "已有count矩阵 → 直接进入下游分析。"
+    params:
+      skip_alignment: true
+      verify_format: true
+
+# ============================================================
+# 决策节点 2: 质量控制
+# ============================================================
+quality_control:
+  - rule_id: "qc-standard-001"
+    priority: 10
+    condition:
+      tissue_type: "animal"
+    recommend: "standard_qc"
+    reason: "标准质控 → 基于nCount_RNA, nFeature_RNA, percent.mt过滤。"
+    params:
+      min_features: 200
+      max_features: 5000
+      max_mt_percent: 10
+
+  - rule_id: "qc-plant-002"
+    priority: 10
+    condition:
+      tissue_type: "plant"
+    recommend: "plant_qc"
+    reason: "植物细胞质控 → 使用叶绿体基因比例替代线粒体，考虑细胞壁消化影响。"
+    params:
+      min_features: 100
+      max_features: 8000
+      max_chloroplast_percent: 5
+      max_mt_percent: 10
+
+  - rule_id: "qc-stringent-003"
+    priority: 8
+    condition:
+      quality_concern: "high"
+    recommend: "stringent_qc"
+    reason: "需要严格质控 → 更严格的过滤标准。"
+    params:
+      min_features: 500
+      max_features: 5000
+      max_mt_percent: 5
+
+# ============================================================
+# 决策节点 3: 标准化方法
+# ============================================================
+normalization:
+  - rule_id: "norm-log-001"
+    priority: 10
+    condition:
+      method_preference: "standard"
+    recommend: "log_normalization"
+    reason: "标准方法 → LogNormalize。Seurat默认方法，简单可靠。"
+    params:
+      scale_factor: 10000
+
+  - rule_id: "norm-sctransform-002"
+    priority: 9
+    condition:
+      batch_effect: "moderate"
+      method_preference: "advanced"
+    recommend: "sctransform"
+    reason: "批次效应 → SCTransform。基于正则化负二项回归，同时进行标准化和批次校正。"
+    tool_id: "sctransform"
+    params:
+      vst_method: "vst"
+      ncells: 5000
+      residual_features: 3000
+      batch_correct: true
+
+  - rule_id: "norm-scran-003"
+    priority: 8
+    condition:
+      platform: "smart_seq2"
+    recommend: "scran_pooling"
+    reason: "Smart-seq2数据 → scran pooling标准化。适合全长转录本数据。"
+    params:
+      pooling_method: "compute_sum_factors"
+      min_mean: 0.1
+      clusters: "quick_cluster"
+
+# ============================================================
+# 决策节点 4: 降维
+# ============================================================
+dimension_reduction:
+  - rule_id: "dr-pca-standard-001"
+    priority: 10
+    condition:
+      cell_count: "< 50000"
+    recommend: "pca_standard"
+    reason: "标准降维 → PCA。使用高变基因进行PCA降维。"
+    params:
+      npcs: 50
+      features: 2000
+
+  - rule_id: "dr-pca-large-002"
+    priority: 9
+    condition:
+      cell_count: ">= 50000"
+    recommend: "pca_irlba"
+    reason: "大数据集 → IRLBA近似PCA。内存效率更高。"
+    params:
+      npcs: 50
+      features: 2000
+      method: "irlba"
+      approx: true
+
+  - rule_id: "dr-umap-003"
+    priority: 10
+    condition:
+      visualization_needed: true
+    recommend: "umap"
+    reason: "可视化 → UMAP。2D/3D可视化最佳选择。"
+    params:
+      n_neighbors: 30
+      min_dist: 0.3
+
+  - rule_id: "dr-tsne-004"
+    priority: 8
+    condition:
+      visualization_preference: "tsne"
+    recommend: "tsne"
+    reason: "偏好t-SNE → t-SNE可视化。注意t-SNE不保留全局结构。"
+    params:
+      perplexity: 30
+
+# ============================================================
+# 决策节点 5: 聚类
+# ============================================================
+clustering:
+  - rule_id: "clust-louvain-001"
+    priority: 10
+    condition:
+      cell_count: "< 100000"
+    recommend: "louvain"
+    reason: "标准聚类 → Louvain算法。Seurat默认，速度快。"
+    params:
+      resolution: 0.8
+
+  - rule_id: "clust-leiden-002"
+    priority: 9
+    condition:
+      cell_count: ">= 100000"
+      quality_concern: "high"
+    recommend: "leiden"
+    reason: "大数据高质量 → Leiden算法。比Louvain更稳定，社区连接更好。"
+    params:
+      resolution: 1.0
+
+  - rule_id: "clust-multi-res-003"
+    priority: 8
+    condition:
+      hierarchical_needed: true
+    recommend: "multi_resolution"
+    reason: "需要层次聚类 → 多分辨率聚类。识别不同层次的细胞亚群。"
+    params:
+      resolutions: [0.4, 0.6, 0.8, 1.0, 1.2]
+      algorithm: "louvain"
+
+# ============================================================
+# 决策节点 6: 细胞类型注释
+# ============================================================
+cell_annotation:
+  - rule_id: "annot-marker-001"
+    priority: 10
+    tool_id: "seurat"
+    condition:
+      has_marker_genes: true
+    recommend: "marker_based_annotation"
+    reason: "有marker基因 → 基于marker基因的注释。使用已知marker基因表达模式进行注释。"
+    params:
+      method: "marker_expression"
+      min_pct: 0.25
+      logfc_threshold: 0.25
+      annotation_confidence: "high"
+
+  - rule_id: "annot-reference-002"
+    priority: 9
+    condition:
+      has_reference_dataset: true
+    recommend: "reference_transfer"
+    reason: "有参考数据集 → 标签转移。使用已注释的参考数据集进行自动注释。"
+    tool_id: "seurat_transfer"
+    params:
+      transfer_anchors: true
+      npcs: 30
+      k_anchor: 5
+      max_features: 200
+      prediction_score_threshold: 0.5
+
+  - rule_id: "annot-automated-003"
+    priority: 8
+    condition:
+      has_marker_genes: false
+      has_reference_dataset: false
+    recommend: "automated_annotation"
+    reason: "无参考信息 → 自动注释工具。使用SingleR或scCATCH等工具。"
+    tool_id: "singler"
+    params:
+      method: "singleR"
+      ref_database: "hpca"
+      fine_tune: true
+      labels: "main"
+
+  - rule_id: "annot-plant-004"
+    priority: 9
+    tool_id: "plant-cell-marker"
+    condition:
+      species_type: "plant"
+    recommend: "plant_specific_annotation"
+    reason: "植物细胞 → 使用植物特异性marker。参考Plant Cell Marker数据库。"
+    params:
+      database: "plant_cell_marker"
+      species: "auto_detect"
+      tissue_type: "auto_detect"
+      min_marker_score: 0.5
+
+# ============================================================
+# 决策节点 7: 差异表达分析
+# ============================================================
+differential_expression:
+  - rule_id: "de-wilcox-001"
+    priority: 10
+    condition:
+      sample_count: "< 2"
+    recommend: "wilcox_test"
+    reason: "单样本 → Wilcoxon秩和检验。FindMarkers默认方法。"
+    params:
+      test_use: "wilcox"
+      logfc_threshold: 0.25
+      min_pct: 0.1
+      min_diff_pct: 0.05
+
+  - rule_id: "de-pseudobulk-002"
+    priority: 10
+    condition:
+      sample_count: ">= 2"
+      biological_replicates: ">= 2"
+    recommend: "pseudobulk"
+    reason: "多样本有重复 → Pseudobulk分析。将单细胞数据聚合为伪批量，使用DESeq2/edgeR分析。"
+    tool_id: "deseq2"
+    params:
+      aggregation: "sum"
+      de_method: "deseq2"
+      lfc_threshold: 1
+      alpha: 0.05
+      independent_filtering: true
+
+  - rule_id: "de-mast-003"
+    priority: 8
+    condition:
+      sample_count: ">= 2"
+      biological_replicates: "< 2"
+    recommend: "mast"
+    reason: "多样本无重复 → MAST模型。考虑细胞水平协变量。"
+    params:
+      test_use: "mast"
+      latent_vars: ["nCount_RNA", "percent.mt"]
+      logfc_threshold: 0.25
+      min_cells: 3
+
+# ============================================================
+# 决策节点 8: 轨迹分析
+# ============================================================
+trajectory_analysis:
+  - rule_id: "traj-monocle-001"
+    priority: 10
+    condition:
+      trajectory_type: "continuous"
+      method_preference: "standard"
+    recommend: "monocle3"
+    reason: "连续轨迹 → Monocle3。经典的拟时序分析工具，支持复杂轨迹。"
+    tool_id: "monocle3"
+    params:
+      reduction_method: "UMAP"
+      partition_q_value: 0.05
+      learn_graph_control:
+        prune_graph: true
+      pseudotime_root_selection: "auto"
+
+  - rule_id: "traj-slignshot-002"
+    priority: 9
+    condition:
+      trajectory_type: "continuous"
+      has_umap: true
+    recommend: "slingshot"
+    reason: "基于UMAP → Slingshot。直接在降维空间构建轨迹。"
+    params:
+      reduction: "UMAP"
+      start_cluster: "auto"
+      approx_points: 150
+      shrink: 1
+      reweight: true
+
+  - rule_id: "traj-paga-003"
+    priority: 8
+    condition:
+      trajectory_type: "discrete"
+    recommend: "paga"
+    reason: "离散轨迹 → PAGA。基于图的轨迹推断。"
+    tool_id: "scanpy"
+    params:
+      n_neighbors: 30
+      n_pcs: 50
+      groups: "louvain"
+      threshold: 0.1
+
+  - rule_id: "traj-rna-velocity-004"
+    priority: 9
+    condition:
+      has_spliced_unspliced: true
+    recommend: "rna_velocity"
+    reason: "有剪接/未剪接信息 → RNA velocity。预测细胞未来状态。"
+    tool_id: "velocyto"
+    params:
+      mode: "stochastic"
+      n_neighbors: 30
+      min_r2: 0.1
+      filter_genes: true
+
+# ============================================================
+# 决策节点 9: 整合与批次校正
+# ============================================================
+integration:
+  - rule_id: "int-harmony-001"
+    priority: 10
+    condition:
+      batch_count: ">= 2"
+      cell_count: "< 100000"
+    recommend: "harmony"
+    reason: "多样本整合 → Harmony。快速有效的批次校正。"
+    tool_id: "harmony"
+    params:
+      theta: 2
+      lambda: 1
+      sigma: 0.1
+      nclust: 50
+      max_iter: 20
+
+  - rule_id: "int-seurat-002"
+    priority: 9
+    condition:
+      batch_count: ">= 2"
+      method_preference: "seurat"
+    recommend: "seurat_integration"
+    reason: "偏好Seurat → Seurat整合流程。基于CCA的整合方法。"
+    params:
+      anchor_features: 2000
+      npcs: 30
+      k_anchor: 5
+      normalization_method: "LogNormalize"
+
+  - rule_id: "int-scanorama-003"
+    priority: 8
+    condition:
+      cell_count: ">= 100000"
+    recommend: "scanorama"
+    reason: "大数据集 → Scanorama。内存效率高。"
+    params:
+      n_pcs: 50
+      batch_size: 5000
+      knn: 20
+      sigma: 1
+
+  - rule_id: "int-bbknn-004"
+    priority: 7
+    condition:
+      platform: "scanpy"
+    recommend: "bbknn"
+    reason: "使用Scanpy → BBKNN。Scanpy生态的批次校正。"
+    params:
+      n_pcs: 50
+      n_neighbors_within: 15
+      n_neighbors_between: 15
+      batch_key: "batch"
+
+fallback:
+  - rule_id: "sc-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      reason: "No matching single-cell analysis rule found"
+      suggestion: "Consult bioinformatics specialist for custom pipeline design"

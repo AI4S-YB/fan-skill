@@ -1,0 +1,414 @@
+name: organelle-genome
+description: "Plant chloroplast and mitochondrial genome analysis. Covers organelle genome assembly, annotation, structure analysis, comparative genomics, and phylogenetic analysis."
+triggers:
+  - "chloroplast"
+  - "叶绿体"
+  - "mitochondria"
+  - "线粒体"
+  - "organelle"
+  - "细胞器"
+  - "plastid"
+  - "chloroplast genome"
+  - "mitochondrial genome"
+
+inputs:
+  - sequencing_reads
+  - reference_genome
+  - sample_metadata
+
+outputs:
+  - organelle_assembly
+  - gene_annotation
+  - genome_structure
+  - comparative_analysis
+  - phylogenetic_tree
+  - analysis_report
+
+version: "1.0"
+analysis: organelle_genome
+
+inputs_required:
+  - sequencing_reads
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "og-data-type"
+    rule: "必须有测序数据或已有组装"
+    check: "has_reads == true or has_assembly == true"
+    severity: "block"
+    on_fail: "没有数据 → 无法进行细胞器基因组分析。需要测序数据或已有的基因组组装。"
+  - id: "og-organelle-type"
+    rule: "明确分析叶绿体还是线粒体"
+    check: "organelle_type in ['chloroplast', 'mitochondria', 'both']"
+    severity: "warn"
+    on_fail: "未指定细胞器类型 → 将同时分析叶绿体和线粒体基因组。"
+  - id: "og-reference"
+    rule: "有近缘参考基因组"
+    check: "has_reference == true"
+    severity: "warn"
+    on_fail: "无参考基因组 → 组装和注释可能不够准确。建议提供近缘物种参考。"
+
+# ============================================================
+# 决策节点 1: 细胞器基因组组装
+# ============================================================
+assembly:
+  - rule_id: "asm-getorganelle-001"
+    priority: 10
+    condition:
+      has_reads: true
+      organelle_type: "both"
+    recommend: "getorganelle"
+    reason: "通用组装 → GetOrganelle。可同时组装叶绿体和线粒体基因组，支持多种数据类型。"
+    tool_id: "getorganelle"
+    params:
+      seed_input: "reference.fasta"
+
+  - rule_id: "asm-novoplasty-002"
+    priority: 10
+    condition:
+      has_reads: true
+      organelle_type: "chloroplast"
+    recommend: "novoplasty"
+    reason: "叶绿体专用 → NOVOPlasty。专门用于叶绿体基因组组装，准确性高。"
+    tool_id: "novoplasty"
+    params:
+      genome_type: "chloro"
+      seed_input: "{reference_seed.fasta}"
+      kmer: "39"
+      insert_size: 300
+      insert_size_auto: true
+
+  - rule_id: "asm-mitofinder-003"
+    priority: 10
+    condition:
+      has_reads: true
+      organelle_type: "mitochondria"
+    recommend: "mitofinder"
+    reason: "线粒体专用 → MitoFinder。专门用于线粒体基因组组装和注释。"
+    tool_id: "mitofinder"
+    params:
+      reference_mito: "{reference_mito.fasta}"
+      kmer_size: 21
+      min_coverage: 3
+      threads: 16
+
+  - rule_id: "asm-reference-guided-004"
+    priority: 8
+    condition:
+      has_reference: true
+      has_reads: true
+    recommend: "reference_guided_assembly"
+    reason: "参考引导 → 使用参考基因组引导组装。适合高度保守的细胞器基因组。"
+    tool_id: "getorganelle"
+    params:
+      seed_input: "{reference.fasta}"
+      max_extension_iterations: 20
+      bowtie2_options: "--very-sensitive-local"
+
+# ============================================================
+# 决策节点 2: 从核基因组数据提取
+# ============================================================
+extraction:
+  - rule_id: "ext-from-wgs-001"
+    priority: 10
+    condition:
+      data_type: "wgs"
+    recommend: "extract_from_wgs"
+    reason: "全基因组数据 → 从全基因组测序数据中提取细胞器reads。"
+    tool_id: "getorganelle"
+    params:
+      seed_input: "{reference.fasta}"
+      max_extension_iterations: 15
+      fastg_min_kmer: 21
+      fastg_max_kmer: 91
+      threads: 16
+
+  - rule_id: "ext-from-targeted-002"
+    priority: 9
+    condition:
+      data_type: "targeted"
+    recommend: "direct_assembly"
+    reason: "目标富集数据 → 直接组装，无需提取步骤。"
+    tool_id: "getorganelle"
+    params:
+      skip_extraction: true
+      direct_assembly: true
+      threads: 16
+
+# ============================================================
+# 决策节点 3: 基因注释
+# ============================================================
+annotation:
+  - rule_id: "ann-geseq-001"
+    priority: 10
+    condition:
+      organelle_type: "chloroplast"
+    recommend: "geseq"
+    reason: "叶绿体注释 → GeSeq。在线叶绿体基因组注释工具，支持批量注释。"
+    tool_id: "geseq"
+    params:
+      sequence_type: "chloroplast"
+      reference_set: "all"
+      rna_editing: true
+      trna_scan: true
+
+  - rule_id: "ann-cpgav-002"
+    priority: 9
+    condition:
+      organelle_type: "chloroplast"
+      method_preference: "local"
+    recommend: "cpgav"
+    reason: "本地叶绿体注释 → CPGAVAS2。本地运行的叶绿体注释工具。"
+    tool_id: "cpgavas2"
+    params:
+      reference: "{reference_cp.fasta}"
+      gene_predictor: "augustus"
+      trna_annotator: "tRNAscan-SE"
+      threads: 8
+
+  - rule_id: "ann-mitos-003"
+    priority: 10
+    condition:
+      organelle_type: "mitochondria"
+    recommend: "mitos"
+    reason: "线粒体注释 → MITOS。线粒体基因组注释工具。"
+    tool_id: "mitos"
+    params:
+      code: "1"
+      reference: "refseq89m"
+      trna_model: "mite"
+      rrna_model: "mite"
+
+  - rule_id: "ann-mitofinder-004"
+    priority: 9
+    condition:
+      organelle_type: "mitochondria"
+      combined_analysis: true
+    recommend: "mitofinder_anno"
+    reason: "线粒体组装+注释 → MitoFinder同时完成组装和注释。"
+    tool_id: "mitofinder"
+    params:
+      annotation_mode: true
+      reference_mito: "{reference_mito.fasta}"
+      threads: 16
+
+# ============================================================
+# 决策节点 4: 结构分析
+# ============================================================
+structure_analysis:
+  - rule_id: "str-ir-boundary-001"
+    priority: 10
+    condition:
+      organelle_type: "chloroplast"
+    recommend: "ir_boundary_analysis"
+    reason: "IR边界分析 → 分析叶绿体基因组IR/LSC/SSC边界。"
+    tool_id: "irscope"
+    params:
+      boundary_analysis: true
+      gene_annotation: true
+      export_format: "svg"
+
+  - rule_id: "str-repeat-002"
+    priority: 9
+    condition:
+      repeat_analysis: true
+    recommend: "repeat_analysis"
+    reason: "重复序列分析 → 分析SSR和其他重复序列。"
+    tool_id: "misa"
+    params:
+      unit_min_repeats: "1-10 2-6 3-5 4-5 5-5 6-5"
+      interruptions: false
+      output_format: "standard"
+
+  - rule_id: "str-sybass-003"
+    priority: 8
+    condition:
+      organelle_type: "mitochondria"
+    recommend: "sybass"
+    reason: "线粒体结构 → SyBASS分析线粒体基因组结构变异。"
+    tool_id: "sybass"
+    params:
+      min_repeat_size: 50
+      structural_analysis: true
+      visualization: true
+
+# ============================================================
+# 决策节点 5: 比较分析
+# ============================================================
+comparative_analysis:
+  - rule_id: "comp-mauve-001"
+    priority: 10
+    condition:
+      species_count: ">= 2"
+    recommend: "mauve_alignment"
+    reason: "多序列比对 → Mauve进行细胞器基因组比对。"
+    tool_id: "mauve"
+    params:
+      progressive: true
+      output: "{output_prefix}"
+      collinear: true
+      weight: 1
+
+  - rule_id: "comp-mvista-002"
+    priority: 9
+    condition:
+      visualization_needed: true
+    recommend: "mvista"
+    reason: "可视化比对 → mVista进行基因组比对可视化。"
+    tool_id: "mvista"
+    params:
+      mode: "LAGAN"
+      annotation_file: "{annotation.txt}"
+      output_format: "pdf"
+
+  - rule_id: "comp-irscope-003"
+    priority: 9
+    condition:
+      organelle_type: "chloroplast"
+      ir_comparison: true
+    recommend: "irscope"
+    reason: "IR比较 → IRscope比较叶绿体IR边界。"
+    tool_id: "irscope"
+    params:
+      gene_annotation: true
+      boundary_labels: true
+      color_scheme: "default"
+
+# ============================================================
+# 决策节点 6: 系统发育分析
+# ============================================================
+phylogenetic_analysis:
+  - rule_id: "phy-concatenated-001"
+    priority: 10
+    condition:
+      gene_count: ">= 20"
+    recommend: "concatenated_phylogeny"
+    reason: "串联建树 → 使用共享基因串联建树。"
+    tool_id: "iqtree"
+    params:
+      m: "MFP"
+      bb: 1000
+      alrt: 1000
+      partition: "partitions.txt"
+      t: "AUTO"
+
+  - rule_id: "phy-complete-genome-002"
+    priority: 9
+    condition:
+      alignment_length: ">= 50000"
+    recommend: "whole_genome_phylogeny"
+    reason: "全基因组建树 → 使用全基因组比对建树。"
+    tool_id: "iqtree"
+    params:
+      m: "GTR+G"
+      bb: 1000
+      alrt: 1000
+      t: "AUTO"
+
+  - rule_id: "phy-ycon-003"
+    priority: 8
+    condition:
+      chloroplast_phylogeny: true
+    recommend: "ycodon"
+    reason: "叶绿体专用 → Ycodon进行叶绿体系统发育分析。"
+    tool_id: "ycodon"
+    params:
+      codon_model: "standard"
+      bootstrap: 1000
+      outgroup: "{outgroup_species}"
+
+# ============================================================
+# 决策节点 7: RNA编辑位点预测
+# ============================================================
+rna_editing:
+  - rule_id: "rnaedit-prep-cp-001"
+    priority: 9
+    condition: "analysis_type == 'chloroplast_genome'"
+    tool: "PREP-Cp (PREPACT)"
+    params:
+      cutoff_value: 0.5
+      reference_species: "nearest_available"
+    reason: "植物细胞器基因组存在C-to-U RNA编辑，影响蛋白编码基因注释准确性。PREP-Cp为叶绿体RNA编辑位点预测标准工具。"
+
+  - rule_id: "rnaedit-prep-mt-002"
+    priority: 9
+    condition: "analysis_type == 'mitochondrial_genome'"
+    tool: "PREP-Mt"
+    params:
+      cutoff_value: 0.5
+    reason: "线粒体基因组RNA编辑位点预测使用PREP-Mt。"
+
+# ============================================================
+# 决策节点 8: 选择压力分析
+# ============================================================
+selection_pressure:
+  - rule_id: "sel-kaks-calculator-001"
+    priority: 8
+    condition: "has_multiple_species == true"
+    tool: "KaKs_Calculator + ParaAT"
+    params:
+      method: "YN (Yang-Nielsen)"
+      alignment_tool: "MAFFT"
+    reason: "成对Ka/Ks计算用于评估叶绿体蛋白编码基因的选择压力。ParaAT自动化批量处理多物种成对比较。"
+
+  - rule_id: "sel-paml-codeml-002"
+    priority: 7
+    condition: "has_phylogenetic_tree == true"
+    tool: "PAML codeml"
+    params:
+      model: "0 (one-ratio)"
+      NSsites: "0"
+    reason: "PAML codeml最大似然法进行基因水平选择压力分析，适用于已有系统发育树的场景。"
+
+# ============================================================
+# 决策节点 9: 可视化
+# ============================================================
+visualization:
+  - rule_id: "viz-ogdraw-001"
+    priority: 10
+    condition:
+      circular_map: true
+    recommend: "ogdraw"
+    reason: "环形图 → OGDRAW绘制细胞器基因组环形图。"
+    tool_id: "ogdraw"
+    params:
+      genome_type: "{organelle_type}"
+      gene_labels: true
+      trna_labels: true
+      output_format: "svg"
+      resolution: 300
+
+  - rule_id: "viz-cpgav-002"
+    priority: 9
+    condition:
+      organelle_type: "chloroplast"
+    recommend: "cpgavas_viz"
+    reason: "叶绿体图 → CPGAVAS2内置可视化功能。"
+    tool_id: "cpgavas2"
+    params:
+      circular_map: true
+      gene_color: "functional"
+      show_intron: true
+
+  - rule_id: "viz-irscope-003"
+    priority: 8
+    condition:
+      ir_boundary_viz: true
+    recommend: "irscope_plot"
+    reason: "IR边界图 → IRscope绘制IR边界比较图。"
+    tool_id: "irscope"
+    params:
+      plot_type: "boundary"
+      gene_annotation: true
+      color_by_region: true
+
+fallback:
+  - rule_id: "og-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      reason: "No matching rule found"
+      suggestion: "Consult with organelle genome specialist for custom analysis"

@@ -1,0 +1,343 @@
+name: transposon
+description: "Plant transposable element (TE) analysis and annotation. Covers TE identification, classification, annotation, insertion time analysis, and TE evolutionary dynamics."
+triggers:
+  - "transposon"
+  - "转座子"
+  - "transposable element"
+  - "te annotation"
+  - "repeat annotation"
+  - "ltr"
+  - "edta"
+  - "deepte"
+  - "retrotransposon"
+
+inputs:
+  - genome_sequence
+  - repeat_library
+  - gene_annotation
+
+outputs:
+  - te_annotation
+  - te_classification
+  - te_statistics
+  - insertion_times
+  - te_distribution
+  - analysis_report
+
+version: "1.0"
+analysis: transposon_analysis
+
+inputs_required:
+  - genome_sequence
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "te-genome"
+    rule: "必须有基因组组装"
+    check: "has_genome == true"
+    severity: "block"
+    on_fail: "没有基因组组装 → 无法进行TE分析。需要基因组序列文件。"
+  - id: "te-genome-quality"
+    rule: "基因组组装质量足够"
+    check: "contig_n50 >= 10000"
+    severity: "warn"
+    on_fail: "组装质量较低 → 可能影响完整TE的识别，特别是长LTR。"
+  - id: "te-reference-library"
+    rule: "有TE参考库或同源物种TE库"
+    check: "has_te_library == true"
+    severity: "warn"
+    on_fail: "无参考TE库 → 将进行从头TE鉴定，结果可能包含更多假阳性。"
+  - id: "te-gene-annotation"
+    rule: "有基因注释用于TE-基因关联分析"
+    check: "has_gene_annotation == true"
+    severity: "warn"
+    on_fail: "无基因注释 → 无法进行TE与基因的关联分析。"
+
+# ============================================================
+# 决策节点 1: TE从头鉴定
+# ============================================================
+de_novo_identification:
+  - rule_id: "denovo-edta-001"
+    priority: 10
+    condition:
+      species_type: "plant"
+    recommend: "edta"
+    reason: "植物TE鉴定 → EDTA。专为植物设计，整合多个工具，高精度鉴定各类TE。"
+    tool_id: "edta"
+    params:
+      sensitive: "1"
+      overwrite: "1"
+
+  - rule_id: "denovo-repeatmodeler-002"
+    priority: 9
+    condition:
+      species_type: "animal"
+    recommend: "repeatmodeler"
+    reason: "动物TE鉴定 → RepeatModeler。通用TE鉴定工具。"
+    tool_id: "repeatmodeler"
+    params:
+      engine: "RMBlast"
+      threads: 8
+
+  - rule_id: "denovo-paste-003"
+    priority: 8
+    condition:
+      method_preference: "comprehensive"
+    recommend: "paste_mit"
+    reason: "综合分析 → PASTEC/MITE-Hunter组合。适合详细分类分析。"
+    params:
+      tools: ["PASTEC", "MITE-Hunter"]
+      combine_results: true
+
+# ============================================================
+# 决策节点 2: TE分类注释
+# ============================================================
+te_classification:
+  - rule_id: "class-deepte-001"
+    priority: 10
+    condition:
+      has_te_sequences: true
+      deep_learning: true
+    recommend: "deepte"
+    reason: "深度学习分类 → DeepTE。使用深度学习进行TE分类，准确率高。"
+    tool_id: "deepte"
+    params:
+      model: "pretrained"
+      batch_size: 32
+
+  - rule_id: "class-repeatclassifier-002"
+    priority: 9
+    condition:
+      has_te_sequences: true
+    recommend: "repeatclassifier"
+    reason: "标准分类 → RepeatClassifier。基于同源和结构特征分类。"
+    params:
+      method: "homology_structure"
+      min_identity: 0.8
+
+  - rule_id: "class-tedomain-003"
+    priority: 8
+    condition:
+      detailed_domain: true
+    recommend: "domain_based_classification"
+    reason: "结构域分析 → 基于蛋白质结构域的分类方法。"
+    params:
+      domain_databases: ["Pfam", "GyDB"]
+      hmmsearch_evalue: 1e-5
+
+# ============================================================
+# 决策节点 3: 基因组TE注释
+# ============================================================
+genome_annotation:
+  - rule_id: "annot-repeatmasker-001"
+    priority: 10
+    condition:
+      has_genome: true
+      has_te_library: true
+    recommend: "repeatmasker"
+    reason: "标准注释 → RepeatMasker。使用TE库注释基因组中的TE。"
+    tool_id: "repeatmasker"
+    params:
+      species: "all"
+      fragment: "10000"
+
+  - rule_id: "annot-edta-002"
+    priority: 10
+    condition:
+      species_type: "plant"
+      workflow: "edta"
+    recommend: "edta_annotation"
+    reason: "EDTA流程 → EDTA完整流程包含注释步骤。"
+    tool_id: "edta"
+    params:
+      annotate: true
+      include_rex: true
+
+  - rule_id: "annot-censor-003"
+    priority: 8
+    tool_id: "censor"
+    condition:
+      online_database: true
+    recommend: "censor"
+    reason: "在线数据库 → CENSOR。使用RepBase在线数据库注释。"
+    params:
+      database: "RepBase"
+      evalue: 1e-5
+
+# ============================================================
+# 决策节点 4: LTR分析
+# ============================================================
+ltr_analysis:
+  - rule_id: "ltr-ltrharvest-001"
+    priority: 10
+    condition:
+      species_type: "plant"
+      ltr_focus: true
+    recommend: "ltrharvest"
+    reason: "植物LTR → LTRharvest。鉴定完整的LTR逆转录转座子。"
+    params:
+      min_ltr_len: 100
+      max_ltr_len: 6000
+      min_distance: 1000
+      max_distance: 25000
+
+  - rule_id: "ltr-ltrretriever-002"
+    priority: 10
+    condition:
+      species_type: "plant"
+    recommend: "ltr_retriever"
+    reason: "LTR过滤 → LTR_retriever。过滤假阳性LTR，生成高质量LTR库。"
+    tool_id: "ltr_retriever"
+    params:
+      min_identity: 0.95
+      max_identity: 1.0
+
+  - rule_id: "ltr-tarean-003"
+    priority: 8
+    condition:
+      young_ltr: true
+    recommend: "tarean"
+    reason: "近期LTR → TAREAN。分析近期活跃的LTR。"
+    params:
+      cluster_method: "graph_based"
+      min_cluster_size: 5
+
+# ============================================================
+# 决策节点 5: 插入时间分析
+# ============================================================
+insertion_time:
+  - rule_id: "time-ltr-age-001"
+    priority: 10
+    condition:
+      has_ltr_sequences: true
+    recommend: "ltr_age_analysis"
+    reason: "LTR插入时间 → 基于LTR序列分化度估计插入时间。"
+    params:
+      substitution_rate: "1.3e-8"  # 植物常用值
+
+  - rule_id: "time-kimura-002"
+    priority: 9
+    condition:
+      has_te_alignment: true
+    recommend: "kimura_distance"
+    reason: "Kimura距离 → 基于Kimura分化距离分析TE年龄。"
+    params:
+      model: "K80"
+      bin_size: 0.01
+
+# ============================================================
+# 决策节点 6: TE分布分析
+# ============================================================
+distribution_analysis:
+  - rule_id: "dist-genome-001"
+    priority: 10
+    condition:
+      has_te_annotation: true
+    recommend: "genome_distribution"
+    reason: "基因组分布 → 分析TE在染色体上的分布模式。"
+    params:
+      window_size: 100000
+      plot_type: "density"
+
+  - rule_id: "dist-gene-proximity-002"
+    priority: 9
+    condition:
+      has_gene_annotation: true
+    recommend: "gene_proximity_analysis"
+    reason: "基因邻近 → 分析TE与基因的邻近关系。"
+    params:
+      upstream_window: 2000
+      downstream_window: 2000
+      gene_body_analysis: true
+
+  - rule_id: "dist-centromere-003"
+    priority: 8
+    condition:
+      has_centromere_info: true
+    recommend: "centromere_analysis"
+    reason: "着丝粒分析 → 分析着丝粒区域的TE组成。"
+    params:
+      centromere_window: 500000
+      te_composition_profile: true
+
+# ============================================================
+# 决策节点 7: TE-基因关联分析
+# ============================================================
+te_gene_analysis:
+  - rule_id: "tg-expression-001"
+    priority: 10
+    condition:
+      has_expression_data: true
+    recommend: "te_expression_analysis"
+    reason: "TE表达 → 分析TE的表达模式。"
+    params:
+      quantification_method: "featureCounts"
+      normalize: "TPM"
+
+  - rule_id: "tg-regulatory-002"
+    priority: 9
+    condition:
+      has_gene_annotation: true
+    recommend: "te_regulatory_elements"
+    reason: "调控元件 → 分析TE来源的调控元件。"
+    params:
+      motif_scan: true
+      tf_binding_sites: true
+
+  - rule_id: "tg-epigenetic-003"
+    priority: 8
+    condition:
+      has_methylation_data: true
+    recommend: "te_epigenetics"
+    reason: "表观遗传 → 分析TE区域的甲基化模式。"
+    params:
+      methylation_contexts: ["CG", "CHG", "CHH"]
+      te_body_promoter_analysis: true
+
+# ============================================================
+# 决策节点 8: 可视化
+# ============================================================
+visualization:
+  - rule_id: "viz-circos-001"
+    priority: 10
+    condition:
+      chromosome_level: true
+    recommend: "circos_te"
+    reason: "环形图 → Circos展示TE染色体分布。"
+    tool_id: "circos"
+    params:
+      track_height: 0.08
+      density_plot: true
+      color_by_type: true
+
+  - rule_id: "viz-landscape-002"
+    priority: 10
+    condition:
+      has_insertion_time: true
+    recommend: "te_landscape"
+    reason: "TE景观图 → 展示TE类型和年龄分布。"
+    params:
+      x_axis: "kimura_distance"
+      y_axis: "genome_percentage"
+      color_by: "te_order"
+
+  - rule_id: "viz-heatmap-003"
+    priority: 8
+    condition:
+      multi_sample: true
+    recommend: "te_heatmap"
+    reason: "热图 → 比较多样本TE组成。"
+    params:
+      clustering_method: "ward.D2"
+      show_dendrogram: true
+      color_palette: "RdBu"
+
+fallback:
+  - rule_id: "te-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"

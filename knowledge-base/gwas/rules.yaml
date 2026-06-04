@@ -61,6 +61,9 @@ data_conversion:
     condition:
       format: "bed"
     action: "skip_conversion"
+    params:
+      format_verified: true
+      ready_for_analysis: true
     reason: "PLINK binary 格式可直接使用"
 
   - rule_id: "fmt-vcf-002"
@@ -70,6 +73,11 @@ data_conversion:
     action: "plink_make_bed"
     tool_id: "plink2-convert"
     command: "plink2 --vcf ${INPUT} --make-bed --out ${OUTPUT}"
+    params:
+      make_bed: true
+      reference_allele: "major"
+      allow_extra_chroms: true
+      output_format: "bed"
     reason: "VCF 需要转换为 PLINK binary 格式"
 
   - rule_id: "fmt-hapmap-003"
@@ -78,6 +86,10 @@ data_conversion:
       format: "hapmap"
     action: "gapit_import"
     tool_id: "gapit-cmlm"
+    params:
+      import_format: "HapMap"
+      snp_imputation: false
+      filter_heterozygous: true
     reason: "Hapmap 格式由 GAPIT 直接读取，不需要转换"
 
 # ============================================================
@@ -113,6 +125,12 @@ qc_strategy:
     condition:
       species_type: "inbred"
     action: "skip_hwe_filter"
+    params:
+      maf: 0.01
+      geno: 0.1
+      mind: 0.1
+      hwe: null
+      inbred_correction: true
     reason: "自交物种不符合 Hardy-Weinberg 平衡假设，跳过 HWE 过滤"
 
 # ============================================================
@@ -128,6 +146,11 @@ gwas_method:
     recommend: "blink"
     reason: "大样本高密度低分层 → BLINK 统计功效最高、速度最快"
     tool_id: "blink"
+    params:
+      maxLoop: 10
+      PCA.total: 3
+      LDRemove: "ON"
+      permute: 0
 
   - rule_id: "gwas-stratified-fc-002"
     priority: 9
@@ -138,6 +161,11 @@ gwas_method:
     recommend: "farmcpu"
     reason: "群体分层显著 → FarmCPU 交替迭代有效控制假阳性"
     tool_id: "gapit-farmcpu"
+    params:
+      maxLoop: 10
+      method.bin: "static"
+      n.PC: 3
+      maf.threshold: 0.01
 
   - rule_id: "gwas-small-inbred-cmlm-003"
     priority: 8
@@ -147,6 +175,11 @@ gwas_method:
     recommend: "gapit-cmlm"
     reason: "小样本近交物种 → CMLM + K 矩阵控制亲缘关系最稳健"
     tool_id: "gapit-cmlm"
+    params:
+      model: "CMLM"
+      n.PC: 0
+      kinship.algorithm: "VanRaden"
+      maf.threshold: 0.05
 
   - rule_id: "gwas-small-outcross-cmlm-004"
     priority: 8
@@ -156,6 +189,12 @@ gwas_method:
     recommend: "gapit-cmlm"
     reason: "小样本异交物种 → CMLM + K 矩阵也适用，加 PCA 协变量"
     tool_id: "gapit-cmlm"
+    params:
+      model: "CMLM"
+      n.PC: 3
+      kinship.algorithm: "VanRaden"
+      maf.threshold: 0.05
+      use_pca: true
 
   - rule_id: "gwas-multienv-met-005"
     priority: 10
@@ -164,6 +203,12 @@ gwas_method:
     recommend: "met-gwas"
     reason: "多环境数据 → MET-GWAS 可分离 G×E 效应"
     tool_id: "met-gwas"
+    params:
+      model: "multi_env"
+      env_factor: true
+      gxe_analysis: true
+      stability_index: "BLUP"
+      heritability_method: "REML"
 
   - rule_id: "gwas-tetraploid-006"
     priority: 10
@@ -172,11 +217,19 @@ gwas_method:
     recommend: "gwaspoly"
     reason: "同源四倍体需剂量感知方法"
     tool_id: "gwaspoly"
+    params:
+      ploidy: 4
+      dosage_model: "additive"
+      allele_dosage: true
+      kinship_method: "VanRaden_poly"
+      maf.threshold: 0.01
 
   - rule_id: "gwas-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
     reason: "数据特征不在预设规则内，切换到 expert 推理"
 
 # ============================================================
@@ -190,6 +243,11 @@ covariate_strategy:
       genomic_inflation: "< 1.1"
     recommend: "pca_only"
     pc_count: 3
+    params:
+      covariate_type: "PCA"
+      n_components: 3
+      include_kinship: false
+      pc_significance: "Tracy-Widom"
     reason: "异交物种低分层 → PCA 3 个主成分足够"
 
   - rule_id: "cov-k-only-002"
@@ -198,6 +256,11 @@ covariate_strategy:
       species_type: "inbred"
       sample_count: "< 300"
     recommend: "k_matrix_only"
+    params:
+      covariate_type: "kinship"
+      kinship_method: "VanRaden"
+      include_pca: false
+      k_normalization: true
     reason: "近交物种小样本 → K 矩阵比 PCA 更有效"
 
   - rule_id: "cov-pc-plus-k-003"
@@ -206,6 +269,12 @@ covariate_strategy:
       genomic_inflation: "> 1.1"
     recommend: "pca_plus_k"
     pc_count: 5
+    params:
+      covariate_type: "PCA_plus_kinship"
+      n_components: 5
+      kinship_method: "VanRaden"
+      pc_selection: "parallel_analysis"
+      control_stratification: true
     reason: "群体分层 → PCA + K 矩阵联合控制"
 
   - rule_id: "cov-subgenome-004"
@@ -213,6 +282,12 @@ covariate_strategy:
     condition:
       ploidy: "allopolyploid"
     recommend: "per_subgenome_pca"
+    params:
+      covariate_type: "subgenome_PCA"
+      subgenome_analysis: true
+      separate_kinship: true
+      subgenome_count: 2
+      homoeolog_filtering: true
     reason: "异源多倍体 → 每个亚基因组独立 PCA"
 
 # ============================================================
@@ -224,6 +299,11 @@ significance_threshold:
     condition:
       method: ["blink", "farmcpu"]
     threshold: "5e-8"
+    params:
+      threshold_type: "bonferroni"
+      alpha: 0.05
+      effective_tests: 1000000
+      correction_method: "standard"
     reason: "标准 Bonferroni 校正 (≈ 1M 独立检验)"
 
   - rule_id: "sig-bonferroni-relaxed-002"
@@ -231,10 +311,22 @@ significance_threshold:
     condition:
       snp_count: "< 10000"
     threshold_formula: "0.05 / snp_count"
+    params:
+      threshold_type: "bonferroni_relaxed"
+      alpha: 0.05
+      correction_method: "sample_size_adjusted"
+      min_threshold: 1e-6
+      max_threshold: 5e-4
     reason: "标记少时用 0.05/nSNP 作为阈值"
 
   - rule_id: "sig-suggestive-003"
     priority: 3
     threshold: "1e-5"
     label: "suggestive"
+    params:
+      threshold_type: "suggestive"
+      p_value: 1e-5
+      purpose: "candidate_region_identification"
+      follow_up_required: true
+      validation_needed: true
     reason: "建议性阈值 (1e-5)，用于标记潜在感兴趣区域"

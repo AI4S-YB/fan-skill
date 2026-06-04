@@ -1,0 +1,330 @@
+name: gene-family
+description: "Plant gene family identification and evolution analysis. Covers HMM search, BLAST validation, multiple sequence alignment, phylogenetic tree, motif analysis, gene structure, synteny, Ka/Ks, and cis-element analysis. Full pipeline from identification to functional inference."
+triggers:
+  - "gene family"
+  - "基因家族"
+  - "hmm search"
+  - "hmmer"
+  - "phylogenetic"
+  - "系统发育"
+  - "motif analysis"
+  - "ka ks"
+  - "cis element"
+  - " PlantCARE"
+
+inputs:
+  - query_sequence
+  - reference_genome
+  - genome_annotation
+  - comparative_genomes
+
+outputs:
+  - gene_family_members
+  - phylogenetic_tree
+  - motif_results
+  - gene_structure
+  - synteny_results
+  - ka_ks_results
+  - cis_element_results
+  - analysis_report
+
+version: "1.0"
+analysis: gene_family_analysis
+
+inputs_required:
+  - query_sequence
+  - reference_genome
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "gf-query-sequence"
+    rule: "必须有目标基因的蛋白/DNA序列"
+    check: "has_query_sequence == true"
+    severity: "block"
+    on_fail: "没有查询序列 → 无法进行基因家族鉴定。请提供目标基因的蛋白质序列或DNA序列，可以从文献、数据库(NCBI/Phytozome)或前期实验获得。"
+  - id: "gf-reference-genome"
+    rule: "必须有参考基因组及其注释"
+    check: "has_reference_genome == true"
+    severity: "block"
+    on_fail: "没有参考基因组 → 无法进行全基因组水平的基因家族鉴定。请提供目标物种的基因组序列和基因注释文件(GFF/GTF)。"
+  - id: "gf-comparative-species"
+    rule: "≥3个物种才能做有意义的进化推断"
+    check: "comparative_species_count >= 3"
+    severity: "warn"
+    on_fail: "比较物种不足 → 进化分析结果可能不够可靠。建议包含至少3个比较物种的基因组数据，以获得有统计学意义的进化推断。"
+  - id: "gf-expression-data"
+    rule: "有RNA-seq数据用于表达模式验证"
+    check: "has_expression_data == true"
+    severity: "warn"
+    on_fail: "无表达数据 → 无法验证基因家族成员的表达模式和功能。建议后续添加RNA-seq数据进行表达分析。"
+
+# ============================================================
+# 决策节点 1: 序列搜索方法
+# ============================================================
+search_method:
+  - rule_id: "search-hmm-pfam-001"
+    priority: 10
+    condition:
+      has_pfam_domain: true
+    recommend: "hmmsearch_hmmer"
+    reason: "已知Pfam结构域 → HMM搜索最优。使用Pfam的HMM profile可以获得更高的敏感度和特异性，特别适合鉴定远程同源基因。"
+    tool_id: "hmmer"
+    params:
+      evalue: 1e-5
+      coverage: 0.5
+
+  - rule_id: "search-blast-protein-002"
+    priority: 8
+    condition:
+      has_protein_sequence: true
+      has_pfam_domain: false
+    recommend: "blastp_iterative"
+    reason: "有蛋白序列但无Pfam域 → 使用BLASTP迭代搜索。先用已知蛋白序列做BLASTP，然后将命中序列构建HMM profile再做HMM搜索，提高覆盖率。"
+    tool_id: "blast"
+    params:
+      evalue: 1e-10
+      coverage: 0.5
+
+  - rule_id: "search-blast-nucleotide-003"
+    priority: 7
+    condition:
+      has_nucleotide_sequence: true
+      has_protein_sequence: false
+    recommend: "tblastn_genome"
+    reason: "只有DNA序列 → 使用TBLASTN搜索基因组。将DNA序列翻译后搜索基因组六框翻译，适合鉴定未注释物种中的同源基因。"
+    tool_id: "blast"
+    params:
+      evalue: 1e-5
+
+# ============================================================
+# 决策节点 2: 多序列比对
+# ============================================================
+multiple_alignment:
+  - rule_id: "align-mafft-large-001"
+    priority: 10
+    condition:
+      sequence_count: ">= 50"
+    recommend: "mafft_ffts_ns2"
+    reason: "≥50条序列 → MAFFT FFT-NS-2策略。大规模序列比对使用快速策略，牺牲少量精度换取可接受的运行时间。"
+    tool_id: "mafft"
+    params:
+      strategy: "--fft --maxiterate 2"
+      thread: 8
+
+  - rule_id: "align-mafft-accurate-002"
+    priority: 9
+    condition:
+      sequence_count: "< 50"
+    recommend: "mafft_linsi"
+    reason: "<50条序列 → MAFFT L-INS-i策略。中小规模序列使用最精确的局部迭代策略，获得高质量比对。"
+    tool_id: "mafft"
+    params:
+      strategy: "--localpair --maxiterate 1000"
+      thread: 8
+
+  - rule_id: "align-muscle-003"
+    priority: 7
+    condition:
+      sequence_count: "< 20"
+    recommend: "muscle"
+    reason: "<20条序列 → MUSCLE或MAFFT均可。小规模比对工具选择灵活，MUSCLE也是经典选择。"
+    tool_id: "muscle"
+    params:
+      maxiters: 16
+      diag: true
+
+# ============================================================
+# 决策节点 3: 系统发育树构建
+# ============================================================
+phylogenetic_tree:
+  - rule_id: "phylo-iqtree-ml-001"
+    priority: 10
+    condition:
+      method_preference: "maximum_likelihood"
+    recommend: "iqtree2"
+    reason: "最大似然法 → IQ-TREE2。速度快、支持自动模型选择(-m MFP)、支持超快bootstrap(--bbnni)，是目前最推荐的ML建树工具。"
+    tool_id: "iqtree"
+    params:
+      model: "-m MFP"
+      bootstrap: "-B 1000 --alrt 1000"
+      thread: 8
+
+  - rule_id: "phylo-iqtree-snp-002"
+    priority: 10
+    condition:
+      data_type: "snp"
+    recommend: "iqtree2_asc"
+    reason: "SNP数据 → IQ-TREE2 + ASC校正。SNP数据存在不变位点缺失偏差，必须使用ascertainment bias校正(--asc-corr)。"
+    tool_id: "iqtree"
+    params:
+      model: "-m MFP+ASC"
+      asc_correction: "--asc-corr lewis"
+
+  - rule_id: "phylo-raxml-003"
+    priority: 8
+    condition:
+      method_preference: "raxml"
+    recommend: "raxml_ng"
+    reason: "RAxML偏好 → RAxML-NG。RAxML的下一代版本，更快更稳定，支持相同的模型选择。"
+    tool_id: "raxml"
+    params:
+      model: "-m GTRGAMMA"
+      bootstrap: "-N 100"
+      thread: 8
+
+  - rule_id: "phylo-fasttree-004"
+    priority: 6
+    condition:
+      sequence_count: ">= 500"
+      speed_priority: "high"
+    recommend: "fasttree"
+    reason: ">500序列且需快速结果 → FastTree。牺牲一定精度换取速度，适合初步分析或超大基因家族。"
+    tool_id: "fasttree"
+    params:
+      model: "-lg"
+      gamma: true
+      nni_rounds: 4
+
+# ============================================================
+# 决策节点 4: Motif分析
+# ============================================================
+motif_analysis:
+  - rule_id: "motif-meme-plant-001"
+    priority: 10
+    condition:
+      species_type: "plant"
+    recommend: "meme_anr"
+    reason: "植物基因家族 → MEME -mod anr。植物蛋白序列常有重复结构域，-mod anr (any number of repetitions)允许motif在序列中出现任意次数，更适合植物基因家族分析。"
+    tool_id: "meme"
+    params:
+      mode: "-mod anr"
+      nmotifs: 10
+      minw: 6
+      maxw: 50
+
+  - rule_id: "motif-meme-standard-002"
+    priority: 8
+    condition:
+      species_type: "animal"
+    recommend: "meme_zoops"
+    reason: "动物基因家族 → MEME -mod zoops。每个motif在每条序列中最多出现一次(zoops)，适合大多数动物基因家族。"
+    tool_id: "meme"
+    params:
+      mode: "-mod zoops"
+      nmotifs: 10
+
+# ============================================================
+# 决策节点 5: 基因结构分析
+# ============================================================
+gene_structure:
+  - rule_id: "structure-gffread-001"
+    priority: 10
+    condition:
+      has_gff: true
+    recommend: "gffread_extract"
+    reason: "有GFF注释 → 使用gffread提取基因结构信息。获取外显子/内含子位置和UTR信息。"
+    tool_id: "gffread"
+    params:
+      features: "exon,intron,cds,utr5,utr3"
+      output_format: "gtf"
+
+  - rule_id: "structure-gsds-002"
+    priority: 8
+    condition:
+      visualization_needed: true
+    recommend: "gsds_visualization"
+    reason: "需要可视化 → GSDS2.0。专门用于基因结构可视化，输出高质量图片。"
+    params:
+      output_format: "png"
+      intron_style: "angle"
+      exon_color: "blue"
+
+# ============================================================
+# 决策节点 6: 共线性分析
+# ============================================================
+synteny_analysis:
+  - rule_id: "synteny-mcscanx-001"
+    priority: 10
+    condition:
+      has_genome: true
+      species_type: "plant"
+    recommend: "mcscanx"
+    reason: "植物基因组共线性 → MCScanX。专为植物基因组设计，能检测WGD事件和共线性区块，输出基因复制类型统计。"
+    tool_id: "mcscanx"
+    params:
+      gap_score: "-25"
+      match_score: "50"
+      min_align: "5"
+
+  - rule_id: "synteny-collinearity-002"
+    priority: 8
+    condition:
+      multiple_genomes: true
+    recommend: "collinearity_scan"
+    reason: "多物种比较 → 使用collinearity扫描跨物种共线性。"
+    params:
+      evalue: 1e-5
+      min_genes: 5
+      max_gaps: 20
+
+# ============================================================
+# 决策节点 7: Ka/Ks分析
+# ============================================================
+ka_ks_analysis:
+  - rule_id: "kaks-yn00-001"
+    priority: 10
+    condition:
+      sequence_count: "< 100"
+    recommend: "paml_yn00"
+    reason: "基因对<100对 → PAML yn00。基于YN模型的成对Ka/Ks计算，适合小规模分析。"
+    tool_id: "paml"
+    params:
+      method: "yn00"
+
+  - rule_id: "kaks-kaks-calculator-002"
+    priority: 10
+    condition:
+      sequence_count: ">= 100"
+    recommend: "kaks_calculator"
+    reason: "基因对≥100对 → KaKs_Calculator。批量计算效率高，支持多种模型。"
+    tool_id: "kaks_calculator"
+    params:
+      method: "MLWL"  # Model selection based on MA method
+
+# ============================================================
+# 决策节点 8: 顺式元件分析
+# ============================================================
+cis_element:
+  - rule_id: "cis-plantcare-001"
+    priority: 10
+    condition:
+      species_type: "plant"
+    recommend: "plantcare"
+    reason: "植物顺式元件 → PlantCARE。最全面的植物顺式元件数据库，包含启动子、增强子、响应元件等。"
+    tool_id: "plantcare"
+    params:
+      promoter_length: 2000  # bp upstream of ATG
+      min_score: 5
+
+  - rule_id: "cis-place-002"
+    priority: 8
+    condition:
+      species_type: "plant"
+      database_preference: "place"
+    recommend: "place"
+    reason: "PLACE数据库偏好 → 另一个植物顺式元件数据库，与PlantCARE互补。"
+    params:
+      promoter_length: 2000  # bp upstream of ATG
+      min_score: 5
+      database: "place"
+
+fallback:
+  - rule_id: "gf-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      reason: "No matching rule found"
+      suggestion: "Consult specialist for custom approach"

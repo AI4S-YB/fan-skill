@@ -25,6 +25,127 @@ outputs:
   - analysis_report
 
 # ============================================================
+# 分析场景分支 (P1级增强)
+# 根据分析目标选择不同的流程
+# ============================================================
+analysis_scenario:
+  - rule_id: "scenario-mrna-de-001"
+    priority: 10
+    condition:
+      analysis_goal: "differential_expression"
+      has_reference_genome: true
+    recommend: "standard_mrna_pipeline"
+    reason: "标准mRNA差异表达分析 → 参考基因组存在，使用标准流程"
+    pipeline: "alignment -> quantification -> de_analysis -> enrichment"
+    params:
+      aligner: "hisat2"
+      quantifier: "featurecounts"
+      de_tool: "deseq2"
+      lfcThreshold: 1
+
+  - rule_id: "scenario-lncrna-002"
+    priority: 10
+    condition:
+      analysis_goal: "lncrna_discovery"
+    recommend: "lncrna_pipeline"
+    reason: "lncRNA发现 → 需要额外的编码潜力评估步骤"
+    pipeline: "assembly -> orf_prediction -> coding_potential -> lncrna_annotation"
+    additional_steps:
+      - orf_prediction
+      - cpc2_analysis
+      - cnci_analysis
+      - feelnc_classification
+    params:
+      min_transcript_length: 200
+      cpc2_model: "plant"
+      cnci_model: "pl"
+      feelnc_monoex: -1
+
+  - rule_id: "scenario-denovo-003"
+    priority: 10
+    condition:
+      analysis_goal: "denovo_transcriptome"
+      has_reference_genome: false
+    recommend: "denovo_pipeline"
+    reason: "De novo转录组 → 无参考基因组，使用Trinity组装流程"
+    pipeline: "assembly -> quality_assessment -> annotation -> quantification -> de_analysis"
+    refer_to: "denovo-transcriptome"
+    params:
+      assembler: "trinity"
+      min_contig_length: 200
+      busco_lineage: "embryophyta_odb10"
+
+  - rule_id: "scenario-alternative_splicing-004"
+    priority: 8
+    condition:
+      analysis_goal: "alternative_splicing"
+    recommend: "splicing_analysis_pipeline"
+    reason: "可变剪接分析 → 需要转录本水平的定量"
+    pipeline: "alignment -> transcript_assembly -> isoform_quantification -> differential_splicing"
+    tools:
+      - stringtie
+      - scallop
+      - rsem
+      - dexseq
+    params:
+      assembler: "stringtie"
+      splicing_test: "dexseq"
+      min_isoform_fraction: 0.1
+
+# ============================================================
+# 子场景专用设计门禁 (P1级增强)
+# ============================================================
+scenario_gates:
+  # mRNA标准分析门禁
+  mrna_gates:
+    - id: "mrna-reference-genome"
+      rule: "mRNA分析需要参考基因组"
+      check: "has_reference_genome == true"
+      severity: "block"
+      on_fail: "无参考基因组 → 无法进行标准mRNA分析，考虑de novo转录组方案"
+    - id: "mrna-gene-annotation"
+      rule: "需要基因注释文件(GFF/GTF)"
+      check: "has_gene_annotation == true"
+      severity: "block"
+      on_fail: "无基因注释 → 无法进行基因水平定量"
+
+  # lncRNA分析门禁
+  lncrna_gates:
+    - id: "lncrna-read-depth"
+      rule: "lncRNA发现需要更深测序(建议>50M reads/样本)"
+      check: "reads_per_sample >= 50000000"
+      severity: "warn"
+      on_fail: "测序深度较低 → 可能遗漏低表达lncRNA"
+    - id: "lncrna-strand-info"
+      rule: "lncRNA分析推荐链特异性文库"
+      check: "is_stranded_library == true"
+      severity: "warn"
+      on_fail: "非链特异性文库 → 无法区分正义/反义转录本"
+    - id: "lncrna-replicates"
+      rule: "lncRNA分析每组至少3个生物学重复"
+      check: "replicates_per_group >= 3"
+      severity: "warn"
+      on_fail: "重复不足 → lncRNA表达定量不够可靠"
+
+  # De novo转录组门禁
+  denovo_gates:
+    - id: "denovo-read-depth"
+      rule: "De novo组装需要足够测序深度(建议>30M reads/样本)"
+      check: "total_reads >= 30000000"
+      severity: "warn"
+      on_fail: "测序深度不足 → 组装完整性受限"
+    - id: "denovo-read-length"
+      rule: "推荐读长≥100bp"
+      check: "read_length >= 100"
+      severity: "warn"
+      on_fail: "读长较短 → 组装连续性受限"
+    - id: "denovo-memory"
+      rule: "Trinity组装需要大内存(建议>50G)"
+      check: "available_memory_gb >= 50"
+      severity: "warn"
+      on_fail: "内存不足 → 可能导致组装失败"
+
+# ============================================================
 # 实验设计门禁：在生成分析计划前自动检查
 # ============================================================
 design_gates:
@@ -57,6 +178,10 @@ count_matrix_format:
       format_hint: "genes.counts.matrix"
     action: "read_matrix"
     reason: "标准 counts matrix (genes × samples)"
+    params:
+      format: "counts_matrix"
+      row_names: "gene_id"
+      header: true
 
   - rule_id: "fmt-tpm-matrix-002"
     priority: 10
@@ -64,6 +189,9 @@ count_matrix_format:
       format_hint: "tpm_matrix"
     action: "convert_to_counts_warning"
     reason: "TPM 不适合 DESeq2/edgeR — 需要原始 counts"
+    params:
+      requires_counts: true
+      warning: "TPM/FPKM values cannot be used for differential expression analysis"
 
   - rule_id: "fmt-salmon-003"
     priority: 10
@@ -72,6 +200,11 @@ count_matrix_format:
     action: "tximport_import"
     tool_id: "deseq2"
     reason: "Salmon/Kallisto 定量需 tximport 导入"
+    params:
+      tximport: true
+      type: "salmon"
+      tx2gene: "{tx2gene_file}"
+      ignoreTxVersion: true
 
 # ============================================================
 # 决策节点 2: 低表达过滤策略
@@ -105,6 +238,11 @@ de_method:
     recommend: "deseq2"
     reason: "≥3 重复 → DESeq2 是标准选择，功效高，处理离群值好"
     tool_id: "deseq2"
+    params:
+      lfcThreshold: 1
+      alpha: 0.05
+      independentFiltering: true
+      cooksCutoff: true
 
   - rule_id: "de-low-reps-deseq2-002"
     priority: 9
@@ -114,6 +252,10 @@ de_method:
     reason: "仅 2 重复 → DESeq2 仍可用，但功效低，结果需谨慎"
     tool_id: "deseq2"
     warning: "仅 2 生物学重复 → 统计功效极低。显著 DEGs 可能偏少。"
+    params:
+      lfcThreshold: 1
+      alpha: 0.05
+      fitType: "local"
 
   - rule_id: "de-no-reps-edger-003"
     priority: 9
@@ -123,6 +265,10 @@ de_method:
     reason: "无重复 → edgeR 的 estimateDisp 可用，但只能发现极大差异"
     tool_id: "edger"
     warning: "无生物学重复，不能做统计推断。只能报告 fold change。"
+    params:
+      no_replicates: true
+      dispersion_method: "estimateDisp"
+      report_fc_only: true
 
   - rule_id: "de-continuous-covariate-004"
     priority: 8
@@ -131,6 +277,10 @@ de_method:
     recommend: "limma_voom"
     reason: "连续型协变量 → limma-voom 的线性建模更灵活"
     tool_id: "limma-voom"
+    params:
+      lfcThreshold: 1
+      adjust_method: "BH"
+      trend: true
 
   - rule_id: "de-large-dataset-005"
     priority: 7
@@ -140,11 +290,18 @@ de_method:
     recommend: "limma_voom"
     reason: "超大数据集 → limma-voom 速度优于 DESeq2"
     tool_id: "limma-voom"
+    params:
+      lfcThreshold: 1
+      adjust_method: "BH"
+      fast: true
 
   - rule_id: "de-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "No matching DE method"
+      suggestion: "Consult bioinformatics specialist"
 
 # ============================================================
 # 决策节点 4: 多重检验校正
@@ -177,6 +334,10 @@ enrichment_database:
     recommend: "plant_reactome_first"
     reason: "Plant Reactome 覆盖这些物种，优先使用"
     tool_id: "enrichment"
+    params:
+      database: "plant_reactome"
+      pvalue_cutoff: 0.05
+      qvalue_cutoff: 0.2
 
   - rule_id: "enrich-mercator-002"
     priority: 8
@@ -185,6 +346,10 @@ enrichment_database:
     recommend: "mercator_annotation_then_go"
     reason: "非模式植物先用 Mercator 在线注释，再做 GO 富集"
     tool_id: "enrichment"
+    params:
+      mercator_annotation: true
+      go_enrichment: true
+      pvalue_cutoff: 0.05
 
   - rule_id: "enrich-agrigo-003"
     priority: 7
@@ -192,6 +357,12 @@ enrichment_database:
       species_type: "crop"
     recommend: "agrigo_v2"
     reason: "农业物种 GO 富集用 AgriGO v2"
+    tool_id: "agrigo"
+    params:
+      species: "{species_name}"
+      test_method: "Fisher"
+      multi_test_method: "BH"
+      significance_level: 0.05
 
 # ============================================================
 # 决策节点 6: WGCNA 参数

@@ -42,6 +42,11 @@ preprocessing:
     recommend: "spline_smoothing"
     reason: "≥5 time points -> spline smoothing for denoising with preserved inflection points"
     tool_id: "preprocessing"
+    params:
+      smoothing_method: "spline"
+      df: 4
+      preserve_inflection: true
+      interpolate_missing: true
 
   - rule_id: "ts-preprocess-few-points-002"
     priority: 5
@@ -49,6 +54,11 @@ preprocessing:
       time_points: "< 5"
     recommend: "loess_smoothing"
     reason: "<5 time points -> LOESS more robust with fewer data points; spline overfits"
+    params:
+      smoothing_method: "loess"
+      span: 0.75
+      degree: 2
+      robust: true
 
 # ============================================================
 # Decision node 2: Clustering
@@ -61,6 +71,10 @@ clustering:
     recommend: "mfuzz"
     reason: "≥1000 genes -> Mfuzz soft clustering allows genes to belong to multiple patterns, better for complex plant transcriptomes"
     tool_id: "mfuzz"
+    params:
+      min_cluster: 4
+      max_cluster: 16
+      m: 1.25
 
   - rule_id: "ts-kmeans-few-002"
     priority: 8
@@ -69,6 +83,13 @@ clustering:
     recommend: "kmeans"
     reason: "<1000 genes -> k-means simple and effective for smaller gene sets"
     tool_id: "kmeans-cluster"
+    params:
+      k_range:
+        min: 2
+        max: 10
+      nstart: 25
+      algorithm: "Hartigan-Wong"
+      iter_max: 100
 
 # ============================================================
 # Decision node 3: Stage / Tissue Specificity
@@ -81,6 +102,8 @@ stage_specificity:
     recommend: "tau_index"
     reason: "≥3 tissues/stages -> tau index quantifies expression specificity across conditions"
     tool_id: "stage-specificity"
+    params:
+      threshold: 0.8
 
 # ============================================================
 # Decision node 4: Trend Analysis
@@ -93,6 +116,11 @@ trend_analysis:
     recommend: "stem"
     reason: "≥6 time points -> STEM identifies statistically significant temporal trend profiles"
     tool_id: "trend-analysis"
+    params:
+      max_profiles: 50
+      significance_threshold: 0.05
+      correction_method: "FDR"
+      min_genes_per_profile: 10
 
   - rule_id: "ts-trend-mfuzz-pattern-002"
     priority: 4
@@ -101,6 +129,11 @@ trend_analysis:
     recommend: "mfuzz_trend"
     reason: "<6 time points -> Mfuzz cluster profiles suffice for trend interpretation"
     tool_id: "trend-analysis"
+    params:
+      min_cluster: 4
+      max_cluster: 12
+      m: 1.25
+      membership_threshold: 0.5
 
 # ============================================================
 # Decision node 5: Visualization
@@ -113,6 +146,13 @@ visualization:
     recommend: "heatmap_plus_line"
     reason: "≥5 time points -> combined heatmap and line plots capture global and per-gene patterns"
     tool_id: "visualization"
+    params:
+      plot_type: "combined"
+      heatmap_cluster_rows: true
+      heatmap_cluster_cols: false
+      line_plot_ci: true
+      color_palette: "viridis"
+      show_time_labels: true
 
   - rule_id: "ts-viz-simple-line-002"
     priority: 5
@@ -121,6 +161,13 @@ visualization:
     recommend: "simple_line_plot"
     reason: "<5 time points -> simple line plot with error bars most interpretable"
     tool_id: "visualization"
+    params:
+      plot_type: "line"
+      show_error_bars: true
+      error_type: "se"
+      point_size: 3
+      line_width: 1.5
+      show_time_labels: true
 
 # ============================================================
 # Global Fallback
@@ -131,6 +178,8 @@ fallback:
     condition: "none_matched"
     action: "delegate_to_expert"
     reason: "Data characteristics outside preset rules, switch to expert reasoning"
+    params:
+      reason: "no_matching_rule"
 
 design_gates:
   - id: "ts-time-points-minimum"

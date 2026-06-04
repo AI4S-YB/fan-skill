@@ -1,0 +1,380 @@
+name: bsa-analysis
+description: "Bulk Segregant Analysis (BSA) for rapid gene mapping. Covers MutMap, QTL-seq, BSR-seq methods. Includes variant calling, SNP-index calculation, ΔSNP-index, sliding window analysis, and candidate gene identification. Uses a dual-mode decision system (rule matrix + expert notebook)."
+
+triggers:
+  - "bsa"
+  - "bulk segregant analysis"
+  - "mutmap"
+  - "qtl-seq"
+  - "bsr-seq"
+  - "gene mapping"
+  - "mutant gene identification"
+  - "snps index"
+  - "delta snp index"
+
+inputs:
+  - bulk_pool_vcf
+  - parent_vcf
+  - reference_genome
+  - phenotype_data
+
+outputs:
+  - snp_index_profile
+  - delta_snp_index
+  - candidate_intervals
+  - candidate_genes
+  - analysis_report
+
+version: "1.0"
+analysis: bsa_analysis
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "bsa-pool-design"
+    rule: "需要两个具有极端表型的分离群体混池"
+    check: "pool_count >= 2"
+    severity: "block"
+    on_fail: "混池数量不足 → BSA分析需要至少两个表型极端的混池（如突变型和野生型混池）。"
+  - id: "bsa-parent-data"
+    rule: "推荐有亲本或参考基因组"
+    check: "has_parent_or_reference == true"
+    severity: "warn"
+    on_fail: "无亲本数据 → 可进行QTL-seq但MutMap需要亲本数据。"
+  - id: "bsa-pool-size"
+    rule: "混池个体数推荐 >= 20"
+    check: "pool_size >= 20"
+    severity: "warn"
+    on_fail: "混池个体数不足 → 统计效力低，可能无法检测小效应位点。推荐使用F2群体20-50个体，回交群体30-50个体。"
+  - id: "bsa-sequencing-depth"
+    rule: "混池测序深度推荐 >= 20x"
+    check: "pool_depth >= 20"
+    severity: "warn"
+    on_fail: "测序深度不足 → SNP检测灵敏度低，SNP-index估计方差大。推荐每个混池20-50x。"
+
+# ============================================================
+# 决策节点 1: BSA方法选择
+# ============================================================
+method_selection:
+  - rule_id: "bsa-mutmap-001"
+    priority: 10
+    condition:
+      has_mutant_parent: true
+      cross_type: "mutant_x_wildtype"
+      need_causal_mutation: true
+    recommend: "mutmap"
+    reason: "MutMap方法 → 适用于有突变体亲本的定位。使用突变体与野生型杂交的F2群体，构建突变型混池。直接比较SNP-index与期望值(1.0)，因果突变SNP-index接近1。"
+    tool_id: "mutmap"
+    params:
+      snp_index_threshold: 0.9
+      window_size: 1000000
+      step_size: 100000
+      min_depth: 3
+      max_depth: 100
+
+  - rule_id: "bsa-qtlseq-002"
+    priority: 10
+    condition:
+      has_two_pools: true
+      need_qtl_mapping: true
+      cross_type: "biparental"
+    recommend: "qtl_seq"
+    reason: "QTL-seq方法 → 适用于双亲杂交群体的QTL定位。计算两个混池的ΔSNP-index，在QTL位置ΔSNP-index显著偏离0。支持多种群体类型(F2, RIL, BC)。"
+    tool_id: "qtlseq"
+    params:
+      delta_snp_index: true
+      window_size: 1000000
+      step_size: 100000
+      confidence_interval: 0.99
+      min_depth: 3
+
+  - rule_id: "bsa-bsrseq-003"
+    priority: 10
+    condition:
+      data_type: "rna_seq"
+      need_expression: true
+    recommend: "bsr_seq"
+    reason: "BSR-seq方法 → 使用RNA-seq数据进行BSA。同时获得SNP和表达信息。适用于无全基因组测序数据的情况，但仅能检测表达基因区域的位点。"
+    tool_id: "bsrseq"
+    params:
+      expression_filter: "tpm > 1"
+      ed_method: "euclidean_distance"
+      g_statistic: true
+      fisher_exact: true
+
+# ============================================================
+# 决策节点 2: 变异检测策略
+# ============================================================
+variant_calling:
+  - rule_id: "bsa-bwa-gatk-001"
+    priority: 10
+    condition:
+      data_type: "dna_seq"
+      platform: "illumina"
+    recommend: "bwa_mem_gatk"
+    reason: "标准DNA-seq变异检测 → BWA-MEM比对 + GATK HaplotypeCaller。适用于大多数BSA场景。"
+    tool_id: "variant_calling"
+    params:
+      aligner: "bwa-mem"
+      caller: "gatk"
+      hard_filter:
+        QD: 2.0
+        FS: 60.0
+        MQ: 40.0
+        SOR: 3.0
+
+  - rule_id: "bsa-bcftools-002"
+    priority: 9
+    condition:
+      need_simple_pipeline: true
+      data_type: "dna_seq"
+    recommend: "bcftools_mpileup"
+    reason: "简化变异检测 → bcftools mpileup + call。速度快，适合快速迭代分析。"
+    tool_id: "variant_calling"
+    params:
+      caller: "bcftools"
+      min_mq: 20
+      min_bq: 20
+      min_dp: 3
+
+  - rule_id: "bsa-star-rnaseq-003"
+    priority: 10
+    condition:
+      data_type: "rna_seq"
+    recommend: "star_gatk_rna"
+    reason: "RNA-seq变异检测 → STAR比对 + GATK SplitNCigarReads + HaplotypeCaller。BSR-seq专用。"
+    tool_id: "variant_calling"
+    params:
+      aligner: "star"
+      two_pass: true
+      split_ncigar: true
+
+# ============================================================
+# 决策节点 3: SNP-index计算
+# ============================================================
+snp_index:
+  - rule_id: "bsa-snpindex-mutmap-001"
+    priority: 10
+    condition:
+      method: "mutmap"
+    recommend: "mutmap_snp_index"
+    reason: "MutMap SNP-index → 计算突变型混池中突变等位基因频率。因果突变的SNP-index接近1.0。"
+    params:
+      method: "mutmap"
+      allele: "alternate"  # 突变等位基因
+      min_dp: 3
+      max_dp: 100
+      min_gq: 20
+
+  - rule_id: "bsa-snpindex-qtlseq-002"
+    priority: 10
+    condition:
+      method: "qtl_seq"
+    recommend: "qtlseq_snp_index"
+    reason: "QTL-seq SNP-index → 计算两个混池中亲本等位基因频率。亲本A来源的等位基因频率在两个混池中应相同（除非连锁）。"
+    params:
+      method: "qtlseq"
+      reference_allele: "parent_A"
+      min_dp: 3
+      pool_specific: true
+
+  - rule_id: "bsa-sliding-window-003"
+    priority: 10
+    condition:
+      need_smoothing: true
+    recommend: "sliding_window_average"
+    reason: "滑动窗口平滑 → 在窗口内计算平均SNP-index，减少单点噪声。"
+    params:
+      window_size: 1000000  # 1 Mb
+      step_size: 100000     # 100 kb
+      min_snps_per_window: 10
+
+# ============================================================
+# 决策节点 4: 统计检验
+# ============================================================
+statistical_test:
+  - rule_id: "bsa-permutation-001"
+    priority: 10
+    condition:
+      need_confidence: true
+      rep_count: ">= 1"
+    recommend: "permutation_test"
+    reason: "置换检验 → 通过随机打乱SNP位置计算置信区间。非参数方法，不假设分布。"
+    params:
+      n_permutations: 1000
+      confidence_level: 0.99
+      method: "sliding_window"
+
+  - rule_id: "bsa-normal-approx-002"
+    priority: 9
+    condition:
+      need_fast_ci: true
+      snp_count: ">= 1000"
+    recommend: "normal_approximation"
+    reason: "正态近似 → 基于二项分布的正态近似计算置信区间。计算快，适合大量SNP。"
+    params:
+      confidence_level: 0.95
+      method: "binomial_normal"
+
+  - rule_id: "bsa-fisher-exact-003"
+    priority: 8
+    condition:
+      need_single_snp_test: true
+    recommend: "fisher_exact_test"
+    reason: "Fisher精确检验 → 检验单个SNP在两个混池间等位基因频率差异。"
+    params:
+      min_dp: 10
+      alternative: "two_sided"
+
+# ============================================================
+# 决策节点 5: 候选区间识别
+# ============================================================
+candidate_identification:
+  - rule_id: "bsa-threshold-001"
+    priority: 10
+    condition:
+      method: "mutmap"
+    recommend: "snp_index_threshold"
+    reason: "SNP-index阈值法 → 识别SNP-index超过阈值（如0.9）的区域。MutMap标准方法。"
+    params:
+      snp_index_threshold: 0.9
+      min_consecutive_windows: 3
+      max_gap: 500000
+
+  - rule_id: "bsa-delta-threshold-002"
+    priority: 10
+    condition:
+      method: "qtl_seq"
+    recommend: "delta_snp_index_threshold"
+    reason: "ΔSNP-index置信区间法 → 识别ΔSNP-index超出置信区间的区域。QTL-seq标准方法。"
+    params:
+      ci_method: "permutation"
+      confidence_level: 0.99
+      min_peak_width: 1000000
+
+  - rule_id: "bsa-ed-gstat-003"
+    priority: 9
+    condition:
+      method: "bsr_seq"
+    recommend: "ed_g_statistic"
+    reason: "ED + G-statistic → BSR-seq使用Euclidean Distance和G-statistic组合。"
+    params:
+      ed_threshold: 0.5
+      g_stat_threshold: 20
+      combine_method: "intersection"
+
+# ============================================================
+# 决策节点 6: 候选基因注释
+# ============================================================
+gene_annotation:
+  - rule_id: "bsa-gene-extraction-001"
+    priority: 10
+    condition:
+      has_candidate_interval: true
+      has_gff: true
+    recommend: "extract_genes_in_interval"
+    reason: "提取候选区间基因 → 根据GFF注释提取候选区间内的所有基因。"
+    tool_id: "gene_extraction"
+    params:
+      upstream_extend: 5000
+      downstream_extend: 5000
+
+  - rule_id: "bsa-variant-annotation-002"
+    priority: 10
+    condition:
+      has_candidate_variants: true
+    recommend: "snpEff_annotation"
+    reason: "变异注释 → 使用SnpEff或VEP注释候选变异的功能影响。"
+    tool_id: "variant_annotation"
+    params:
+      impact_filter: ["HIGH", "MODERATE"]
+
+  - rule_id: "bsa-functional-prediction-003"
+    priority: 8
+    tool_id: "blast2go"
+    condition:
+      need_prioritization: true
+    recommend: "gene_prioritization"
+    reason: "基因优先排序 → 根据功能注释、表达模式和已知生物学知识排序候选基因。"
+    params:
+      go_keywords: []
+      expression_data: null
+
+# ============================================================
+# 决策节点 7: 可视化
+# ============================================================
+visualization:
+  - rule_id: "bsa-manhattan-001"
+    priority: 10
+    condition:
+      has_snp_index: true
+    recommend: "manhattan_plot"
+    reason: "曼哈顿图 → 展示SNP-index或ΔSNP-index沿染色体的分布。"
+    tool_id: "visualization"
+    params:
+      threshold_line: true
+      ci_shading: true
+      chromosome_order: true
+
+  - rule_id: "bsa-heatmap-002"
+    priority: 8
+    condition:
+      has_multiple_traits: true
+    recommend: "candidate_heatmap"
+    reason: "候选区域热图 → 展示多个染色体区域的信号强度。"
+    tool_id: "visualization"
+    params:
+      color_palette: "viridis"
+      cluster_rows: true
+      cluster_columns: false
+      show_chromosome_labels: true
+      signal_metric: "delta_snp_index"
+
+  - rule_id: "bsa-gene-view-003"
+    priority: 8
+    condition:
+      has_candidate_genes: true
+    recommend: "gene_structure_plot"
+    reason: "基因结构图 → 展示候选基因的外显子/内含子结构和变异位置。"
+    tool_id: "visualization"
+    params:
+      show_utr: true
+      show_variant_markers: true
+      transcript_view: true
+      color_by_impact: true
+
+# ============================================================
+# 多倍体特化规则
+# ============================================================
+polyploid_specific:
+  - rule_id: "bsa-polyploid-mapping-001"
+    priority: 9
+    condition:
+      ploidy: ">= 4"
+    recommend: "subgenome_aware_mapping"
+    reason: "多倍体特殊处理 → 分别比对到各亚基因组，减少同源区域比对错误。"
+    params:
+      subgenome_fasta: []
+      min_mapq: 30
+      unique_mapping_only: true
+
+  - rule_id: "bsa-polyploid-filter-002"
+    priority: 9
+    condition:
+      ploidy: ">= 4"
+      need_homoeolog_filter: true
+    recommend: "homeolog_aware_filter"
+    reason: "同源区域过滤 → 过滤同源区域的多态性位点，避免假阳性。"
+    params:
+      homeolog_bed: null
+      min_distance: 1000
+
+fallback:
+  - rule_id: "bsa-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      reason: "No matching rule found"
+      suggestion: "Consult specialist for custom approach"

@@ -31,23 +31,36 @@ assembler:
     recommend: "hifiasm"
     reason: "PacBio HiFi → hifiasm最优选择。HiFi reads的高准确性（QV30+）和长读长（15-25Kb）特性使hifiasm能产生高度连续的组装。hifiasm内置的phased assembly功能对植物基因组特别重要——可以直接产出haplotype-resolved组装（hap1/hap2），这对于区分杂合区域和真实重复序列至关重要。推荐HiFi覆盖度30-40x。"
     tool_id: "hifiasm"
+    params:
+      min_coverage: 30
+      n_hap: 2
   - rule_id: "asm-flye-ont-002"
     priority: 10
     condition: { sequencing_type: "ont" }
     recommend: "flye"
     reason: "ONT → Flye优化设计。Flye的repeat graph算法对ONT reads的错误模式（indel富集）做了专门优化，能更好地处理植物基因组中的长重复序列（LTR逆转录转座子、rDNA arrays）。推荐ONT覆盖度50-60x（补偿ONT reads较高的错误率）。Q20+ chemistry（R10.4.1+）下30-40x也可接受。"
     tool_id: "flye"
+    params:
+      min_coverage: 50
+      genome_size: "{estimated_genome_size}"
+      iterations: 2
   - rule_id: "asm-hybrid-003"
     priority: 9
     condition: { has_short_reads: true, has_long_reads: true }
     recommend: "hifiasm_with_hic_or_masurca_hybrid"
     reason: "长读长+短读长 → hifiasm（含Hi-C数据）或MaSuRCA混合组装。hifiasm支持集成Hi-C数据实现染色体水平phased assembly。如果HiFi reads覆盖度不足（<20x）但有Illumina short reads，MaSuRCA的混合策略可以利用短reads填补gap。对于植物，混合组装在重复序列区域可能优于纯长读长组装。"
+    params:
+      strategy: "hybrid"
+      use_hic: true
   - rule_id: "asm-polyploid-004"
     priority: 10
     condition: { ploidy: ">= 3" }
     recommend: "hifiasm_with_n_hap_parameter"
     reason: "多倍体物种 → hifiasm设置正确的--n-hap参数。多倍体植物（小麦6x、马铃薯4x、油菜4x）组装时需要告知assembler预期的haplotype数量。hifiasm的--n-hap参数控制分型的haplotype数。对于同源多倍体（autopolyploid），分型极其困难——预期组装结果中会出现较多ambiguous区域。"
     tool_id: "hifiasm"
+    params:
+      n_hap: "{ploidy}"
+      polyploid_mode: true
 
 polishing:
   - rule_id: "pol-medaka-ont-001"
@@ -56,18 +69,27 @@ polishing:
     recommend: "medaka"
     reason: "ONT组装 → Medaka神经网络校正。Medaka使用深度学习方法校正ONT组装中的系统性错误（特别是均聚物区域的indel）。需要使用与basecalling model匹配的Medaka model（如r941_min_hac_g507）。对于植物大基因组，可先按contig分批运行Medaka以降低内存消耗。"
     tool_id: "polishing"
+    params:
+      model: "r941_min_hac_g507"
+      batch_size: 100
   - rule_id: "pol-gcpp-hifi-002"
     priority: 10
     condition: { sequencing_type: "pacbio_hifi" }
     recommend: "gcpp_arrow"
     reason: "HiFi组装 → gcpp (Arrow) polishing。HiFi reads已具有高准确性（>99.9%），Arrow polishing通常只产生微小改善（0.01-0.1% QV提升）。对高度重复的植物基因组区域，polishing有时会将重复序列间的微小差异抹平——如果组装后BUSCO Duplicated大幅减少，检查是否过度polishing。"
     tool_id: "polishing"
+    params:
+      rounds: 1
+      min_coverage: 10
   - rule_id: "pol-pilon-short-003"
     priority: 8
     condition: { has_short_reads: true, assembly_error_rate: "> 0.1%" }
     recommend: "pilon_short_read_polishing"
     reason: "有Illumina短reads且错误率偏高 → Pilon短读长polishing。Illumina短reads的准确性（>99.9%）可以校正常见于ONT长读长组装中的indel错误。Pilon需要2-3轮迭代以获得最佳结果。注意短reads无法比对到高度重复区域（>80%相似度），这些区域无法被polishing。"
     tool_id: "polishing"
+    params:
+      rounds: 3
+      fix: "all"
 
 qc:
   - rule_id: "qc-busco-plant-001"
@@ -76,18 +98,28 @@ qc:
     recommend: "busco_plant_lineage"
     reason: "植物基因组质量评估 → BUSCO植物专用lineage。根据物种分类选择最特异的数据集：embryophyta_odb10（通用陆地植物）、eudicots_odb10（双子叶）、liliopsida_odb10（单子叶）、或更细的目的/科水平lineage。同时建议运行通用和特异两个lineage——通用lineage告诉你'缺了什么基因'，特异lineage告诉你'在近缘物种中缺了什么基因'。"
     tool_id: "qc"
+    params:
+      lineage: "embryophyta_odb10"
+      mode: "genome"
+      cpu: 32
   - rule_id: "qc-merqury-kmer-002"
     priority: 10
     condition: { has_short_reads: true }
     recommend: "merqury_kmer_spectra"
     reason: "有短reads → Merqury k-mer评估。Merqury提供三个关键指标：QV（碱基准确性）、Completeness（k-mer完整性）和k-mer spectra图（可视化倍性和重复）。植物的k-mer spectra图比动物更复杂（因高杂合度和多倍性），第二个峰（2n或杂合峰）的位置和形状提供了杂合度和倍性的辅助信息。"
     tool_id: "qc"
+    params:
+      kmer_size: 21
+      plot_format: "png"
   - rule_id: "qc-purge-dups-003"
     priority: 9
     condition: { busco_duplicated: "> 15%", ploidy: "== 2" }
     recommend: "purge_dups_haplotig_removal"
     reason: "二倍体BUSCO Duplicated > 15% → 可能存在haplotig冗余。使用purge_dups根据read深度分布识别和移除冗余haplotig。如果purge_dups后Duplicated显著降低但仍>10%，考虑该物种可能有近期WGD历史或组装存在过度的haplotype separation。多倍体（ploidy >= 3）此规则不适用——预期D偏高。"
     tool_id: "qc"
+    params:
+      cutoff_method: "histogram"
+      min_depth: 5
 
 scaffolding:
   - rule_id: "scaf-hic-yahs-001"
@@ -96,23 +128,149 @@ scaffolding:
     recommend: "yahs_or_salsa_hic"
     reason: "有Hi-C数据 → YAHS或SALSA2染色体水平scaffolding。植物Hi-C scaffold推荐使用YAHS（计算效率高）或SALSA2（处理大基因组好）。植物染色体数量范围大（n=4到n=100+），Hi-C contact map中预期看到清晰的对角线信号和染色体疆界。Hi-C reads量建议>100M PE reads。"
     tool_id: "scaffolding"
+    params:
+      min_reads: 100000000
+      resolution: 100000
   - rule_id: "scaf-no-hic-genetic-002"
     priority: 7
     condition: { has_hic_data: false, has_genetic_map: true }
     recommend: "genetic_map_based_scaffolding"
     reason: "无Hi-C但有遗传图谱 → 遗传图谱辅助scaffolding。使用ALLMAPS或CHROMONASTER将contig按遗传图谱位置排序。分辨率取决于遗传标记密度和重组率，通常只能到pseudo-chromosome而非染色体水平。对育种群体（RIL/F2）通常已构建遗传图谱，这是常见的低预算scaffolding方案。"
     tool_id: "scaffolding"
+    params:
+      tool: "ALLMAPS"
+      min_markers: 10
   - rule_id: "scaf-no-hic-ragtag-003"
     priority: 6
     condition: { has_hic_data: false, has_close_reference: true }
     recommend: "ragtag_reference_guided_scaffolding"
     reason: "无Hi-C但有近缘参考基因组 → RagTag参考引导scaffolding。RagTag利用近缘物种染色体信息对contig进行排序和定向。仅适用于同属或同科物种（分化时间<20Mya），否则共线性不足。结果应标注为'参考引导'而非de novo染色体组装，因为可能存在结构性重排未被检测。"
+    params:
+      min_identity: 0.95
+      trust_reference: false
 
 fallback:
   - rule_id: "asm-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
+
+# ============================================================
+# 多平台组装评估矩阵 (P0级增强)
+# 用于综合评估不同组装工具的结果质量
+# ============================================================
+assembly_evaluation_matrix:
+  - rule_id: "eval-multi-platform-001"
+    priority: 10
+    tool_id: "quast-busco"
+    condition:
+      genome_importance: "high"
+      resources_available: "high"
+    recommend: "multi_assembler_comparison"
+    reason: "高重要性基因组 → 多组装工具比较评估。运行多个组装工具（hifiasm、Flye、IPA）并比较结果，选择最优或合并。"
+    tools:
+      - hifiasm
+      - flye
+      - ipa
+      - neat
+    evaluation_metrics:
+      - contig_n50
+      - busco_complete
+      - merqury_qv
+      - assembly_size
+      - ltr_recovery
+    params:
+      run_parallel: true
+      select_best: true
+
+  - rule_id: "eval-standard-002"
+    priority: 8
+    tool_id: "quast"
+    condition:
+      genome_importance: "standard"
+    recommend: "single_best_assembler"
+    reason: "标准项目 → 使用单一最佳组装工具。PacBio HiFi用hifiasm，ONT用Flye。"
+    params:
+      hifi_assembler: "hifiasm"
+      ont_assembler: "flye"
+
+# ============================================================
+# T2T (Telomere-to-Telomere) 流程 (P0级增强)
+# 追求完整染色体级别的组装
+# ============================================================
+t2t_pipeline:
+  - rule_id: "t2t-gap-closing-001"
+    priority: 10
+    condition:
+      assembly_gap_count: "> 0"
+      has_ultra_long_reads: true
+    recommend: "gap_closing_with_ont_ul"
+    reason: "有gap且有超长ONT reads → 使用ONT ultra-long reads填补gap。ONT reads长度>100Kb可跨越大多数gap区域。"
+    tool_id: "gap_closing"
+    params:
+      min_read_length: 100000
+
+  - rule_id: "t2t-telomere-verification-002"
+    priority: 9
+    condition:
+      t2t_goal: true
+    recommend: "telomere_detection"
+    reason: "T2T目标 → 验证端粒完整性。检测contig末端的端粒重复序列（植物：TTTAGGG）。"
+    tool_id: "telomere_detection"
+    params:
+      telomere_repeat: "TTTAGGG"
+      min_copies: 10
+
+  - rule_id: "t2t-centromere-003"
+    priority: 9
+    tool_id: "centromere-assembly"
+    condition:
+      t2t_goal: true
+      has_ultra_long_reads: true
+    recommend: "centromere_assembly"
+    reason: "T2T目标且有超长reads → 尝试着丝粒区域组装。着丝粒由卫星重复序列组成，需要超长reads跨越。"
+    params:
+      min_read_length: 100000
+      satellite_detection: true
+
+# ============================================================
+# 多倍体组装专用参数 (P0级增强)
+# ============================================================
+polyploid_assembly:
+  - rule_id: "poly-autopolyploid-001"
+    priority: 10
+    condition:
+      ploidy_type: "autopolyploid"
+      ploidy: ">= 4"
+    recommend: "hifiasm_diploid_mode_with_clustering"
+    reason: "同源多倍体 → 使用hifiasm分型模式，预期多个单倍型组装。注意同源多倍体分型困难，可能产生破碎结果。"
+    tool_id: "hifiasm"
+    params:
+      n_hap: "{ploidy}"
+      l0: "auto"
+
+  - rule_id: "poly-allopolyploid-002"
+    priority: 10
+    condition:
+      ploidy_type: "allopolyploid"
+    recommend: "subgenome_separation"
+    reason: "异源多倍体 → 可按亚基因组分开组装。AABB型可视为两个二倍体组装。"
+    tool_id: "hifiasm"
+    params:
+      n_hap: 2
+
+  - rule_id: "poly-trio-binning-003"
+    priority: 9
+    condition:
+      has_parental_data: true
+    recommend: "trio_binning_assembly"
+    reason: "有亲本数据 → 使用trio-binning分离单倍型。根据亲本k-mer将reads分箱后分别组装。"
+    tool_id: "trio_binning"
+    params:
+      kmer_size: 21
+      min_kmer_count: 3
 
 design_gates:
   - id: "asm-sequencing-technology"

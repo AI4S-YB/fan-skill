@@ -1,0 +1,426 @@
+name: denovo-transcriptome
+description: "De novo transcriptome assembly and analysis for non-model plant species. Covers assembly, quality assessment, functional annotation, differential expression, and coding region prediction."
+triggers:
+  - "de novo transcriptome"
+  - "de novo"
+  - "从头组装"
+  - "trinity"
+  - "rsem"
+  - "transdecoder"
+  - "non-model species"
+  - "无参考基因组"
+
+inputs:
+  - rna_seq_reads
+  - sample_metadata
+  - related_proteins
+
+outputs:
+  - transcript_assembly
+  - quality_metrics
+  - functional_annotation
+  - coding_regions
+  - expression_matrix
+  - differential_expression
+  - analysis_report
+
+version: "1.0"
+analysis: denovo_transcriptome
+
+inputs_required:
+  - rna_seq_reads
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "dt-read-data"
+    rule: "必须有RNA-seq数据"
+    check: "has_rna_seq_data == true"
+    severity: "block"
+    on_fail: "没有RNA-seq数据 → 无法进行转录组分析。"
+  - id: "dt-sequencing-depth"
+    rule: "测序深度足够（建议每个样本>20M reads）"
+    check: "reads_per_sample >= 20000000"
+    severity: "warn"
+    on_fail: "测序深度较低 → 可能影响低表达基因的组装质量。"
+  - id: "dt-replicates"
+    rule: "有生物学重复"
+    check: "biological_replicates >= 2"
+    severity: "warn"
+    on_fail: "无生物学重复 → 差异分析结果不可靠。建议每个条件至少2个重复。"
+  - id: "dt-read-length"
+    rule: "读长足够（建议>75bp）"
+    check: "read_length >= 75"
+    severity: "warn"
+    on_fail: "读长较短 → 组装连续性可能受限。建议使用>100bp的测序策略。"
+
+# ============================================================
+# 决策节点 1: 组装策略
+# ============================================================
+assembly:
+  - rule_id: "asm-trinity-001"
+    priority: 10
+    condition:
+      method_preference: "standard"
+      read_type: "short"
+    recommend: "trinity"
+    reason: "标准方法 → Trinity。最常用的de novo转录组组装工具，成熟稳定。"
+    tool_id: "trinity"
+    params:
+      min_contig_length: 200
+      path_reinforcement_distance: 75
+
+  - rule_id: "asm-rnaSPAdes-002"
+    priority: 9
+    condition:
+      method_preference: "spades"
+    recommend: "rnaspades"
+    reason: "SPAdes方法 → rnaSPAdes。SPAdes家族的转录组组装工具。"
+    tool_id: "rnaspades"
+    params:
+      k: "21,33,55,77"
+      threads: 16
+      memory: 64
+      careful: true
+
+  - rule_id: "asm-transAbyss-003"
+    priority: 8
+    condition:
+      memory_limited: true
+    recommend: "transabyss"
+    reason: "内存受限 → Trans-ABySS。内存效率较高的组装工具。"
+    tool_id: "transabyss"
+    params:
+      kmer_range: "31,41,51,61"
+      threads: 8
+      max_memory: 16
+      coverage: true
+
+  - rule_id: "asm-hybrid-004"
+    priority: 10
+    condition:
+      has_long_reads: true
+      has_short_reads: true
+    recommend: "hybrid_assembly"
+    reason: "混合组装 → 结合长读长和短读长。使用短读长构建骨架，长读长延长。"
+    tool_id: "trinity"
+    params:
+      long_reads: "{long_read_file}"
+      hybrid: true
+      min_contig_length: 200
+      threads: 24
+      memory: 128
+
+# ============================================================
+# 决策节点 2: 组装质量评估
+# ============================================================
+quality_assessment:
+  - rule_id: "qa-transrate-001"
+    priority: 10
+    condition:
+      has_assembly: true
+    recommend: "transrate"
+    reason: "标准评估 → TransRate。全面的转录组组装质量评估。"
+    tool_id: "transrate"
+    params:
+      assembly: "{transcript_fasta}"
+      left: "{left_reads}"
+      right: "{right_reads}"
+      threads: 8
+
+  - rule_id: "qa-busco-002"
+    priority: 10
+    condition:
+      species_type: "plant"
+    recommend: "busco_plant"
+    reason: "完整性评估 → BUSCO植物数据库。评估组装的完整性。"
+    tool_id: "busco"
+    params:
+      lineage: "embryophyta_odb10"
+      mode: "transcriptome"
+      cpu: 8
+
+  - rule_id: "qa-rsem-eval-003"
+    priority: 9
+    condition:
+      has_reads: true
+    recommend: "rsem_eval"
+    reason: "表达回比 → RSEM评估。使用原始reads评估组装质量。"
+    tool_id: "rsem"
+    params:
+      estimate_rspd: true
+      calc_ci: true
+      threads: 8
+
+# ============================================================
+# 决策节点 3: 冗余去除
+# ============================================================
+deduplication:
+  - rule_id: "dedup-cdhit-001"
+    priority: 10
+    condition:
+      method_preference: "standard"
+    recommend: "cdhit_est"
+    reason: "标准去冗余 → CD-HIT-EST。基于序列相似性去除冗余转录本。"
+    tool_id: "cdhit"
+    params:
+      identity: 0.95
+      word_length: 10
+      threads: 8
+      min_length: 200
+
+  - rule_id: "dedup-corset-002"
+    priority: 9
+    condition:
+      has_expression_data: true
+    recommend: "corset"
+    reason: "基于表达 → Corset。利用表达模式进行聚类去冗余。"
+    tool_id: "corset"
+    params:
+      min_length: 200
+      distance_threshold: 0.3
+      threads: 8
+
+  - rule_id: "dedup-evidentialgene-003"
+    priority: 8
+    condition:
+      method_preference: "comprehensive"
+    recommend: "evidentialgene"
+    reason: "综合方法 → EvidentialGene。多标准综合去冗余。"
+    tool_id: "evidentialgene"
+    params:
+      min_protein_length: 50
+      score_threshold: 0.5
+      cleanup: true
+
+# ============================================================
+# 决策节点 4: 功能注释
+# ============================================================
+functional_annotation:
+  - rule_id: "anno-trinotate-001"
+    priority: 10
+    condition:
+      method_preference: "standard"
+    recommend: "trinotate"
+    reason: "标准注释 → Trinotate。Trinity配套的注释流程，全面。"
+    tool_id: "trinotate"
+    params:
+      include_pfam: true
+      include_swissprot: true
+      include_kegg: true
+      evalue: 1e-5
+      threads: 8
+
+  - rule_id: "anno-dammit-002"
+    priority: 9
+    condition:
+      method_preference: "automated"
+    recommend: "dammit"
+    reason: "自动化 → dammit。自动化的注释流程，简单易用。"
+    tool_id: "dammit"
+    params:
+      database_dir: "{dammit_db_dir}"
+      busco_group: "embryophyta"
+      evalue: 1e-5
+      threads: 8
+
+  - rule_id: "anno-eggmapper-003"
+    priority: 9
+    condition:
+      online_annotation: true
+    recommend: "eggnog_mapper"
+    reason: "在线注释 → eggNOG-mapper。使用eggNOG数据库进行功能注释。"
+    tool_id: "eggnog-mapper"
+    params:
+      mode: "diamond"
+      data_dir: "{eggnog_db_path}"
+      cpu: 8
+      annotate_hits_table: true
+      go_evidence: "non-electronic"
+
+  - rule_id: "anno-plant-specific-004"
+    priority: 8
+    condition:
+      species_type: "plant"
+    recommend: "plant_annotation_pipeline"
+    reason: "植物特异 → 使用植物特异性数据库（TAIR、PlantTFDB等）。"
+    tool_id: "trinotate"
+    params:
+      include_planttfdb: true
+      include_tair: true
+      include_uniprot_plant: true
+      evalue: 1e-5
+
+# ============================================================
+# 决策节点 5: ORF预测
+# ============================================================
+orf_prediction:
+  - rule_id: "orf-transdecoder-001"
+    priority: 10
+    condition:
+      method_preference: "standard"
+    recommend: "transdecoder"
+    reason: "标准方法 → TransDecoder。预测编码区和蛋白质序列。"
+    tool_id: "transdecoder"
+    params:
+      min_protein_len: 50
+      retain_pfam_hits: true
+      retain_blastp_hits: true
+      threads: 8
+
+  - rule_id: "orf-transdecoder-refine-002"
+    priority: 9
+    condition:
+      has_homology_evidence: true
+    recommend: "transdecoder_refined"
+    reason: "同源辅助 → 使用同源证据辅助ORF预测。"
+    tool_id: "transdecoder"
+    params:
+      min_protein_len: 50
+      retain_pfam_hits: true
+      retain_blastp_hits: true
+      homology_proteins: "{reference_proteins.fasta}"
+      threads: 8
+
+  - rule_id: "orf-orf-fold-003"
+    priority: 7
+    condition:
+      lncrna_analysis: true
+    recommend: "orf_finder_full"
+    reason: "lncRNA分析 → 保留所有ORF用于后续分析。"
+    tool_id: "transdecoder"
+    params:
+      min_protein_len: 30
+      retain_all_orfs: true
+      single_orf_only: false
+
+# ============================================================
+# 决策节点 6: 表达定量
+# ============================================================
+quantification:
+  - rule_id: "quant-salmon-001"
+    priority: 10
+    condition:
+      method_preference: "fast"
+    recommend: "salmon"
+    reason: "快速定量 → Salmon。基于准比对的快速定量方法。"
+    tool_id: "salmon"
+    params:
+      lib_type: "A"
+      validate_mappings: true
+      seq_bias: true
+      gc_bias: true
+      threads: 8
+
+  - rule_id: "quant-kallisto-002"
+    priority: 9
+    condition:
+      method_preference: "kallisto"
+    recommend: "kallisto"
+    reason: "偏好kallisto → Kallisto定量。"
+    tool_id: "kallisto"
+    params:
+      bootstrap_samples: 100
+      single_end: false
+      threads: 8
+
+  - rule_id: "quant-rsem-003"
+    priority: 8
+    condition:
+      method_preference: "rsem"
+    recommend: "rsem"
+    reason: "偏好RSEM → RSEM定量。与Trinity配套。"
+    tool_id: "rsem"
+    params:
+      estimate_rspd: true
+      calc_ci: true
+      ci_credibility_level: 0.95
+      threads: 8
+
+# ============================================================
+# 决策节点 7: 差异表达分析
+# ============================================================
+differential_expression:
+  - rule_id: "de-deseq2-001"
+    priority: 10
+    condition:
+      replicates: ">= 2"
+    recommend: "deseq2"
+    reason: "标准方法 → DESeq2。最常用的差异分析工具。"
+    tool_id: "deseq2"
+    params:
+      lfc_threshold: 1
+      alpha: 0.05
+      independent_filtering: true
+      cooks_cutoff: true
+
+  - rule_id: "de-edger-002"
+    priority: 9
+    condition:
+      replicates: "== 2"
+    recommend: "edger"
+    reason: "两重复 → edgeR可能更适合。"
+    tool_id: "edger"
+    params:
+      lfc_threshold: 1
+      fdr: 0.05
+      trend_method: "robust"
+      min_cpm: 1
+
+  - rule_id: "de-no-rep-003"
+    priority: 6
+    condition:
+      replicates: "< 2"
+    recommend: "no_rep_analysis"
+    reason: "无重复 → 只能报告fold change，不能做统计检验。"
+    params:
+      report_fc_only: true
+      no_stats: true
+      fold_change_threshold: 2
+
+lncrna_analysis:
+  - rule_id: "lnc-cpc2-001"
+    priority: 10
+    condition:
+      lncrna_needed: true
+    recommend: "cpc2"
+    reason: "编码潜力 → CPC2评估编码潜力。"
+    tool_id: "cpc2"
+    params:
+      is_plant: true
+      min_length: 200
+      output_format: "txt"
+
+  - rule_id: "lnc-cnci-002"
+    priority: 10
+    condition:
+      species_type: "plant"
+      lncrna_needed: true
+    recommend: "cnci_plant"
+    reason: "植物lncRNA → CNCI植物模型。CNCI -m pl参数。"
+    tool_id: "cnci"
+    params:
+      model: "pl"
+      min_length: 200
+      threads: 8
+
+  - rule_id: "lnc-feelnc-003"
+    priority: 9
+    condition:
+      method_preference: "feelnc"
+    recommend: "feelnc"
+    reason: "FEELnc → FEELnc工具。"
+    params:
+      monoex: -1
+      min_length: 200
+      coding_tissues: "{tissue_list}"
+
+fallback:
+  - rule_id: "dt-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      reason: "No matching rule found"
+      suggestion: "Consult transcriptome analysis specialist for custom workflow"

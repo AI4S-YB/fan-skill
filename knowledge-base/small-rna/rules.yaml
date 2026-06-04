@@ -31,24 +31,46 @@ mirna_prediction:
     recommend: "mirdeep2_with_species_mirbase"
     reason: "已知模式物种 → miRDeep2+miRBase已知miRNA参考。这些物种在miRBase中有高质量curated miRNA记录，应从已知miRNA出发进行鉴定和定量，再发现新miRNA。已知miRNA的结构预测准确性远高于从头预测。"
     tool_id: "mirna-prediction"
+    params:
+      min_score: 5
+      randfold_pvalue: 0.05
+      species: "{species_detected}"
   - rule_id: "mirna-near-model-species-002"
     priority: 9
     condition: { species_detected: "related_to_model", species_phylogenetic_distance: "< 50Mya" }
     recommend: "mirdeep2_with_related_species_mirbase"
     reason: "有近缘模式物种 → 使用近缘物种miRBase参考辅助预测。同属或同科的miRNA序列保守性高（特别是miR156/172/159等保守家族），可以借助近缘物种的已知miRNA提高鉴定信度。但仍需Randfold p-value过滤以减少假阳性。"
     tool_id: "mirna-prediction"
+    params:
+      min_score: 5
+      randfold_pvalue: 0.05
+      related_species: "{related_model_species}"
+      allow_mismatch: 1
+
   - rule_id: "mirna-non-model-species-003"
     priority: 8
     condition: { species_detected: "non_model", species_phylogenetic_distance: "> 50Mya" }
     recommend: "mirdeep2_novel_discovery_with_shortstack"
     reason: "非模式物种且无近缘参考 → miRDeep2从头预测 + ShortStack辅助验证。仅依靠二级结构预测容易产生假阳性（特别是在重复序列丰富的植物基因组中）。ShortStack可提供独立验证并发现phased siRNA loci。预期真阳性miRNA数应 > 50个（保守家族）。"
     tool_id: "mirna-prediction"
+    params:
+      min_score: 7
+      randfold_pvalue: 0.01
+      min_read_count: 10
+      shortstack_mincov: 5
+
   - rule_id: "mirna-polyploid-004"
     priority: 9
     condition: { ploidy: ">= 4" }
     recommend: "mirdeep2_subgenome_aware"
     reason: "多倍体物种 → miRDeep2需考虑亚基因组。多倍体中同一miRNA家族可能有多个homeolog copies，比对时允许1-2个错配以避免过度过滤。建议分别比对亚基因组参考（如果已分型），然后整合结果。miRNA count应考虑每个copy的unique alignment。"
     tool_id: "mirna-prediction"
+    params:
+      min_score: 5
+      randfold_pvalue: 0.05
+      allow_multi_mapping: true
+      max_mismatch: 2
+      subgenome_references: "{subgenome_list}"
 
 target_prediction:
   - rule_id: "target-psrna-plant-001"
@@ -57,12 +79,20 @@ target_prediction:
     recommend: "psRNATarget"
     reason: "植物miRNA靶基因预测 → psRNATarget是植物领域的标准工具。植物miRNA-mRNA配对高度互补（通常<4个错配），这与动物miRNA通过seed region配对（允许更多错配）的机制不同。psRNATarget专为植物高互补性的配对模式优化，惩罚评分方案合理。"
     tool_id: "target-prediction"
+    params:
+      expectation: 3
+      max_upe: 25
+      penalty_score: "default"
   - rule_id: "target-tapir-002"
     priority: 8
     condition: { organism_type: "plant", need_rna_secondary_structure: true }
     recommend: "tapir_with_rnafold"
     reason: "需要RNA二级结构辅助的靶基因预测 → TAPIR+RNAfold。TAPIR评估miRNA-target pair的杂交能量和靶位点可及性（考虑了mRNA二级结构对miRNA结合的影响），提供比单纯序列配对更准确的预测。适用于精细分析少数候选miRNA-target对。"
     tool_id: "target-prediction"
+    params:
+      score_cutoff: 4
+      target_fasta: "{target_transcripts.fasta}"
+      rnafold_path: "/usr/bin/RNAfold"
 
 differential_expression:
   - rule_id: "demirna-deseq2-normal-001"
@@ -71,18 +101,30 @@ differential_expression:
     recommend: "deseq2_on_mirna_counts"
     reason: "≥3生物学重复 → DESeq2差异miRNA分析。DESeq2的经验贝叶斯收缩（empirical Bayes shrinkage）在小样本量下对离散度估计稳健。小RNA-seq数据的低表达miRNA较多，DESeq2的independent filtering自动移除低count miRNA，减少多重检验负担。"
     tool_id: "differential-expression"
+    params:
+      alpha: 0.05
+      lfcThreshold: 1
+      min_counts: 10
   - rule_id: "demirna-limma-002"
     priority: 9
     condition: { rep_count: "== 2" }
     recommend: "limma_voom_on_mirna_counts"
     reason: "仅2个生物学重复 → limma-voom差异miRNA分析。DESeq2在2重复时离散度估计不稳定；limma-voom的经验贝叶斯方差调节对小样本更稳健。但应明确报告中说明统计效力的局限性，p值解读需谨慎。"
     tool_id: "differential-expression"
+    params:
+      lfcThreshold: 1
+      adjust_method: "BH"
+      min_cpm: 1
   - rule_id: "demirna-edger-lowcount-003"
     priority: 8
     condition: { rep_count: "< 2" }
     recommend: "no_statistical_test_rank_only"
     reason: "无生物学重复 → 不能做统计检验。只能报告fold change排序。不应报告p值或q值。考虑合并多个样本做pseudo-replicate（仅在探索性分析中）。明确标注结果需实验验证。"
     tool_id: "differential-expression"
+    params:
+      no_stats: true
+      report_fc_only: true
+      rank_by: "fold_change"
 
 quality_control:
   - rule_id: "smrna-qc-length-001"
@@ -91,12 +133,22 @@ quality_control:
     recommend: "check_adapters_and_size_selection"
     reason: "小RNA文库大小选择异常 → 检查接头去除和凝胶切胶范围。正常植物小RNA文库应在18-30nt有明确峰值（21nt和24nt为主峰）。如果长度分布异常（如大量<18nt或>30nt），可能接头去除不充分或大小选择失败。植物特有的24nt siRNA应占相当比例。"
     tool_id: "quality-control"
+    params:
+      min_length: 18
+      max_length: 30
+      adapter: "TGGAATTCTCGGGTGCCAAGG"
+      cutadapt_options: "-m 18 -M 30"
   - rule_id: "smrna-qc-rrna-contam-002"
     priority: 10
     condition: { rrna_proportion: "> 20%" }
     recommend: "re_filter_rrna_trna_and_repeat"
     reason: "rRNA/tRNA污染 > 20% → 重新过滤。植物组织（特别是种子和根）中rRNA降解产物可落入小RNA大小范围，被误判为sRNA。使用完整的植物rRNA/tRNA数据库（Rfam + SILVA plant rRNA）重新过滤。对富含多糖的组织（果实、块茎），RNA质量可能差，预期污染比例更高。"
     tool_id: "quality-control"
+    params:
+      rrna_database: "{rrna_fasta}"
+      trna_database: "{trna_fasta}"
+      bowtie_options: "-v 0 -k 1"
+      remove_matched: true
 
 degradome:
   - rule_id: "degradome-cleveland4-001"
@@ -105,17 +157,30 @@ degradome:
     recommend: "cleaveland4_with_parsnp"
     reason: "有降解组数据 → CleaveLand4鉴定miRNA剪切靶基因。降解组数据（PARE/degradome-seq）是miRNA靶基因预测的实验验证金标准。植物中miRNA介导的mRNA剪切在靶位点第10-11nt产生明显的reads堆积。category 0-2为高置信度靶标。"
     tool_id: "degradome-analysis"
+    params:
+      mirna_file: "{mirna.fasta}"
+      target_file: "{transcript.fasta}"
+      degradome_file: "{degradome.fastq}"
+      category_threshold: 2
+      min_read_count: 5
   - rule_id: "degradome-no-data-002"
     priority: 5
     condition: { has_degradome_data: false }
     recommend: "psrna_target_only_with_caveat"
     reason: "无降解组数据 → 仅使用psRNATarget计算预测靶基因。结果应标注为'预测靶基因'而非'验证靶基因'。建议取expectation <= 3（而非默认的5）以提高置信度。在发表时至少应包括qRT-PCR或5'-RACE对top候选进行验证。"
+    params:
+      expectation: 3
+      max_upe: 25
+      annotation_source: "prediction_only"
 
 fallback:
   - rule_id: "smrna-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "No matching rule found"
+      suggestion: "Consult small RNA analysis specialist"
 
 design_gates:
   - id: "srna-size-selection"

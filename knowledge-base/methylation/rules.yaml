@@ -31,23 +31,42 @@ alignment:
     recommend: "bismark_wgbs_nondirectional"
     reason: "WGBS → Bismark non-directional模式。植物全基因组甲基化是非方向性的（non-directional），必须使用--non_directional参数。这与哺乳动物WGBS的方向性（directional）不同。如果错误使用默认的directional模式，比对率会降低30-50%（丢失OT和CTOB reads）。"
     tool_id: "bismark"
+    params:
+      non_directional: TRUE
+      score_min: "L,0,-0.6"
+      maxins: 500
   - rule_id: "meth-bismark-rrbs-002"
     priority: 10
     condition: { protocol: "rrbs" }
     recommend: "bismark_rrbs_nondirectional"
     reason: "RRBS → Bismark RRBS模式 + non-directional。RRBS文库需要--rrbs参数处理MspI酶切末端（在reads 5'端引入填充序列）。植物RRBS同样需要使用--non_directional参数。RRBS的CG位点覆盖度是WGBS的2-5倍但覆盖位点数少（主要覆盖CpG岛和基因启动子区域）。"
     tool_id: "bismark"
+    params:
+      non_directional: TRUE
+      rrbs: TRUE
+      score_min: "L,0,-0.6"
+      maxins: 500
   - rule_id: "meth-bismark-plant-gsize-003"
     priority: 8
     condition: { species_type: "plant", genome_size: "> 2Gb" }
     recommend: "bismark_split_by_chromosome"
     reason: "大基因组植物 → Bismark按染色体分批运行。玉米、大麦、小麦等大基因组中Bismark的bowtie2建索引消耗大量内存（>64GB）。按染色体分别建索引和比对可以降低内存占用并使流程可并行化。比对完成后合并各染色体的BAM文件。"
     tool_id: "bismark"
+    params:
+      split_by_chromosome: TRUE
+      parallel_jobs: 12
+      merge_bam: TRUE
   - rule_id: "meth-minimap2-ont-004"
     priority: 9
     condition: { sequencing_type: "ont" }
     recommend: "dorado_modkit_for_ont"
     reason: "ONT直接甲基化测序 → Dorado basecalling + modkit。ONT可以直接检测碱基修饰无需亚硫酸盐转化。Dorado的5mC/5hmC模型可直接从raw signal检测甲基化。植物中ONT直接甲基化检测的优势是同时获得CG/CHG/CHH三种上下文的甲基化，且不受亚硫酸盐转化效率影响。"
+    tool_id: "dorado_modkit"
+    params:
+      basecaller: "dorado"
+      modified_bases: ["5mC", "5hmC"]
+      contexts: ["CG", "CHG", "CHH"]
+      min_coverage: 5
 
 dmr_calling:
   - rule_id: "dmr-dss-standard-001"
@@ -56,18 +75,35 @@ dmr_calling:
     recommend: "dss_dmr_with_smoothing"
     reason: "≥2重复 → DSS with smoothing DMR检测。DSS的smoothing=True利用邻近CpG位点的空间相关性提高统计效力。植物CpG密度低于哺乳动物（植物基因间区CpG稀疏），smoothing参数可以帮助连接稀疏位点的信号。DMR最小长度建议50bp，minCG=3（植物标准）。"
     tool_id: "dmr-calling"
+    params:
+      smoothing: TRUE
+      minlen: 50
+      minCG: 3
+      pvalue: 0.001
+      delta: 0.2
   - rule_id: "dmr-dss-context-specific-002"
     priority: 10
     condition: { rep_count: ">= 2", methylation_context: ["CG", "CHG", "CHH"] }
     recommend: "dss_separate_by_context"
     reason: "植物特有 → 按CG/CHG/CHH三种上下文分别检测DMR。与哺乳动物仅关注CpG不同，植物三种上下文的甲基化由不同甲基转移酶维持（MET1→CG, CMT3→CHG, DRM2→CHH），其生物学功能也各异。混合上下文分析会导致生物学解释混乱。分别分析可揭示不同甲基化途径的差异响应。"
     tool_id: "dmr-calling"
+    params:
+      contexts: ["CG", "CHG", "CHH"]
+      smoothing: TRUE
+      minlen: 50
+      minCG: 3
   - rule_id: "dmr-dmrseq-003"
     priority: 9
     condition: { genome_size: "> 2Gb", rep_count: ">= 3" }
     recommend: "dmrseq_alternative"
     reason: "大基因组且深度测序 → DMRseq替代DSS。DMRseq对超大基因组（>2Gb）的计算效率优于DSS（使用了更高效的permutation策略）。但DMRseq对低覆盖率位点的处理不如DSS稳健（DSS使用hierarchical model），所以WGBS深度 < 10x时应优先使用DSS。"
     tool_id: "dmr-calling"
+    params:
+      method: "dmrseq"
+      minlen: 50
+      minCG: 3
+      pvalue: 0.001
+      n_perm: 10
 
 context_analysis:
   - rule_id: "meth-context-separate-001"
@@ -76,11 +112,21 @@ context_analysis:
     recommend: "separate_cg_chg_chh_analysis"
     reason: "植物必需 → 分别分析CG/CHG/CHH甲基化。植物DNA甲基化的独特性在于三种上下文由不同机制维持。CG甲基化与基因体甲基化（gbM）相关，CHG甲基化与组蛋白H3K9me2标记协同，CHH甲基化依赖RdDM途径。将三者混合分析会掩盖不同途径的特异性信号。每个上下文应有独立的QC报告和生物学解读。"
     tool_id: "context-analysis"
+    params:
+      contexts: ["CG", "CHG", "CHH"]
+      separate_reports: TRUE
+      context_specific_qc: TRUE
   - rule_id: "meth-context-ont-002"
     priority: 9
     condition: { sequencing_type: "ont", methylation_type: "direct_detection" }
     recommend: "ont_context_aware_modkit"
     reason: "ONT直接甲基化 → modkit按上下文分别输出。ONT的modkit可直接从modified bases calls中分离CG/CHG/CHH甲基化。优势是无需亚硫酸盐转化（避免了转化不完全的偏差），且可同时检测5mC和5hmC（亚硫酸盐测序无法区分两者）。"
+    tool_id: "modkit"
+    params:
+      contexts: ["CG", "CHG", "CHH"]
+      modified_bases: ["5mC", "5hmC"]
+      min_coverage: 5
+      separate_outputs: TRUE
 
 correlation:
   - rule_id: "meth-expr-correlation-001"
@@ -89,12 +135,23 @@ correlation:
     recommend: "promoter_methylation_vs_expression"
     reason: "有表达数据 → 启动子甲基化与基因表达关联分析。植物启动子甲基化通常与转录抑制相关（与哺乳动物类似）。但植物特有的基因体甲基化（gbM）与中等表达水平相关（不是抑制），需要分别分析启动子区域（TSS +/- 1Kb）和基因体区域（TSS+1Kb 到 TES）。"
     tool_id: "correlation"
+    params:
+      promoter_region: "TSS_-1kb_to_TSS_+1kb"
+      correlation_method: "spearman"
+      normalize_expression: TRUE
+      min_samples: 3
   - rule_id: "meth-gbm-correlation-002"
     priority: 9
     condition: { has_expression_data: true, region: "gene_body" }
     recommend: "gene_body_methylation_vs_expression_stability"
     reason: "有表达数据 → 基因体甲基化（gbM）分析。植物gbM是特有现象：CG甲基化富集在中等表达水平基因的编码区，功能与表达稳定性相关。gbM与启动子甲基化是独立的。分析时将基因按启动子甲基化和基因体甲基化水平分为四组（双高/双低/P高G低/P低G高），比较各组表达水平和表达变异性。"
     tool_id: "correlation"
+    params:
+      gene_body_region: "TSS_+1kb_to_TES"
+      contexts: ["CG"]
+      grouping: "quadrant_by_promoter_genebody"
+      expression_stability: TRUE
+      min_samples: 3
 
 quality_control:
   - rule_id: "meth-qc-conversion-001"
@@ -103,18 +160,31 @@ quality_control:
     recommend: "check_bisulfite_conversion_efficiency"
     reason: "亚硫酸盐转化率 < 99% → 检查转化条件。WGBS要求 > 99%的未甲基化C被转化为T（通过叶绿体DNA或lambda DNA spike-in评估）。植物DNA中高比例的重复序列和二级结构可能阻碍转化。转化不完全会导致'假甲基化'信号——报告中的非CG甲基化水平异常高是最常见的警示信号。"
     tool_id: "quality-control"
+    params:
+      conversion_threshold: 0.99
+      spike_in_type: "lambda_or_chloroplast"
+      check_non_cg_methylation: TRUE
+      action: "flag_and_report"
   - rule_id: "meth-qc-mapping-002"
     priority: 10
     condition: { mapping_rate: "< 40%" }
     recommend: "check_genome_complexity_and_use_nondirectional"
     reason: "比对率 < 40% → 首先检查是否使用了non-directional模式（这是最常见的原因）。其次植物大基因组中亚硫酸盐转化后序列复杂度降低（C→T转换），唯一比对率下降是正常的。40-60%是植物WGBS的典型范围。若仍低于40%，考虑使用paired-end模式或放宽bowtie2的--score-min参数。"
     tool_id: "quality-control"
+    params:
+      mapping_threshold: 0.40
+      check_nondirectional: TRUE
+      plant_typical_range: "0.40-0.60"
+      suggest_paired_end: TRUE
+      suggest_relax_score_min: TRUE
 
 fallback:
   - rule_id: "meth-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
 
 design_gates:
   - id: "meth-bisulfite-conversion"

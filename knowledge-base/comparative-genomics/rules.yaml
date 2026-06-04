@@ -1,0 +1,459 @@
+name: comparative-genomics
+description: "Plant comparative genomics and genome evolution analysis. Covers ortholog identification, synteny analysis, genome alignment, WGD detection, and evolutionary inference. Full pipeline for cross-species genome comparison."
+triggers:
+  - "comparative genomics"
+  - "比较基因组"
+  - "genome evolution"
+  - "ortholog"
+  - "同源基因"
+  - "synteny"
+  - "共线性"
+  - "collinearity"
+  - "genome alignment"
+  - "wgd"
+
+inputs:
+  - genome_sequences
+  - gene_annotations
+  - species_phylogeny
+
+outputs:
+  - ortholog_groups
+  - synteny_blocks
+  - genome_alignment
+  - wgd_events
+  - evolutionary_analysis
+  - analysis_report
+
+version: "1.0"
+analysis: comparative_genomics
+
+inputs_required:
+  - genome_sequences
+  - gene_annotations
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "cg-genomes"
+    rule: "必须有至少2个基因组组装"
+    check: "genome_count >= 2"
+    severity: "block"
+    on_fail: "基因组数量不足 → 比较基因组学需要至少2个基因组进行比较分析。"
+  - id: "cg-annotations"
+    rule: "必须有基因注释"
+    check: "has_gene_annotation == true"
+    severity: "block"
+    on_fail: "没有基因注释 → 无法进行同源基因鉴定和大多数比较分析。需要GFF/GTF格式的基因注释文件。"
+  - id: "cg-assembly-quality"
+    rule: "基因组组装质量足够（建议染色体水平）"
+    check: "assembly_level in ['chromosome', 'scaffold']"
+    severity: "warn"
+    on_fail: "组装质量较低 → 共线性分析结果可能不完整。建议使用染色体水平组装。"
+  - id: "cg-phylogeny"
+    rule: "有物种系统发育信息"
+    check: "has_phylogeny == true"
+    severity: "warn"
+    on_fail: "无系统发育信息 → 进化分析方向可能不准确。建议提供物种树或分化时间信息。"
+  - id: "cg-outgroup"
+    rule: "有合适的外群物种"
+    check: "has_outgroup == true"
+    severity: "warn"
+    on_fail: "无外群 → 无法确定祖先状态和进化方向。建议添加近缘但不在研究类群的物种作为外群。"
+
+# ============================================================
+# 决策节点 1: 同源基因鉴定
+# ============================================================
+ortholog_identification:
+  - rule_id: "orth-orthofinder-001"
+    priority: 10
+    condition:
+      genome_count: ">= 2"
+      method_preference: "standard"
+    recommend: "orthofinder"
+    reason: "标准方法 → OrthoFinder。快速准确，支持系统发育推断，是目前最常用的同源基因鉴定工具。"
+    tool_id: "orthofinder"
+    params:
+      algorithm: "diamond"
+      msa: "true"
+
+  - rule_id: "orth-orthofinder-large-002"
+    priority: 9
+    condition:
+      genome_count: ">= 10"
+    recommend: "orthofinder_fast"
+    reason: "大规模比较 → OrthoFinder快速模式。使用DIAMOND加速，适合10+基因组。"
+    tool_id: "orthofinder"
+    params:
+      algorithm: "diamond"
+      msa: "false"
+
+  - rule_id: "orth-sonicparanoid-003"
+    priority: 8
+    condition:
+      genome_count: ">= 20"
+      speed_priority: "high"
+    recommend: "sonicparanoid"
+    reason: "超大规模 → SonicParanoid。速度极快，适合大规模分析。"
+    params:
+      sensitivity: "normal"
+      threads: 16
+      inparalog_tolerance: 0.5
+
+  - rule_id: "orth-orthomcl-004"
+    priority: 7
+    condition:
+      method_preference: "classic"
+    recommend: "orthomcl"
+    reason: "偏好经典方法 → OrthoMCL。经典方法，但速度较慢。"
+    params:
+      inflation: 1.5
+      evalue_cutoff: 1e-5
+      identity_cutoff: 0.0
+
+# ============================================================
+# 决策节点 2: 基因组比对
+# ============================================================
+genome_alignment:
+  - rule_id: "align-minimap2-001"
+    priority: 10
+    condition:
+      genome_count: ">= 2"
+      genome_size: "< 3Gb"
+    recommend: "minimap2"
+    reason: "标准比对 → minimap2。速度快，适合大多数植物基因组比对。"
+    tool_id: "minimap2"
+    params:
+      preset: "asm5"  # for closely related species
+
+  - rule_id: "align-lastz-002"
+    priority: 8
+    tool_id: "lastz"
+    condition:
+      divergence: "high"
+      genome_count: "2"
+    recommend: "lastz"
+    reason: "高分歧物种 → LASTZ。对高分歧基因组比对更敏感。"
+    params:
+      step_size: 3
+      inner_gap: 3000
+      seed_match: 12of19
+      identity_threshold: 0.6
+
+  - rule_id: "align-mummer-003"
+    priority: 9
+    condition:
+      method_preference: "mummer"
+      genome_count: ">= 2"
+    recommend: "nucmer"
+    reason: "偏好MUMmer → NUCmer。MUMmer的基因组比对工具，可视化友好。"
+    tool_id: "mummer"
+    params:
+      maxgap: 90
+      mincluster: 20
+      breaklen: 200
+
+  - rule_id: "align-satsuma-004"
+    priority: 7
+    tool_id: "satsuma"
+    condition:
+      genome_size: ">= 3Gb"
+    recommend: "satsuma"
+    reason: "大基因组 → Satsuma。对大基因组比对内存效率高。"
+    params:
+      block_size: 100000
+      min_identity: 0.8
+      threads: 16
+
+# ============================================================
+# 决策节点 3: 共线性分析
+# ============================================================
+synteny_analysis:
+  - rule_id: "syn-mcscanx-001"
+    priority: 10
+    condition:
+      species_type: "plant"
+      has_gene_annotation: true
+    recommend: "mcscanx"
+    reason: "植物共线性 → MCScanX。专为植物设计，可检测WGD事件，输出共线性区块和基因复制类型。"
+    tool_id: "mcscanx"
+    params:
+      gap_score: "-25"
+      match_score: "50"
+
+  - rule_id: "syn-coge-002"
+    priority: 9
+    condition:
+      online_analysis: true
+    recommend: "coge_synmap"
+    reason: "在线分析 → CoGe SynMap。在线平台，适合快速分析。"
+    params:
+      min_score: 0.3
+      max_distance: 50
+      min_aligned_proteins: 5
+      ks_analysis: true
+
+  - rule_id: "syn-jcvi-003"
+    priority: 8
+    condition:
+      visualization_needed: true
+    recommend: "jcvi"
+    reason: "需要可视化 → JCVI。Python工具包，可视化功能强大。"
+    params:
+      min_score: 0.6
+      min_span: 2
+      dist: 25
+      block_size: 10
+
+  - rule_id: "syn-synvisio-004"
+    priority: 7
+    condition:
+      interactive_vis: true
+    recommend: "synvisio"
+    reason: "交互可视化 → SynVisio。交互式共线性可视化工具。"
+    params:
+      min_synteny_score: 0.5
+      display_mode: "interactive"
+      chromosome_highlight: true
+
+# ============================================================
+# 决策节点 4: WGD检测
+# ============================================================
+wgd_detection:
+  - rule_id: "wgd-wgdi-001"
+    priority: 10
+    condition:
+      species_type: "plant"
+    recommend: "wgdi"
+    reason: "植物WGD检测 → WGDI。专为植物设计，KS分布分析和共线性分析结合。"
+    tool_id: "wgdi"
+    params:
+      ks_method: "yn00"
+
+  - rule_id: "wgd-ks-plot-002"
+    priority: 9
+    tool_id: "wgdi"
+    condition:
+      has_orthologs: true
+    recommend: "ks_distribution"
+    reason: "KS分布分析 → 基于同源基因对的KS值分布检测WGD。"
+    params:
+      ks_range: "0-3"
+
+  - rule_id: "wgd-duppipe-003"
+    priority: 7
+    tool_id: "duppipe"
+    condition:
+      method_preference: "comprehensive"
+    recommend: "duppipe"
+    reason: "综合分析 → DupPipe。多种方法综合检测WGD。"
+    params:
+      ks_calculation: "yn00"
+      synteny_detection: true
+      ks_range: "0-3"
+      peak_detection_method: "gaussian_mixture"
+
+# ============================================================
+# 决策节点 5: 染色体进化分析
+# ============================================================
+chromosome_evolution:
+  - rule_id: "chr-synchrom-001"
+    priority: 10
+    condition:
+      has_synteny: true
+      genome_level: "chromosome"
+    recommend: "synchrom_analysis"
+    reason: "染色体水平组装 → SynChrom分析染色体重排。检测融合、分裂、倒位等事件。"
+    params:
+      min_block_size: 5
+      max_gap: 50
+      rearrangement_types: ["fusion", "fission", "inversion", "translocation"]
+
+  - rule_id: "chr-ancestral-002"
+    priority: 9
+    condition:
+      genome_count: ">= 3"
+      has_phylogeny: true
+    recommend: "ancestral_reconstruction"
+    reason: "多物种有系统发育 → 祖先核型重建。推断祖先染色体数目和结构。"
+    tool_id: "ancestralchrom"
+    params:
+      ancestor_node: "root"
+      chromosome_number_range: "5-20"
+      reconstruction_method: "parsimony"
+
+# ============================================================
+# 决策节点 6: 基因家族进化
+# ============================================================
+gene_family_evolution:
+  - rule_id: "gf-cafe-001"
+    priority: 10
+    condition:
+      has_orthologs: true
+      has_phylogeny: true
+    recommend: "cafe"
+    reason: "基因家族扩张/收缩 → CAFE。统计检验基因家族大小变化。"
+    tool_id: "cafe"
+    params:
+      lambda: 0.001
+      pvalue_threshold: 0.05
+      family_wide_correction: "bonferroni"
+
+  - rule_id: "gf-count-branch-002"
+    priority: 8
+    condition:
+      has_phylogeny: true
+    recommend: "branch_specific_analysis"
+    reason: "分支特异性分析 → 识别特定谱系上的基因家族变化。"
+    params:
+      branch_model: "foreground-background"
+      expansion_threshold: 1.5
+      contraction_threshold: 0.5
+
+# ============================================================
+# 决策节点 7: 分歧时间估算
+# ============================================================
+divergence_time:
+  - rule_id: "div-mcmctree-001"
+    priority: 9
+    condition: "has_fossil_calibration == true OR has_known_divergence_time == true"
+    tool: "MCMCtree (PAML)"
+    params:
+      clock_model: "independent rates (IR)"
+      burnin: 100000
+      sample: 200000
+      calibration_points: "based on fossil record or literature"
+    reason: "MCMCtree为PAML包中的贝叶斯分子钟工具，用于估算物种分歧时间。需要化石标定点或已知分化时间作为先验。"
+
+# ============================================================
+# 决策节点 8: 成对Ka/Ks选择压力
+# ============================================================
+pairwise_kaks:
+  - rule_id: "kaks-para-at-001"
+    priority: 8
+    condition: "has_protein_fasta == true AND has_cds_fasta == true"
+    tool: "ParaAT + KaKs_Calculator"
+    params:
+      alignment_tool: "MAFFT"
+      kaks_method: "YN"
+      output_format: "table"
+    reason: "ParaAT自动批量处理直系同源基因对的蛋白比对→CDS回译→Ka/Ks计算流程。YN方法适用于中等分歧物种。"
+
+# ============================================================
+# 决策节点 9: LTR反转录转座子分析
+# ============================================================
+ltr_analysis:
+  - rule_id: "ltr-ltrharvest-001"
+    priority: 8
+    condition: "has_genome_assembly == true"
+    tool: "LTRharvest (GenomeTools)"
+    params:
+      minlenltr: 100
+      maxlenltr: 7000
+      mindistltr: 1000
+      maxdistltr: 25000
+      similar: 80
+    reason: "LTRharvest用于de novo鉴定基因组中的LTR反转录转座子。"
+
+  - rule_id: "ltr-ltrretriever-002"
+    priority: 8
+    condition: "has_genome_assembly == true"
+    tool: "LTR_retriever"
+    params:
+      species_substitution_rate: "species_specific (e.g., Ath=7.0e-9, rice=1.3e-8)"
+    reason: "LTR_retriever整合LTRharvest结果，过滤假阳性并估计LTR插入时间。"
+
+# ============================================================
+# 决策节点 10: 正选择分析
+# ============================================================
+positive_selection:
+  - rule_id: "ps-codeml-branch-001"
+    priority: 10
+    condition:
+      has_msa: true
+      has_phylogeny: true
+      foreground_branch: true
+    recommend: "codeml_branch_model"
+    reason: "分支模型 → PAML codeml分支模型。检测特定谱系的正选择。"
+    tool_id: "paml"
+    params:
+      model: 2
+      NSsites: 0
+      omega_ratio: "free"
+      fixation: "foreground_rate > background_rate"
+
+  - rule_id: "ps-codeml-site-002"
+    priority: 9
+    condition:
+      has_msa: true
+      has_phylogeny: true
+    recommend: "codeml_site_model"
+    reason: "位点模型 → PAML codeml位点模型。检测特定位点的正选择。"
+    tool_id: "paml"
+    params:
+      NSsites: [1, 2, 7, 8]
+      model: 0
+      test_positive_sites: "BEB"
+      significance_threshold: 0.95
+
+  - rule_id: "ps-hyphy-003"
+    priority: 8
+    condition:
+      method_preference: "hyphy"
+    recommend: "hyphy"
+    reason: "偏好HyPhy → HyPhy工具集。多种正选择检测方法。"
+    params:
+      method: "FEL"
+      pvalue_threshold: 0.1
+      rate_classes: 2
+
+# ============================================================
+# 决策节点 11: 可视化
+# ============================================================
+visualization:
+  - rule_id: "viz-circos-001"
+    priority: 10
+    condition:
+      genome_count: ">= 2"
+      visualization_type: "circular"
+    recommend: "circos"
+    reason: "环形图 → Circos。经典的基因组比较可视化工具。"
+    tool_id: "circos"
+    params:
+      ideogram_radius: 0.9
+      link_thickness: 2
+      color_scheme: "spectral"
+      synteny_links: true
+
+  - rule_id: "viz-jcvi-002"
+    priority: 9
+    condition:
+      visualization_type: "linear"
+    recommend: "jcvi_graphics"
+    reason: "线性图 → JCVI graphics。简洁的共线性线性图。"
+    params:
+      format: "png"
+      dpi: 300
+      figsize: [12, 8]
+      min_block_size: 5
+
+  - rule_id: "viz-synvisio-003"
+    priority: 8
+    condition:
+      interactive_vis: true
+    recommend: "synvisio"
+    reason: "交互式 → SynVisio。交互式共线性可视化。"
+    params:
+      highlight_syntenic_blocks: true
+      zoom_level: "chromosome"
+      link_color_gradient: true
+
+fallback:
+  - rule_id: "cg-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
+      require_manual_review: true

@@ -32,6 +32,10 @@ integration_method:
     recommend: "mofa2"
     reason: "无监督探索 → MOFA2 从多组学数据中学习潜在因子"
     tool_id: "mofa"
+    params:
+      n_factors: 10
+      convergence_mode: "fast"
+      scale_views: TRUE
   - rule_id: "mo-diablo-supervised-002"
     priority: 10
     condition:
@@ -40,6 +44,10 @@ integration_method:
     recommend: "diablo"
     reason: "有监督分类 → DIABLO 最大化类别间的组学差异"
     tool_id: "diablo"
+    params:
+      n_comp: 2
+      keepX: "auto"
+      design: "full"
   - rule_id: "mo-mixomics-pairwise-003"
     priority: 8
     condition:
@@ -47,16 +55,32 @@ integration_method:
     recommend: "mixomics_pls"
     reason: "两组学 → mixOmics PLS/sPLS 简单直接"
     tool_id: "mixomics"
+    params:
+      n_comp: 2
+      mode: "canonical"
+      keepX: "auto"
+      cross_validation: "Mfold"
 
 data_preprocessing:
   - rule_id: "dp-filter-common-samples-001"
     priority: 10
     action: "filter_to_common_samples"
     reason: "仅保留所有组学共有的样本"
+    params:
+      min_common_samples: 5
+      allow_partial_match: false
+      sample_id_mapping: "strict"
   - rule_id: "dp-normalize-per-omics-002"
     priority: 10
     action: "normalize_within_each_omics"
     reason: "每个组学内部单独归一化"
+    params:
+      transcriptomics: "TPM"
+      proteomics: "median_normalization"
+      metabolomics: "PQN"
+      epigenomics: "RPKM"
+      log_transform: true
+      scale: "center_scale"
 
 factor_interpretation:
   - rule_id: "fi-variance-explained-001"
@@ -65,12 +89,19 @@ factor_interpretation:
       method: "mofa2"
     action: "check_factor_variance_and_top_features"
     tool_id: "factor-analysis"
+    params:
+      variance_threshold: 0.01
+      top_features: 50
+      significance_test: "permutation"
+      n_permutations: 1000
 
 fallback:
   - rule_id: "mo-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
 
 design_gates:
   - id: "multi-matched-samples"

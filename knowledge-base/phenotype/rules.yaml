@@ -41,6 +41,11 @@ heritability:
     recommend: "mixed_model_h2"
     reason: "多环境多重复 → 混合线性模型估计广义/狭义遗传力"
     tool_id: "heritability"
+    params:
+      method: "REML"
+      genotype_random: TRUE
+      env_random: TRUE
+      gxe_random: TRUE
 
   - rule_id: "h2-single-env-rep-002"
     priority: 8
@@ -50,6 +55,10 @@ heritability:
     recommend: "anova_h2"
     reason: "单环境有重复 → ANOVA估计广义遗传力"
     tool_id: "heritability"
+    params:
+      method: "ANOVA"
+      genotype_random: TRUE
+      formula: "VG / (VG + VE/r)"
 
   - rule_id: "h2-unreplicated-003"
     priority: 6
@@ -57,6 +66,10 @@ heritability:
       rep_count: 1
     action: "warn_cannot_estimate"
     reason: "无重复 → 无法估计遗传力，只能计算表型描述性统计"
+    params:
+      action: "descriptive_only"
+      report_cv: true
+      report_summary_stats: true
 
 breeding_value:
   - rule_id: "bv-multi-env-blup-001"
@@ -67,6 +80,11 @@ breeding_value:
     recommend: "multi_env_blup"
     reason: "多环境连接设计 → 跨环境BLUP"
     tool_id: "blup-blues"
+    params:
+      genotype_random: TRUE
+      gxe_random: TRUE
+      env_random: TRUE
+      method: "REML"
 
   - rule_id: "bv-single-env-blue-002"
     priority: 8
@@ -76,6 +94,10 @@ breeding_value:
     recommend: "blup_single_env"
     reason: "基因型作为随机效应 → BLUP"
     tool_id: "blup-blues"
+    params:
+      genotype_random: TRUE
+      method: "REML"
+      heritability_input: "{h2_value}"
 
   - rule_id: "bv-fixed-genotype-003"
     priority: 7
@@ -84,6 +106,10 @@ breeding_value:
     recommend: "blue"
     reason: "基因型作为固定效应 → BLUE (最佳线性无偏估计)"
     tool_id: "blup-blues"
+    params:
+      genotype_random: FALSE
+      method: "OLS"
+      adjust_for_blocks: true
 
 spatial_correction:
   - rule_id: "spatial-field-trial-001"
@@ -94,6 +120,11 @@ spatial_correction:
     recommend: "spatial_ar1_model"
     reason: "田间试验有行列信息 → AR1×AR1 空间模型"
     tool_id: "spatial-correction"
+    params:
+      row_cor: "ar1"
+      col_cor: "ar1"
+      model: "spatial"
+      nse: true
 
   - rule_id: "spatial-no-coords-002"
     priority: 5
@@ -103,6 +134,10 @@ spatial_correction:
     recommend: "check_cv_and_warn"
     reason: "无行列信息 → 检查 CV 值，如果 >15% 需考虑潜在空间变异"
     tool_id: "spatial-correction"
+    params:
+      cv_threshold: 15
+      check_only: true
+      warn_message: "Consider spatial variation if CV > 15%"
 
 met_summary:
   - rule_id: "met-stability-001"
@@ -112,6 +147,11 @@ met_summary:
     recommend: "ammi_or_gge"
     reason: "≥3 环境 → AMMI/GGE biplot 分析品种稳定性"
     tool_id: "met-summary"
+    params:
+      method: "AMMI"
+      n_pc: 2
+      biplot: true
+      stability_index: true
 
   - rule_id: "met-correlation-002"
     priority: 5
@@ -120,12 +160,19 @@ met_summary:
     recommend: "env_correlation_and_summary"
     reason: "计算环境间相关系数和汇总统计"
     tool_id: "met-summary"
+    params:
+      correlation_method: "pearson"
+      summary_stats: true
+      env_mean_separation: true
 
 fallback:
   - rule_id: "pheno-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "No matching rule found"
+      suggestion: "Consult phenotype analysis specialist"
 
 design_gates:
   - id: "pheno-measurement-method"

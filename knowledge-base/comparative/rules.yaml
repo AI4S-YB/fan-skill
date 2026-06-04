@@ -40,6 +40,9 @@ synteny_analysis:
     recommend: "mcsanx_self"
     reason: "种内共线性 → MCScanX 自比对，识别基因组加倍事件"
     tool_id: "mcsanx"
+    params:
+      gap_penalty: -25
+      min_align: 5
 
   - rule_id: "syn-interspecies-002"
     priority: 10
@@ -48,6 +51,11 @@ synteny_analysis:
     recommend: "mcsanx_pairwise"
     reason: "种间共线性 → MCScanX 双向比对"
     tool_id: "mcsanx"
+    params:
+      gap_penalty: -25
+      match_score: 50
+      min_align: 5
+      evalue: 1e-5
 
   - rule_id: "syn-multi-species-003"
     priority: 9
@@ -56,6 +64,10 @@ synteny_analysis:
     recommend: "jcvi_mcscan_python"
     reason: "≥3 物种用 JCVI 版本的 MCScan (Python) 更方便多物种比较"
     tool_id: "mcsanx"
+    params:
+      min_synteny_blocks: 5
+      max_gaps: 20
+      dist_cutoff: 40
 
   - rule_id: "syn-polyploid-004"
     priority: 10
@@ -64,6 +76,10 @@ synteny_analysis:
     recommend: "mcsanx_subgenome_aware"
     reason: "多倍体 → 亚基因组感知的共线性分析"
     tool_id: "mcsanx"
+    params:
+      subgenome_aware: true
+      homeolog_identification: true
+      max_homeolog_divergence: 0.3
 
 ks_analysis:
   - rule_id: "ks-whole-genome-duplication-001"
@@ -73,6 +89,10 @@ ks_analysis:
     recommend: "wgdi_ks_peak"
     reason: "全基因组加倍时间估计 → WGDI 或 KaKs_Calculator 的峰值拟合"
     tool_id: "ks-analysis"
+    params:
+      ks_method: "yn00"
+      ks_range: [0, 3]
+      peak_fitting: "gaussian"
 
   - rule_id: "ks-gene-pair-002"
     priority: 8
@@ -81,6 +101,9 @@ ks_analysis:
     recommend: "kaks_calculator_yn00"
     reason: "单对基因的 Ks → KaKs_Calculator yn00 方法"
     tool_id: "ks-analysis"
+    params:
+      method: "yn00"
+      model: "Yang-Nielsen"
 
   - rule_id: "ks-large-scale-003"
     priority: 7
@@ -89,6 +112,10 @@ ks_analysis:
     recommend: "paml_codeml_batch"
     reason: "大量基因对 → PAML codeml 批量模式"
     tool_id: "ks-analysis"
+    params:
+      batch_size: 100
+      threads: 8
+      codeml_model: "0"
 
 gene_family:
   - rule_id: "gf-orthofinder-standard-001"
@@ -98,6 +125,9 @@ gene_family:
     recommend: "orthofinder"
     reason: "多物种基因家族 → OrthoFinder 是金标准"
     tool_id: "orthofinder"
+    params:
+      inflation: 1.5
+      msa: TRUE
 
   - rule_id: "gf-single-species-hmm-002"
     priority: 8
@@ -107,6 +137,10 @@ gene_family:
     recommend: "hmm_search"
     reason: "单物种已知结构域家族 → HMMER hmmsearch"
     tool_id: "gene-family"
+    params:
+      evalue: 1e-5
+      domE: 1e-5
+      incdomE: 1e-5
 
   - rule_id: "gf-single-species-blast-003"
     priority: 7
@@ -116,6 +150,10 @@ gene_family:
     recommend: "blast_all_vs_all_cluster"
     reason: "单物种未知结构域 → BLAST all-vs-all + MCL 聚类"
     tool_id: "gene-family"
+    params:
+      evalue: 1e-5
+      coverage_min: 0.5
+      mcl_inflation: 1.5
 
   - rule_id: "gf-nbs-lrr-plant-004"
     priority: 9
@@ -124,6 +162,9 @@ gene_family:
     recommend: "nbs_lrr_specific_pipeline"
     reason: "植物 NBS-LRR 抗病基因家族 → 专用 pipeline (NLR-Annotator/RGAugury)"
     tool_id: "gene-family"
+    params:
+      tools: ["NLR-Annotator", "RGAugury"]
+      min_nbs_domain: 1
 
 selection_pressure:
   - rule_id: "sel-branch-site-001"
@@ -133,6 +174,11 @@ selection_pressure:
     recommend: "paml_branch_site_model"
     reason: "检测特定支系的正选择 → PAML branch-site model (Model A vs null)"
     tool_id: "selection-pressure"
+    params:
+      model: "branch-site"
+      null_model: "MA"
+      alternative_model: "MA1"
+      lrt_threshold: 0.05
 
   - rule_id: "sel-site-model-002"
     priority: 9
@@ -141,6 +187,10 @@ selection_pressure:
     recommend: "paml_site_model"
     reason: "检测全基因范围内的正选择位点 → PAML site model (M7 vs M8)"
     tool_id: "selection-pressure"
+    params:
+      null_model: "M7"
+      alternative_model: "M8"
+      bayes_empirical_bayes: true
 
   - rule_id: "sel-branch-model-003"
     priority: 8
@@ -149,6 +199,10 @@ selection_pressure:
     recommend: "paml_branch_model"
     reason: "检测支系间选择压力差异 → PAML branch model (free-ratio)"
     tool_id: "selection-pressure"
+    params:
+      model: "branch"
+      free_ratio: true
+      nst: 1
 
 tree_reconciliation:
   - rule_id: "tree-species-tree-001"
@@ -157,6 +211,9 @@ tree_reconciliation:
       has_reference_tree: true
     recommend: "use_reference_species_tree"
     reason: "有参考物种树时优先使用"
+    params:
+      tree_format: "newick"
+      branch_support_threshold: 0.7
 
   - rule_id: "tree-infer-from-single-copy-002"
     priority: 5
@@ -164,12 +221,18 @@ tree_reconciliation:
       has_reference_tree: false
     recommend: "infer_from_single_copy_orthologs"
     reason: "从单拷贝直系同源基因推断物种树"
+    params:
+      min_orthologs: 50
+      concatenation_method: "supermatrix"
+      tree_inference: "iqtree"
 
 fallback:
   - rule_id: "comp-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
 
 design_gates:
   - id: "comp-annotation-required"

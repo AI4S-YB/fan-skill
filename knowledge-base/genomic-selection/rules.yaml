@@ -59,6 +59,9 @@ genotype_preprocessing:
     action: "impute_beagle"
     reason: "缺失率 > 5% 时先做基因型填充"
     tool_id: "gblup"
+    params:
+      imputation_method: "beagle"
+      min_maf: 0.01
 
 # ============================================================
 # 决策节点 2: GS 模型选择 (核心)
@@ -72,6 +75,10 @@ model_selection:
     recommend: "gblup"
     reason: "大群体中等密度 → GBLUP 计算效率高、准确性好"
     tool_id: "gblup"
+    params:
+      model: "GBLUP"
+      kinship_method: "vanRaden"
+      n_core: 4
 
   - rule_id: "gs-bayes-high-density-002"
     priority: 9
@@ -81,6 +88,11 @@ model_selection:
     recommend: "bayes_b_or_c"
     reason: "高密度标记 → BayesB/C 的变量选择可提高准确性"
     tool_id: "bayes-letters"
+    params:
+      model: "BayesB"
+      n_iteration: 15000
+      burn_in: 5000
+      thin: 5
 
   - rule_id: "gs-rrblup-small-003"
     priority: 8
@@ -89,6 +101,9 @@ model_selection:
     recommend: "rrblup"
     reason: "小群体 → rrBLUP 最简单稳健，不会有收敛问题"
     tool_id: "rrblup"
+    params:
+      model: "RRBLUP"
+      shrinkage: "estimated"
 
   - rule_id: "gs-deep-learning-004"
     priority: 7
@@ -98,6 +113,12 @@ model_selection:
     recommend: "deep_learning_gs"
     reason: "超大群体高密度 → 深度学习可能捕获非线性效应"
     tool_id: "deep-learning-gs"
+    params:
+      architecture: "MLP"
+      hidden_layers: [256, 128, 64]
+      activation: "relu"
+      dropout: 0.3
+      epochs: 100
 
   - rule_id: "gs-multitrait-005"
     priority: 9
@@ -106,11 +127,16 @@ model_selection:
     recommend: "mt_gblup"
     reason: "多性状 → 多性状模型可利用性状间遗传相关提高准确率"
     tool_id: "gblup"
+    params:
+      model: "MT-GBLUP"
+      covariance_structure: "unstructured"
 
   - rule_id: "gs-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
 
 # ============================================================
 # 决策节点 3: 交叉验证策略
@@ -122,6 +148,9 @@ cross_validation:
       sample_count: ">= 300"
     action: "cv_5fold_5repeats"
     reason: "≥300 样本用 5-fold × 5 repeats"
+    params:
+      n_folds: 5
+      n_repeats: 5
 
   - rule_id: "cv-small-10x10-002"
     priority: 6
@@ -129,6 +158,9 @@ cross_validation:
       sample_count: "< 300"
     action: "cv_10fold_10repeats"
     reason: "<300 样本用更多重复以减少抽样误差"
+    params:
+      n_folds: 10
+      n_repeats: 10
 
   - rule_id: "cv-leave-one-out-003"
     priority: 4
@@ -136,6 +168,8 @@ cross_validation:
       sample_count: "< 100"
     action: "loo_cv"
     reason: "<100 样本 → 留一法交叉验证"
+    params:
+      method: "LOOCV"
 
   - rule_id: "cv-structured-004"
     priority: 7
@@ -143,6 +177,9 @@ cross_validation:
       population_structure: "strong"
     action: "stratified_cv_by_subpopulation"
     reason: "强群体结构 → 分层 CV 避免高估准确性"
+    params:
+      stratify_by: "subpopulation"
+      n_folds: 5
 
 # ============================================================
 # 决策节点 4: 预测准确性评估
@@ -152,6 +189,8 @@ accuracy_metrics:
     priority: 5
     action: "pearson_r_and_rmse"
     reason: "Pearson r + RMSE 是 GS 的标准评估"
+    params:
+      metrics: ["pearson_r", "RMSE", "bias"]
 
   - rule_id: "acc-binary-002"
     priority: 5
@@ -159,6 +198,8 @@ accuracy_metrics:
       trait_type: "binary"
     action: "auc_and_classification_accuracy"
     reason: "二分类性状用 AUC"
+    params:
+      metrics: ["AUC", "accuracy", "sensitivity", "specificity"]
 
 # ============================================================
 # 决策节点 5: 育种值排名与选择
@@ -170,6 +211,9 @@ selection_strategy:
       breeding_goal: "genetic_gain"
     action: "select_top_10_percent"
     reason: "最大遗传进展 → 选 GEBV 最高的 10%"
+    params:
+      selection_intensity: 0.1
+      selection_unit: "top_percent"
 
   - rule_id: "sel-index-002"
     priority: 6
@@ -177,6 +221,9 @@ selection_strategy:
       trait_count: "> 1"
     action: "selection_index"
     reason: "多性状 → 构建选择指数平衡多个育种目标"
+    params:
+      index_method: "smith_hazel"
+      economic_weights: "user_defined"
 
 design_gates:
   - id: "gs-training-size"

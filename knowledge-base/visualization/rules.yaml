@@ -1,5 +1,6 @@
 name: visualization
 description: "Scientific visualization consultation for plant bioinformatics — from analysis results to publication-quality figures. Dialogue-guided chart selection, ggplot2-based generation, and automated quality checking. B+C dual-mode architecture."
+
 triggers:
   - "visualization"
   - "plot"
@@ -21,101 +22,509 @@ outputs:
   - r_script
   - analysis_report
 
-# design-rules.yaml
-# Scientific visualization quality constraints — checked before figure delivery
-# severity: block (fix required) | warn (fix recommended)
-# All checks run in Phase 4 before output delivery
-
-version: "1.0"
+version: "2.0"
 analysis: scientific_visualization
 
-resolution:
-  - id: "res-dpi-001"
-    rule: "Bitmap images: >= 300 DPI; line art: >= 600 DPI"
-    check: "output_dpi >= 300"
-    severity: "block"
-    on_fail: "Reducing resolution below 300 DPI requires explicit user approval. Journals typically require 300-600 DPI for figures."
-
-typography:
-  - id: "type-font-size-001"
-    rule: "All text elements in figure must be >= 6pt (recommended >= 8pt)"
-    severity: "warn"
-    on_fail: "Text smaller than 6pt will be illegible when printed. Increase base_size in theme_plant_scientific()."
-  - id: "type-font-family-001"
-    rule: "Use sans-serif font family (Arial/Helvetica) or theme_plant_scientific default"
-    severity: "warn"
-    on_fail: "Serif fonts reduce legibility in figures. Switch to sans-serif (Arial, Helvetica, or default sans)."
-
-color:
-  - id: "color-blind-safe-001"
-    rule: "Use colorblind-safe palette (Okabe-Ito or viridis) for categorical data"
-    severity: "warn"
-    on_fail: >
-      Current color palette may not be distinguishable under red-green colorblindness
-      (protanopia/deuteranopia), which affects ~8% of males and ~0.5% of females.
-      Recommend switching to Okabe-Ito palette (scale_color_manual(values = okabe_ito))
-      or viridis (scale_color_viridis_d()).
-  - id: "color-grayscale-001"
-    rule: "Grayscale printing must still distinguish groups (sufficient luminance difference)"
-    severity: "warn"
-    on_fail: "If the figure will be printed in grayscale, use luminance-differentiated colors or add point shapes/line types as redundant encodings."
-
-data_ink:
-  - id: "ink-tufte-001"
-    rule: "Remove top and right border (Tufte data-ink ratio principle)"
-    severity: "warn"
-    on_fail: "Top and right borders add non-data ink. theme_plant_scientific() handles this automatically."
-  - id: "ink-no-chart-junk-001"
-    rule: "No 3D effects, no decorative gradient backgrounds, no gridlines unless statistically meaningful"
-    severity: "warn"
-    on_fail: "Decorative elements distract from the data. Use clean, flat design consistent with scientific publication standards."
-
-annotation:
-  - id: "ann-error-bar-001"
-    rule: "Error bars must be annotated with type (SD/SEM/CI) in figure caption or legend"
-    severity: "block"
-    on_fail: "Error bars without annotation are ambiguous. Specify whether bars represent SD, SEM, or 95% CI."
-  - id: "ann-sample-size-001"
-    rule: "Sample size (n=X) must appear in legend or subtitle for each group"
-    severity: "warn"
-    on_fail: "Without sample size, readers cannot assess statistical reliability. Add 'n=X' annotation per group."
-  - id: "ann-axis-units-001"
-    rule: "Axis labels must include measurement units (e.g., 'Plant Height (cm)', 'Gene Expression (log2 CPM)')"
-    severity: "block"
-    on_fail: "Axis labels without units are ambiguous. Add units in parentheses."
-  - id: "ann-no-title-in-figure-001"
-    rule: "No main title inside figure panel (titles belong in LaTeX caption or figure legend)"
-    severity: "warn"
-    on_fail: "In-figure titles are redundant with the caption. Use ggtitle() only for multi-panel labels (A, B, C)."
-
-export:
-  - id: "exp-vector-001"
-    rule: "Output vector format (PDF/SVG) as primary; provide PNG as fallback"
-    severity: "block"
-    on_fail: "Raster-only output is not acceptable for publication. Generate PDF or SVG as the primary format."
-  - id: "exp-reproducible-001"
-    rule: "Every figure must be accompanied by a reproducible R script"
-    severity: "block"
-    on_fail: "Without the R script, the figure cannot be reproduced or modified. Always deliver the .R file alongside the figure."
-
+# ============================================================
+# 设计门禁：在生成可视化方案前自动检查
+# ============================================================
 design_gates:
   - id: "vis-output-format"
     rule: "发表用图必须输出矢量格式 (PDF/SVG) 作为主格式"
     check: "vector_format_provided == true"
     severity: "block"
     on_fail: "仅输出位图格式 (PNG/JPEG) → 期刊不接受。必须提供 PDF 或 SVG 矢量格式文件，保证缩放时文字和线条保持清晰。"
+
   - id: "vis-reproducible-code"
     rule: "每张图必须附带可复现的 R 脚本"
     check: "r_script_provided == true"
     severity: "block"
     on_fail: "没有 R 脚本 → 图表无法复现或修改。审稿人或合作者可能需要对图表进行细微调整（配色、字体大小），没有代码就无法响应。"
+
   - id: "vis-colorblind-safe"
     rule: "使用色盲友好的调色板（Okabe-Ito 或 viridis）"
     check: "colorblind_safe_palette == true"
     severity: "warn"
     on_fail: "当前配色方案可能在红绿色盲（protanopia/deuteranopia，影响约 8% 男性）下无法区分。强烈建议切换到 Okabe-Ito 或 viridis 调色板。"
+
   - id: "vis-axis-units"
     rule: "坐标轴标签必须包含测量单位"
     check: "axis_units_present == true"
     severity: "block"
-    on_fail: "坐标轴标签缺少单位 → 读者无法理解数值的含义。如 "Grain yield (t/ha)" 而非 "Yield"；"Expression (log2 CPM)" 而非 "Expression"。"
+    on_fail: "坐标轴标签缺少单位 → 读者无法理解数值的含义。如 \"Grain yield (t/ha)\" 而非 \"Yield\"；\"Expression (log2 CPM)\" 而非 \"Expression\"。"
+
+# ============================================================
+# 方法选择：根据数据类型和可视化目标推荐图表类型
+# ============================================================
+method_selection:
+  # ----------------------------------------------------------
+  # 基因组浏览器类图表
+  # ----------------------------------------------------------
+  - rule_id: "vis-genome-browser-001"
+    priority: 10
+    condition:
+      data_type: "genomic_interval"
+      need_genome_context: true
+    recommend: "igv_or_gviz"
+    reason: "基因组区间数据 → IGV交互式浏览或Gviz静态图。展示peak位置、基因结构、变异位点等基因组特征。"
+    tool_id: "gviz"
+    params:
+      track_types: ["GeneRegionTrack", "DataTrack", "AnnotationTrack"]
+      genome_axis: true
+      show_title: true
+
+  - rule_id: "vis-circos-002"
+    priority: 10
+    condition:
+      data_type: "genomic_interaction"
+      need_genome_wide_view: true
+    recommend: "circos_plot"
+    reason: "基因组交互/比较 → Circos环形图。展示染色体间共线性、染色体易位、基因组重排、全基因组甲基化分布等。"
+    tool_id: "circlize"
+    params:
+      track_height: 0.08
+      gap_degree: 1
+      start_degree: 90
+      label_cex: 0.8
+
+  - rule_id: "vis-manhattan-003"
+    priority: 10
+    condition:
+      analysis_type: "gwas"
+      need_signal_visualization: true
+    recommend: "manhattan_plot"
+    reason: "GWAS结果 → Manhattan图。展示全基因组显著性信号分布，x轴为染色体位置，y轴为-log10(p-value)。"
+    tool_id: "qqman"
+    params:
+      genomewideline_value: 5e-8
+      suggestiveline_value: 1e-5
+      suggestiveline_color: "blue"
+      genomewideline_color: "red"
+      highlight_color: "green"
+
+  # ----------------------------------------------------------
+  # 差异表达类图表
+  # ----------------------------------------------------------
+  - rule_id: "vis-volcano-004"
+    priority: 10
+    condition:
+      analysis_type: "differential_expression"
+      need_effect_size: true
+    recommend: "volcano_plot"
+    reason: "差异表达结果 → 火山图。x轴为log2 fold change，y轴为-log10(p-value)，直观展示上下调基因分布。"
+    tool_id: "ggplot2"
+    params:
+      x_axis: "log2FoldChange"
+      y_axis: "padj"
+      logfc_cutoff: 1.0
+      padj_cutoff: 0.05
+      up_color: "red"
+      down_color: "blue"
+      ns_color: "grey"
+
+  - rule_id: "vis-ma-plot-005"
+    priority: 9
+    condition:
+      analysis_type: "differential_expression"
+      need_intensity_view: true
+    recommend: "ma_plot"
+    reason: "差异表达强度视图 → MA plot。x轴为平均表达量(A)，y轴为log fold change(M)，适合评估数据质量和全局偏差。"
+    tool_id: "ggplot2"
+    params:
+      x_axis: "baseMean"
+      y_axis: "log2FoldChange"
+      log_transform_x: true
+
+  - rule_id: "vis-heatmap-deg-006"
+    priority: 10
+    condition:
+      analysis_type: "differential_expression"
+      need_pattern_view: true
+      gene_count: "> 50"
+    recommend: "expression_heatmap"
+    reason: "差异表达模式 → 热图。展示多个样本/条件间的基因表达模式聚类。"
+    tool_id: "pheatmap"
+    params:
+      scale: "row"
+      clustering_method: "ward.D2"
+      show_rownames: false
+      show_colnames: true
+      color_palette: "RdBu"
+      na_color: "grey50"
+      fontsize_row: 8
+      border_color: NA
+
+  - rule_id: "vis-heatmap-small-007"
+    priority: 9
+    condition:
+      analysis_type: "differential_expression"
+      need_pattern_view: true
+      gene_count: "<= 50"
+    recommend: "expression_heatmap_with_labels"
+    reason: "少量基因表达模式 → 热图带基因标签。可直接在图上显示基因名称。"
+    tool_id: "pheatmap"
+    params:
+      scale: "row"
+      clustering_method: "ward.D2"
+      show_rownames: true
+      show_colnames: true
+      fontsize_row: 10
+
+  # ----------------------------------------------------------
+  # 群体遗传类图表
+  # ----------------------------------------------------------
+  - rule_id: "vis-pca-008"
+    priority: 10
+    condition:
+      analysis_type: "population_structure"
+      need_dimension_reduction: true
+    recommend: "pca_plot"
+    reason: "群体结构 → PCA散点图。展示样本在主成分空间的分布，揭示群体分层和亲缘关系。"
+    tool_id: "ggplot2"
+    params:
+      pc_x: "PC1"
+      pc_y: "PC2"
+      show_variance_label: true
+      ellipse_level: 0.95
+      point_size: 3
+
+  - rule_id: "vis-admixture-009"
+    priority: 10
+    condition:
+      analysis_type: "population_structure"
+      need_ancestry_estimation: true
+    recommend: "admixture_barplot"
+    reason: "群体祖先成分 → 堆叠条形图。展示每个个体的祖先来源比例。"
+    tool_id: "ggplot2"
+    params:
+      color_palette: "Set2"
+      bar_width: 0.9
+      show_divider: true
+
+  - rule_id: "vis-phylogenetic-010"
+    priority: 10
+    condition:
+      analysis_type: "phylogeny"
+      need_evolutionary_relationship: true
+    recommend: "phylogenetic_tree"
+    reason: "系统发育关系 → 进化树图。展示物种或基因间的进化关系。"
+    tool_id: "ggtree"
+    params:
+      layout: "rectangular"
+      branch_length: true
+      show_tip_label: true
+      tip_label_size: 3
+
+  # ----------------------------------------------------------
+  # QTL/遗传图谱类图表
+  # ----------------------------------------------------------
+  - rule_id: "vis-qtl-profile-011"
+    priority: 10
+    condition:
+      analysis_type: "qtl_mapping"
+      need_signal_profile: true
+    recommend: "qtl_profile_plot"
+    reason: "QTL定位结果 → LOD曲线图。展示每条染色体上的LOD信号分布。"
+    tool_id: "ggplot2"
+    params:
+      lod_threshold_line: true
+      chr_separator: true
+      line_color: "blue"
+      threshold_color: "red"
+
+  - rule_id: "vis-genetic-map-012"
+    priority: 9
+    condition:
+      analysis_type: "genetic_mapping"
+      need_linkage_view: true
+    recommend: "linkage_map_plot"
+    reason: "遗传连锁图谱 → 连锁群图。展示标记在连锁群上的位置。"
+    tool_id: "ggplot2"
+    params:
+      show_marker_names: false
+      chr_spacing: 0.5
+      marker_size: 1
+
+  # ----------------------------------------------------------
+  # 功能富集类图表
+  # ----------------------------------------------------------
+  - rule_id: "vis-go-enrichment-013"
+    priority: 10
+    condition:
+      analysis_type: "go_enrichment"
+      need_term_visualization: true
+    recommend: "go_barplot_or_dotplot"
+    reason: "GO富集结果 → 条形图或点图。展示显著富集的GO terms及其统计显著性。"
+    tool_id: "ggplot2"
+    params:
+      show_top_n: 15
+      order_by: "p_adjust"
+      dot_size_var: "gene_ratio"
+      color_var: "p_adjust"
+      color_palette: "RdYlBu"
+
+  - rule_id: "vis-kegg-pathway-014"
+    priority: 10
+    condition:
+      analysis_type: "kegg_enrichment"
+      need_pathway_map: true
+    recommend: "kegg_pathway_map"
+    reason: "KEGG富集 → 通路图。在代谢通路图上标记差异表达基因。"
+    tool_id: "pathview"
+    params:
+      low_color: "green"
+      high_color: "red"
+      mid_color: "white"
+      species_key: "ko"
+
+  # ----------------------------------------------------------
+  # 共表达/网络分析类图表
+  # ----------------------------------------------------------
+  - rule_id: "vis-network-015"
+    priority: 10
+    condition:
+      analysis_type: "network_analysis"
+      need_relationship_view: true
+      node_count: "< 200"
+    recommend: "network_graph"
+    reason: "基因/蛋白质网络 → 网络图。展示节点间的相互作用关系。"
+    tool_id: "igraph"
+    params:
+      layout: "fruchterman.reingold"
+      vertex_size_range: [5, 20]
+      edge_width_range: [0.5, 3]
+      vertex_label_cex: 0.7
+
+  - rule_id: "vis-wgcna-dendrogram-016"
+    priority: 10
+    condition:
+      analysis_type: "wgcna"
+      need_module_view: true
+    recommend: "module_dendrogram"
+    reason: "WGCNA模块 → 树状图+模块颜色条。展示基因聚类和模块划分结果。"
+    tool_id: "wgcna"
+    params:
+      dendro_height: 0.8
+      module_color_height: 0.2
+      show_gene_labels: false
+
+  # ----------------------------------------------------------
+  # 甲基化/表观遗传类图表
+  # ----------------------------------------------------------
+  - rule_id: "vis-methylation-level-017"
+    priority: 10
+    condition:
+      analysis_type: "methylation"
+      need_level_distribution: true
+    recommend: "methylation_distribution_plot"
+    reason: "甲基化水平分布 → 小提琴图或箱线图。比较不同样本/区域的甲基化水平分布。"
+    tool_id: "ggplot2"
+    params:
+      plot_type: "violin"
+      show_boxplot: true
+      show_points: false
+      fill_variable: "sample_group"
+
+  - rule_id: "vis-methylation-profile-018"
+    priority: 9
+    condition:
+      analysis_type: "methylation"
+      need_gene_body_profile: true
+    recommend: "gene_body_methylation_profile"
+    reason: "基因体甲基化分布 → 折线图。展示基因区域（上游-TSS-基因体-TES-下游）的甲基化水平变化。"
+    tool_id: "ggplot2"
+    params:
+      bin_number: 20
+      upstream_bp: 2000
+      downstream_bp: 2000
+      line_colors: ["blue", "red", "green"]
+
+  # ----------------------------------------------------------
+  # 蛋白质组学类图表
+  # ----------------------------------------------------------
+  - rule_id: "vis-protein-correlation-019"
+    priority: 10
+    condition:
+      analysis_type: "proteomics"
+      need_sample_correlation: true
+    recommend: "sample_correlation_heatmap"
+    reason: "蛋白质组样本相关性 → 相关性热图。评估样本间的一致性和离群样本。"
+    tool_id: "pheatmap"
+    params:
+      display_numbers: true
+      number_format: "%.2f"
+      clustering_method: "complete"
+      color_palette: "RdBu"
+
+  # ----------------------------------------------------------
+  # 多组学整合类图表
+  # ----------------------------------------------------------
+  - rule_id: "vis-multiomics-circos-020"
+    priority: 10
+    condition:
+      analysis_type: "multi_omics"
+      need_genome_wide_integration: true
+    recommend: "multi_track_circos"
+    reason: "多组学整合 → 多轨道环形图。同时展示基因组、甲基化、表达、变异等多层数据。"
+    tool_id: "circlize"
+    params:
+      track_order: ["chromosome", "gene_density", "methylation", "expression", "variants"]
+      track_heights: [0.1, 0.08, 0.08, 0.08, 0.08]
+
+  # ----------------------------------------------------------
+  # 统计分析类图表
+  # ----------------------------------------------------------
+  - rule_id: "vis-boxplot-021"
+    priority: 9
+    condition:
+      analysis_type: "statistical_comparison"
+      data_type: "continuous"
+      need_distribution: true
+    recommend: "boxplot_with_stats"
+    reason: "组间比较 → 箱线图+统计检验。展示数据分布和统计显著性。"
+    tool_id: "ggplot2"
+    params:
+      show_points: true
+      point_position: "jitter"
+      stat_test: "wilcox"
+      show_signif_labels: true
+
+  - rule_id: "vis-barplot-022"
+    priority: 9
+    condition:
+      analysis_type: "statistical_comparison"
+      data_type: "categorical"
+      need_counts: true
+    recommend: "barplot_with_errorbars"
+    reason: "分类数据比较 → 条形图+误差棒。展示各类别的计数或比例。"
+    tool_id: "ggplot2"
+    params:
+      position: "dodge"
+      error_bar_width: 0.2
+      show_values: true
+
+  # ----------------------------------------------------------
+  # 质量控制类图表
+  # ----------------------------------------------------------
+  - rule_id: "vis-qc-fastqc-023"
+    priority: 10
+    condition:
+      analysis_type: "quality_control"
+      data_type: "sequencing"
+    recommend: "fastqc_summary_plots"
+    reason: "测序数据质控 → FastQC汇总图。包括质量分布、GC含量、接头含量等。"
+    tool_id: "multiqc"
+    params:
+      plots: ["per_base_quality", "per_sequence_gc", "adapter_content"]
+      export_format: "png"
+
+  - rule_id: "vis-qc-pca-024"
+    priority: 9
+    condition:
+      analysis_type: "quality_control"
+      need_outlier_detection: true
+    recommend: "sample_pca_for_qc"
+    reason: "样本质控 → PCA检测离群样本。识别批次效应和异常样本。"
+    tool_id: "ggplot2"
+    params:
+      label_samples: true
+      highlight_outliers: true
+      outlier_method: "iqr"
+
+# ============================================================
+# 质量控制规则：检查图表是否符合发表标准
+# ============================================================
+quality_control:
+  - rule_id: "vis-res-dpi-001"
+    priority: 10
+    condition:
+      output_format: ["png", "jpeg", "tiff"]
+    recommend: "set_minimum_dpi_300"
+    reason: "位图分辨率 → 至少300 DPI，线条图建议600 DPI。"
+    params:
+      dpi_min: 300
+      dpi_line_art: 600
+
+  - rule_id: "vis-type-font-size-001"
+    priority: 8
+    condition:
+      text_element_size: "< 6pt"
+    recommend: "increase_font_size"
+    reason: "文字过小 → 6pt以下打印后难以辨认。建议使用8pt以上。"
+    params:
+      min_font_size: 6
+      recommended_font_size: 8
+
+  - rule_id: "vis-type-font-family-001"
+    priority: 7
+    condition:
+      font_family: ["Times", "Georgia", "serif"]
+    recommend: "switch_to_sans_serif"
+    reason: "衬线字体 → 图表可读性差。建议使用无衬线字体如Arial、Helvetica。"
+    params:
+      recommended_fonts: ["Arial", "Helvetica", "sans-serif"]
+
+  - rule_id: "vis-color-blind-safe-001"
+    priority: 9
+    condition:
+      color_palette: ["red-green", "rainbow"]
+    recommend: "use_colorblind_safe_palette"
+    reason: "色盲不友好配色 → 约8%男性有红绿色盲。建议使用Okabe-Ito或viridis调色板。"
+    params:
+      colorblind_safe_palettes: ["okabe-ito", "viridis", "colorbrewer"]
+
+  - rule_id: "vis-ink-tufte-001"
+    priority: 6
+    condition:
+      has_top_border: true
+      has_right_border: true
+    recommend: "remove_non_data_ink"
+    reason: "多余边框 → 按Tufte数据墨水比原则，移除顶部和右侧边框。"
+    params:
+      theme_element: "theme_classic"
+      remove_borders: ["top", "right"]
+
+  - rule_id: "vis-ann-error-bar-001"
+    priority: 10
+    condition:
+      has_error_bars: true
+      error_bar_type_annotated: false
+    recommend: "annotate_error_bar_type"
+    reason: "误差棒未标注 → 必须标注SD/SEM/CI类型。"
+    params:
+      required_annotation: ["SD", "SEM", "95% CI"]
+
+  - rule_id: "vis-ann-sample-size-001"
+    priority: 8
+    condition:
+      has_grouped_data: true
+      sample_size_annotated: false
+    recommend: "add_sample_size_annotation"
+    reason: "缺少样本量 → 建议在图例或副标题中标注n=X。"
+    params:
+      annotation_format: "n={n}"
+
+  - rule_id: "vis-exp-vector-001"
+    priority: 10
+    condition:
+      has_vector_output: false
+    recommend: "export_vector_format"
+    reason: "仅位图输出 → 期刊通常要求矢量格式（PDF/SVG）。"
+    params:
+      primary_format: "PDF"
+      fallback_format: "PNG"
+
+# ============================================================
+# 备用规则
+# ============================================================
+fallback:
+  - rule_id: "vis-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    reason: "未匹配到标准可视化类型 → 需要专家介入或用户澄清需求。"
+    params:
+      fallback_action: "consult"
+      suggest_similar: true
+      output_format: ["PDF", "PNG"]
+      dpi_default: 300

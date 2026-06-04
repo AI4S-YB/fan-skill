@@ -67,6 +67,14 @@ imputation_tool:
     recommend: "beagle"
     reason: "小-中等数据 → Beagle 5 速度快，无需参考面板"
     tool_id: "beagle"
+    params:
+      nthreads: 4
+      window: 40
+      overlap: 4
+      ne: 100000
+      impute: true
+      gtlikelihood: "none"
+      reference_panel: null
 
   - rule_id: "imp-impute2-reference-002"
     priority: 9
@@ -76,6 +84,15 @@ imputation_tool:
     recommend: "impute2"
     reason: "有单倍型参考面板 → IMPUTE2 利用 LD 信息充分"
     tool_id: "impute2"
+    params:
+      buffer: 1000
+      allow_large_regions: true
+      Ne: 20000
+      buffer_size: 500
+      phase: true
+      impute2_cmd: "-use_prephased_g"
+      reference_haplotypes: "required"
+      reference_legend: "required"
 
   - rule_id: "imp-minimac-large-003"
     priority: 8
@@ -84,13 +101,34 @@ imputation_tool:
     recommend: "minimac4"
     reason: "大样本 → Minimac4 计算效率最高"
     tool_id: "minimac"
+    params:
+      cpus: 8
+      chunks: 1
+      format: "vcf"
+      ref_format: "m3vcf"
+      prob_threshold: 0.9
+      rsq_filter: 0.3
+      maf_threshold: 0.01
+      reference_panel: "required"
+      prephase_tool: "eagle"
 
   - rule_id: "imp-polyploid-004"
     priority: 9
+    tool_id: "beagle"
     condition:
       ploidy: ["allopolyploid", "autopolyploid"]
     recommend: "beagle_polyploid"
     reason: "多倍体 → Beagle 支持多倍体填充，IMPUTE2 不支持"
+    params:
+      ploidy: 4
+      nthreads: 4
+      window: 40
+      overlap: 4
+      ne: 100000
+      impute: true
+      dosages: true
+      output_dosage_format: "gp"
+      subgenome_handling: "separate"
 
 # ============================================================
 # 决策节点 3: 种质资源考虑
@@ -102,6 +140,13 @@ germplasm_consideration:
       breeding_system: "outcross"
     action: "use_diverse_reference"
     reason: "异交物种 LD 衰减快，需要高密度参考面板或大样本量"
+    params:
+      reference_panel_priority: "high"
+      reference_density: "high"
+      min_reference_size: 500
+      ld_decay_threshold: "short"
+      imputation_strategy: "reference_based"
+      fallback_strategy: "large_cohort_internal"
 
   - rule_id: "germ-selfing-002"
     priority: 5
@@ -109,6 +154,13 @@ germplasm_consideration:
       breeding_system: "inbred"
     action: "beagle_sufficient"
     reason: "自交物种 LD 跨度大，Beagle 不依赖参考面板亦可获得良好填充精度"
+    params:
+      reference_panel_required: false
+      imputation_method: "beagle_internal"
+      expected_ld_span: "long"
+      min_sample_size: 50
+      accuracy_expectation: "high"
+      population_internal_ld: true
 
   - rule_id: "germ-structured-003"
     priority: 6
@@ -116,6 +168,13 @@ germplasm_consideration:
       population_structure: "strong"
     action: "stratify_before_imputation"
     reason: "强群体结构 → 按亚群分层填充，避免跨亚群错误填充"
+    params:
+      stratification_method: "pca_admixture"
+      subpopulation_detection: true
+      min_subpop_size: 20
+      imputation_mode: "per_subpopulation"
+      reference_panel_matching: "subpopulation_specific"
+      cross_subpop_imputation: false
 
 # ============================================================
 # 决策节点 4: 后填充 QC
@@ -156,6 +215,11 @@ phasing_strategy:
       imputation_tool_selected: "beagle"
     action: "beagle_integrated_phasing"
     reason: "Beagle 内置定相功能，无需额外步骤"
+    params:
+      phasing_method: "integrated"
+      separate_phasing_step: false
+      output_phased: true
+      phase_accuracy_threshold: 0.95
 
   - rule_id: "phase-shapeit-impute2-002"
     priority: 4
@@ -165,6 +229,15 @@ phasing_strategy:
     action: "shapeit_prephasing"
     tool_id: "shapeit-phasing"
     reason: "IMPUTE2 需要预先定相，SHAPEIT 是标准前处理"
+    params:
+      phasing_method: "shapeit"
+      input_format: "vcf"
+      output_format: "hap"
+      effective_population_size: 15000
+      window_size: 0.5
+      sparse_mcmc: true
+      burn_in: 7
+      main_iterations: 12
 
 # ============================================================
 # 回退规则
@@ -174,6 +247,11 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
+      fallback_mode: "expert_notebook"
+      collect_additional_info: true
+      suggest_user_consultation: true
 
 design_gates:
   - id: "imp-genotype-data"

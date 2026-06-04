@@ -45,6 +45,18 @@ alignment:
     recommend: "bwa_mem"
     reason: "Illumina 短读长 → BWA-MEM 标准选择"
     tool_id: "bwa-mem"
+    params:
+      algorithm: "mem"
+      seed_length: 19
+      max_gap_opens: 4
+      gap_open_penalty: 11
+      gap_extension_penalty: 4
+      mismatch_penalty: 4
+      min_seed_length: 19
+      bandwidth: 100
+      dropoff: 100
+      split_factor: 1.5
+      threading: 8
 
   - rule_id: "aln-minimap2-long-002"
     priority: 10
@@ -53,6 +65,16 @@ alignment:
     recommend: "minimap2"
     reason: "长读长 → minimap2 优化"
     tool_id: "bwa-mem"
+    params:
+      preset: "map-pb"
+      k_mer_size: 19
+      bandwidth: 500
+      gap_open_penalty: 4
+      gap_extension_penalty: 2
+      secondary_ratio: 0.8
+      max_secondary: 5
+      min_dp_score: 40
+      threaded: 8
 
 # ============================================================
 # 决策节点 2: 变异检测方法
@@ -66,6 +88,19 @@ variant_caller:
     recommend: "gatk_haplotypecaller_gvcf"
     reason: "≥10样本二倍体 → GATK GVCF joint-calling"
     tool_id: "gatk-haplotype"
+    params:
+      emit_ref_confidence: "GVCF"
+      min_base_quality_score: 20
+      min_mapping_quality_score: 20
+      max_alternate_alleles: 6
+      standard_min_confidence_threshold_for_calling: 30.0
+      standard_min_confidence_threshold_for_emitting: 10.0
+      min_pruning_depth: 2
+      max_gaussian_depth: 100
+      stand_call_conf: 30.0
+      stand_emit_conf: 10.0
+      ploidy: 2
+      java_heap: "8G"
 
   - rule_id: "vc-bcftools-small-002"
     priority: 9
@@ -74,6 +109,17 @@ variant_caller:
     recommend: "bcftools_mpileup"
     reason: "<10样本 → bcftools mpileup 更简单直接"
     tool_id: "bcftools"
+    params:
+      min_base_quality: 20
+      min_mapping_quality: 20
+      max_depth: 1000
+      adjust_mq: 50
+      no_baq: false
+      exclude_unmapped: true
+      skip_indels: false
+      output_type: "v"
+      ploidy: 2
+      threads: 4
 
   - rule_id: "vc-deepvariant-003"
     priority: 8
@@ -82,6 +128,17 @@ variant_caller:
     recommend: "deepvariant"
     reason: "长读长 → DeepVariant 性能好"
     tool_id: "deepvariant"
+    params:
+      model_type: "PACBIO"
+      num_shards: 8
+      logging_level: "INFO"
+      runtime:
+        nvidia_gpu: 1
+        cpu: 4
+        memory: "16G"
+      max_alt_alleles: 4
+      min_mapping_quality: 10
+      min_base_quality: 10
 
   - rule_id: "vc-polyploid-004"
     priority: 9
@@ -90,6 +147,20 @@ variant_caller:
     recommend: "gatk_polyploid_or_freebayes"
     reason: "多倍体 → GATK 或 freebayes polyploid 模式"
     tool_id: "gatk-haplotype"
+    params:
+      sample_ploidy: 4
+      min_base_quality_score: 20
+      min_mapping_quality_score: 20
+      max_alternate_alleles: 6
+      standard_min_confidence_threshold_for_calling: 30.0
+      standard_min_confidence_threshold_for_emitting: 10.0
+      java_heap: "16G"
+      freebayes_options:
+        ploidy: 4
+        min_alternate_count: 3
+        min_alternate_fraction: 0.1
+        min_mapping_quality: 20
+        min_base_quality: 20
 
 # ============================================================
 # 决策节点 3: 变异过滤
@@ -102,6 +173,22 @@ variant_filtering:
     recommend: "hard_filtering"
     reason: "<30样本 → VQSR 需要大量样本，硬过滤更合适"
     tool_id: "vcf-qc"
+    params:
+      snp_filter:
+        QD: "< 2.0"
+        FS: "> 60.0"
+        MQ: "< 40.0"
+        MQRankSum: "< -12.5"
+        ReadPosRankSum: "< -8.0"
+        SOR: "> 3.0"
+      indel_filter:
+        QD: "< 2.0"
+        FS: "> 200.0"
+        ReadPosRankSum: "< -20.0"
+        SOR: "> 10.0"
+      min_depth: 10
+      max_depth: 500
+      min_genotype_quality: 20
 
   - rule_id: "vf-vqsr-002"
     priority: 10
@@ -111,6 +198,18 @@ variant_filtering:
     recommend: "vqsr"
     reason: "≥30样本 + 已知位点 → VQSR 比硬过滤更准确"
     tool_id: "vcf-qc"
+    params:
+      vqsr_mode:
+        snp_tranche_sensitivity: 99.5
+        indel_tranche_sensitivity: 99.0
+        max_gaussians: 8
+        num_training_iterations: 100
+      annotations:
+        snp: ["QD", "MQRankSum", "ReadPosRankSum", "FS", "SOR", "MQ"]
+        indel: ["QD", "ReadPosRankSum", "FS", "SOR", "DP"]
+      truth_sensitivity_filter_level: 99.5
+      min_confidence_threshold: 1.0
+      java_heap: "32G"
 
   - rule_id: "vf-hard-filter-no-known-003"
     priority: 10
@@ -120,6 +219,23 @@ variant_filtering:
     recommend: "hard_filtering"
     reason: "≥30样本但无已知位点 → 无法运行 VQSR，使用硬过滤"
     tool_id: "vcf-qc"
+    params:
+      snp_filter:
+        QD: "< 2.0"
+        FS: "> 60.0"
+        MQ: "< 40.0"
+        MQRankSum: "< -12.5"
+        ReadPosRankSum: "< -8.0"
+        SOR: "> 3.0"
+      indel_filter:
+        QD: "< 2.0"
+        FS: "> 200.0"
+        ReadPosRankSum: "< -20.0"
+        SOR: "> 10.0"
+      min_depth: 10
+      max_depth: 500
+      min_genotype_quality: 20
+      missing_rate_threshold: 0.2
 
 # ============================================================
 # 决策节点 4: VCF 质控与可视化
@@ -132,6 +248,17 @@ vcf_qc:
     recommend: "standard_qc_metrics"
     reason: "二倍体 → 标准 QC 指标 (Ti/Tv, 缺失率, 杂合度)"
     tool_id: "visualization"
+    params:
+      expected_titv_ratio: 2.0
+      titv_ratio_tolerance: 0.5
+      max_missing_rate: 0.1
+      min_call_rate: 0.9
+      expected_heterozygosity: 0.005
+      heterozygosity_range: [0.001, 0.02]
+      min_mean_depth: 10
+      max_mean_depth: 100
+      hardy_weinberg_pvalue: 1e-6
+      maf_threshold: 0.01
 
   - rule_id: "qc-polyploid-check-002"
     priority: 10
@@ -140,6 +267,19 @@ vcf_qc:
     recommend: "polyploid_qc_metrics"
     reason: "多倍体 → 放宽 Ti/Tv 期望，注意亚基因组分离"
     tool_id: "visualization"
+    params:
+      expected_titv_ratio: 1.5
+      titv_ratio_tolerance: 0.8
+      max_missing_rate: 0.15
+      min_call_rate: 0.85
+      expected_heterozygosity: 0.01
+      heterozygosity_range: [0.005, 0.05]
+      min_mean_depth: 15
+      max_mean_depth: 150
+      subgenome_analysis: true
+      allele_balance_range: [0.1, 0.9]
+      max_allele_count: 4
+      maf_threshold: 0.01
 
 # ============================================================
 # Fallback: 无规则匹配
@@ -150,6 +290,176 @@ fallback:
     condition: "none_matched"
     action: "delegate_to_expert"
     reason: "数据特征不在预设规则内，切换到 expert 推理"
+
+# ============================================================
+# 下游群体分析链 (P1级增强)
+# VCF后的群体遗传分析
+# ============================================================
+population_analysis:
+  # 群体结构分析
+  structure_analysis:
+    - rule_id: "pop-pca-001"
+      priority: 10
+      condition:
+        sample_count: ">= 10"
+        analysis_goal: "population_structure"
+      recommend: "pca_analysis"
+      reason: "群体结构分析 → PCA降维可视化。使用PLINK进行PCA分析，识别群体分层。"
+      tool_id: "plink"
+      params:
+        maf: 0.05
+        geno: 0.1
+        hwe: 1e-6
+
+    - rule_id: "pop-admixture-002"
+      priority: 9
+      condition:
+        sample_count: ">= 20"
+        analysis_goal: "ancestry_estimation"
+      recommend: "admixture_analysis"
+      reason: "祖先成分估计 → ADMIXTURE软件。估计K值范围通常2-10，需要交叉验证选择最佳K。"
+      tool_id: "admixture"
+      params:
+        k_range: "2-10"
+        cv: 10
+
+  # 遗传分化分析
+  differentiation_analysis:
+    - rule_id: "pop-fst-001"
+      priority: 10
+      condition:
+        has_population_groups: true
+        analysis_goal: "genetic_differentiation"
+      recommend: "fst_calculation"
+      reason: "群体间遗传分化 → Fst统计量。使用VCFtools或PopGenome计算。高Fst区域可能受到选择。"
+      tool_id: "vcftools"
+      params:
+        window_size: 50000
+        step_size: 10000
+
+    - rule_id: "pop-pairwise-fst-002"
+      priority: 9
+      condition:
+        population_count: ">= 2"
+        analysis_goal: "pairwise_differentiation"
+      recommend: "pairwise_fst_matrix"
+      reason: "多群体配对Fst → 生成Fst矩阵，可绘制热图。"
+      params:
+        window_size: 50000
+        step_size: 10000
+        fst_method: "weir-cockerham"
+        min_snps_per_window: 10
+        output_format: "matrix"
+
+  # 选择性清除分析
+  selection_analysis:
+    - rule_id: "pop-selective-sweep-001"
+      priority: 10
+      condition:
+        has_population_groups: true
+        analysis_goal: "selective_sweep_detection"
+      recommend: "composite_selection_analysis"
+      reason: "选择性清扫检测 → 综合使用多种统计量。XP-CLR、iHS、Fst联合分析提高准确性。"
+      tools:
+        - name: "xp-clr"
+          purpose: "跨群体复合似然比"
+        - name: "ihs"
+          purpose: "单群体单倍型扩展"
+        - name: "fst"
+          purpose: "群体分化"
+        - name: "pi_ratio"
+          purpose: "核苷酸多样性比率"
+      params:
+        window_size: 50000
+        step_size: 10000
+        outlier_threshold: 0.01
+
+    - rule_id: "pop-pi-tajima-002"
+      priority: 9
+      condition:
+        analysis_goal: "diversity_analysis"
+      recommend: "pi_tajima_d_analysis"
+      reason: "遗传多样性分析 → π (核苷酸多样性) 和 Tajima's D。Tajima's D负值暗示选择性清除或群体扩张，正值暗示平衡选择或群体收缩。"
+      tool_id: "vcftools"
+      params:
+        window_size: 100000
+
+  # 连锁不平衡分析
+  ld_analysis:
+    - rule_id: "pop-ld-decay-001"
+      priority: 8
+      condition:
+        analysis_goal: "ld_analysis"
+      recommend: "ld_decay_analysis"
+      reason: "LD衰减分析 → PopLDdecay软件。估计LD衰减距离，用于GWAS标记密度规划和关联区域范围判断。"
+      tool_id: "poplddecay"
+      params:
+        max_dist: 500000
+
+# ============================================================
+# 群体分析流程链
+# ============================================================
+analysis_chain:
+  - chain_id: "standard_population_pipeline"
+    name: "标准群体分析流程"
+    steps:
+      - step: 1
+        name: "VQC_QC"
+        tools: ["vcftools", "bcftools"]
+        outputs: ["filtered_variants.vcf"]
+      - step: 2
+        name: "Population_Structure"
+        tools: ["plink", "admixture"]
+        outputs: ["pca_plot", "admixture_plot"]
+      - step: 3
+        name: "Genetic_Diversity"
+        tools: ["vcftools"]
+        outputs: ["pi_values", "tajima_d"]
+      - step: 4
+        name: "Differentiation"
+        tools: ["vcftools", "popgenome"]
+        outputs: ["fst_values", "fst_heatmap"]
+      - step: 5
+        name: "Selection_Scan"
+        tools: ["xp-clr", "selscan"]
+        outputs: ["candidate_regions"]
+
+  - chain_id: "breeding_population_pipeline"
+    name: "育种群体分析流程"
+    steps:
+      - step: 1
+        name: "Variant_Filtering"
+        tools: ["vcftools"]
+        params: {maf: 0.05, geno: 0.2}
+      - step: 2
+        name: "Population_Structure"
+        tools: ["plink", "admixture"]
+      - step: 3
+        name: "LD_Decay"
+        tools: ["poplddecay"]
+      - step: 4
+        name: "Selection_Sweep"
+        tools: ["fst", "pi_ratio"]
+
+# ============================================================
+# 群体分析设计门禁
+# ============================================================
+population_gates:
+  - id: "pop-sample-size"
+    rule: "群体分析至少需要10个样本"
+    check: "sample_count >= 10"
+    severity: "warn"
+    on_fail: "样本数不足 → 群体结构估计和选择分析结果可能不可靠"
+  - id: "pop-group-info"
+    rule: "群体分析需要样本分组信息"
+    check: "has_population_groups == true"
+    severity: "warn"
+    on_fail: "无分组信息 → 无法进行群体间比较分析（Fst、XP-CLR等）"
+  - id: "pop-snp-density"
+    rule: "SNP密度应足够高（建议>1000 SNPs/Mb）"
+    check: "snp_density >= 1000"
+    severity: "warn"
+    on_fail: "SNP密度较低 → 选择性清扫检测精度受限"
 
 design_gates:
   - id: "vc-reference-genome"

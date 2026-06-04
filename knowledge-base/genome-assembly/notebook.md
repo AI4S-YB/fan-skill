@@ -457,5 +457,201 @@ A: 检查 Hi-C contact map。对角线外的强信号表示 misassembly。使用
 | WheatIS | 小麦 | 小麦基因组资源整合 |
 | Brassica Database (BRAD) | 芸苔属 | 油菜、白菜、甘蓝基因组 |
 | Sol Genomics Network | 茄科 | 番茄、马铃薯、辣椒、茄子 |
+
+---
+
+## 多平台组装评估矩阵
+
+对于高重要性基因组项目，建议运行多个组装工具并比较结果：
+
+### 组装工具对比评估
+
+```bash
+# 运行多个组装工具
+# 1. hifiasm (HiFi首选)
+hifiasm -o hifiasm_asm -t 32 hifi_reads.fastq.gz
+
+# 2. Flye (ONT首选，也可用于HiFi)
+flye --pacbio-hifi hifi_reads.fastq.gz \
+  --genome-size 500m \
+  --out-dir flye_output \
+  --threads 32
+
+# 3. IPA (PacBio官方流程)
+ipa local --fasta hifi_reads.fastq.gz --threads 32
+
+# 4. NEAT (噪声感知组装)
+neat assemble -i hifi_reads.fastq.gz -o neat_output
+```
+
+### 评估指标矩阵
+
+| 指标 | hifiasm | Flye | IPA | 说明 |
+|------|---------|------|-----|------|
+| Contig N50 | 记录 | 记录 | 记录 | 越高越好 |
+| BUSCO Complete | 记录 | 记录 | 记录 | >90%为良好 |
+| Merqury QV | 记录 | 记录 | 记录 | >40为优秀 |
+| 组装总长度 | 记录 | 记录 | 记录 | 与估计大小比较 |
+| LTR回收率 | 记录 | 记录 | 记录 | 植物重要指标 |
+
+### 结果整合策略
+
+```bash
+# 如果一个组装明显优于其他，直接选用
+# 如果各有所长，考虑：
+
+# 1. GFAtools合并
+gfatools merge asm1.gfa asm2.gfa -o merged.gfa
+
+# 2. 选择性拼接
+# 对特定区域选择最佳组装片段
+
+# 3. 差异报告
+# 详细报告各工具优劣，由用户决定
+```
+
+---
+
+## T2T (Telomere-to-Telomere) 组装流程
+
+追求完整染色体级别的端粒到端粒组装：
+
+### 1. Gap填补
+
+```bash
+# 使用ONT超长reads填补gap
+# 首先识别gap位置
+grep "N" assembly.fasta | head -20
+
+# 使用TGS-GapCloser或LR_Gapcloser
+LR_Gapcloser.sh -i assembly.fasta \
+  -l ont_ultra_long.fastq.gz \
+  -o gap_closed.fasta \
+  -t 16
+
+# 或使用TGS-GapCloser
+python TGS-GapCloser.py \
+  --scaff assembly.fasta \
+  --reads ont_ultra_long.fastq.gz \
+  --output gap_closed \
+  --threads 16
+```
+
+### 2. 端粒验证
+
+```bash
+# 检测端粒重复序列
+# 植物端粒序列：TTTAGGG (拟南芥型)
+# 某些单子叶植物：TTTTAGGG
+
+# 搜索contig末端的端粒重复
+# 正向端粒
+grep -E "^TTTAGGG{10,}" assembly.fasta
+
+# 反向端粒
+grep -E "CCCTAAA{10,}$" assembly.fasta
+
+# 使用FindTelomere工具
+find_telomeres.py -i assembly.fasta -r TTTAGGG -m 10 -o telomere_report.txt
+```
+
+### 3. 着丝粒区域分析
+
+```bash
+# 识别着丝粒卫星重复
+# 使用TAREAN (Terminal-Associated REpeat ANalyzer)
+tarean -i Illumina_reads.fq -o tarean_output
+
+# 检测着丝粒特异重复
+# 玉米：CentC, CRM1/CRM2
+# 小麦：CCS1, 180bp重复
+# 水稻：CentO
+
+# 使用RepeatMasker注释着丝粒区域
+RepeatMasker -species "Oryza sativa" \
+  -pa 8 \
+  assembly.fasta
+```
+
+### 4. T2T完整性评估
+
+```bash
+# 端粒数量统计（预期=2×染色体数）
+expected_telomeres=$((2 * chromosome_count))
+actual_telomeres=$(grep -c "telomere_signal" telomere_report.txt)
+echo "端粒完整性: $actual_telomeres / $expected_telomeres"
+
+# 着丝粒检测
+# 预期每条染色体有1个着丝粒区域
+
+# Gap统计
+gap_count=$(grep -c "^>" assembly.fasta | xargs -I {} sh -c 'grep -o "N\+" assembly.fasta | wc -l')
+echo "剩余gap数量: $gap_count"
+```
+
+---
+
+## 多倍体组装策略
+
+### 同源多倍体 vs 异源多倍体
+
+| 类型 | 基因组结构 | 组装难度 | 推荐策略 |
+|------|-----------|---------|---------|
+| 同源多倍体 | AAAA (相同或相似) | 极高 | hifiasm --n-hap, 预期多单倍型 |
+| 异源多倍体 | AABB (不同来源) | 中等 | 按亚基因组分开处理 |
+| 节段异源多倍体 | AA BB (部分同源) | 高 | 结合两种策略 |
+
+### 同源四倍体组装示例
+
+```bash
+# 同源四倍体（如马铃薯）
+# hifiasm会尝试分出4个单倍型
+hifiasm -o tetraploid_asm \
+  --n-hap 4 \
+  -t 32 \
+  hifi_reads.fastq.gz
+
+# 注意：结果可能非常破碎
+# 替代策略：接受collapsed assembly
+
+# 使用purge_dups控制冗余
+purge_dups -T 0 -e 0.5 assembly.fasta
+```
+
+### 异源四倍体组装示例
+
+```bash
+# 异源四倍体（如棉花AADD、油菜AACC）
+# 可以按亚基因组分开处理
+
+# 方法1：直接组装后分离
+hifiasm -o allo_asm -t 32 hifi_reads.fastq.gz
+# 后续根据共线性和BUSCO分布分离亚基因组
+
+# 方法2：Trio-binning（需要亲本数据）
+# 测序两个亲本（如A基因组和D基因组来源）
+# 根据亲本k-mer分离reads
+trio_binning.py -p parentA.fq -m parentD.fq -c child.fq
+
+# 分别组装两个bin
+hifiasm -o hapA_asm -t 32 binA.fastq.gz
+hifiasm -o hapD_asm -t 32 binD.fastq.gz
+```
+
+### 多倍体组装质量评估
+
+```bash
+# BUSCO评估多倍体
+busco -i assembly.fasta \
+  -l embryophyta_odb10 \
+  -m genome \
+  -c 16
+
+# 注意：多倍体BUSCO Duplicated会很高，这是正常的
+# 四倍体预期Duplicated: 40-60%
+
+# 使用单拷贝核基因评估
+# 选择植物单拷贝基因集，检查每个基因的拷贝数
+```
 | CottonGen | 棉花 | 棉花基因组和育种资源 |
 | GrainGenes | 小谷物 | 大麦、燕麦、黑麦、小麦 |

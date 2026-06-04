@@ -33,6 +33,10 @@ inference_method:
     recommend: "genie3_with_tf_prior"
     reason: ">=15 samples + TF annotation -> GENIE3 directed network inference"
     tool_id: "genie3"
+    params:
+      nTrees: 1000
+      regulators: "{tf_list}"
+      nCores: 4
   - rule_id: "grn-scenic-002"
     priority: 9
     condition:
@@ -41,12 +45,21 @@ inference_method:
     recommend: "scenic"
     reason: ">=20 samples -> SCENIC can detect regulon activity"
     tool_id: "scenic"
+    params:
+      min_genes_per_regulon: 10
+      auc_threshold: 0.05
+      nes_threshold: 3
   - rule_id: "grn-wgcna-undirected-003"
     priority: 7
+    tool_id: "wgcna"
     condition:
       tf_annotation: false
     recommend: "wgcna_coexpression"
     reason: "No TF annotation -> WGCNA undirected co-expression network"
+    params:
+      minModuleSize: 30
+      mergeCutHeight: 0.25
+      power: "auto"
 
 tf_database:
   - rule_id: "tf-planttfdb-001"
@@ -55,30 +68,63 @@ tf_database:
       species_detected: ["oryza_sativa", "zea_mays", "arabidopsis_thaliana", "glycine_max", "solanum_lycopersicum"]
     recommend: "planttfdb"
     reason: "Major crop species -> PlantTFDB has complete annotation"
+    params:
+      database: "PlantTFDB"
+      version: "5.0"
+      tf_families: ["AP2/ERF", "bHLH", "bZIP", "MYB", "NAC", "WRKY", "MADS", "C2H2"]
+      confidence_threshold: "high"
+      include_domains: true
   - rule_id: "tf-homolog-infer-002"
     priority: 7
     condition:
       species_detected: "unknown"
     recommend: "homolog_inference"
     reason: "Non-model species -> infer TFs from Arabidopsis homologs"
+    params:
+      reference_species: "arabidopsis_thaliana"
+      method: "blastp_reciprocal_best_hit"
+      evalue_cutoff: 1e-5
+      identity_threshold: 0.4
+      coverage_threshold: 0.5
+      tf_database: "PlantTFDB"
+      min_confidence: "medium"
 
 network_analysis:
   - rule_id: "na-hub-detection-001"
     priority: 5
     action: "degree_centrality_and_betweenness"
     reason: "Degree and betweenness centrality identify hub genes"
+    params:
+      metrics: ["degree", "betweenness", "closeness", "eigenvector"]
+      hub_threshold: 0.95
+      degree_percentile: 95
+      betweenness_percentile: 95
+      min_connections: 10
+      output_format: "ranked_table"
   - rule_id: "na-module-002"
     priority: 6
     condition:
       network_size: ">= 500"
     recommend: "community_detection"
     reason: ">=500 nodes -> community detection identifies functional modules"
+    params:
+      algorithm: "louvain"
+      resolution: 1.0
+      min_module_size: 10
+      modularity_threshold: 0.3
+      edge_weight: "importance_score"
+      output_modules: true
 
 fallback:
   - rule_id: "grn-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
+      fallback_action: "manual_analysis"
+      suggest_tools: ["GENIE3", "WGCNA", "SCENIC"]
+      expert_mode: true
 
 design_gates:
   - id: "grn-expression-data"

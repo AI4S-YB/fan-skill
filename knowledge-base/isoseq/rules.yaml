@@ -1,0 +1,352 @@
+name: isoseq
+description: "PacBio Iso-Seq full-length transcriptome analysis. Covers CCS generation, isoform clustering, quality filtering, transcript annotation, alternative splicing analysis, and fusion gene detection."
+triggers:
+  - "isoseq"
+  - "iso-seq"
+  - "pacbio"
+  - "full-length transcript"
+  - "全长转录组"
+  - "isoform"
+  - "ccs"
+  - "alternative splicing"
+
+inputs:
+  - pacbio_bam
+  - pacbio_fastq
+  - reference_genome
+  - illumina_reads
+
+outputs:
+  - ccs_reads
+  - full_length_transcripts
+  - hq_transcripts
+  - transcript_annotation
+  - splice_events
+  - analysis_report
+
+version: "1.0"
+analysis: isoseq_analysis
+
+inputs_required:
+  - pacbio_data
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "iso-data-type"
+    rule: "必须有PacBio Iso-Seq数据"
+    check: "has_pacbio_data == true"
+    severity: "block"
+    on_fail: "没有PacBio数据 → 无法进行Iso-Seq分析。需要PacBio Iso-Seq测序数据（BAM或FASTQ格式）。"
+  - id: "iso-reference"
+    rule: "有参考基因组"
+    check: "has_reference_genome == true"
+    severity: "warn"
+    on_fail: "无参考基因组 → 只能进行de novo分析。有参考基因组可以进行更准确的分析。"
+  - id: "iso-illumina-support"
+    rule: "有Illumina数据用于错误校正"
+    check: "has_illumina_data == true"
+    severity: "warn"
+    on_fail: "无Illumina数据 → 无法进行混合校正。建议使用Illumina短读长进行错误校正。"
+  - id: "iso-sequencing-depth"
+    rule: "测序深度足够"
+    check: "sequencing_yield >= 5000000"
+    severity: "warn"
+    on_fail: "测序量较低 → 可能无法检测低表达转录本。建议至少5M reads用于植物转录组。"
+
+# ============================================================
+# 决策节点 1: CCS生成
+# ============================================================
+ccs_generation:
+  - rule_id: "ccs-lima-001"
+    priority: 10
+    condition:
+      has_bam: true
+      platform: "sequel2_or_revio"
+    recommend: "lima_ccs"
+    reason: "Sequel II/Revio → lima生成CCS。PacBio官方工具，支持多样本demultiplexing。"
+    tool_id: "lima"
+    params:
+      min_passes: 3
+      min_rq: 0.99
+
+  - rule_id: "ccs-ccs-tool-002"
+    priority: 9
+    condition:
+      has_bam: true
+      platform: "sequel1"
+    recommend: "ccs_tool"
+    reason: "Sequel I → ccs工具生成CCS。"
+    params:
+      min_passes: 3
+      min_accuracy: 0.99
+
+  - rule_id: "ccs-skip-003"
+    priority: 8
+    condition:
+      has_ccs: true
+    recommend: "skip_ccs_generation"
+    reason: "已有CCS → 直接使用已有CCS序列。"
+    params:
+      skip_ccs: true
+      use_existing: "{ccs_fastq}"
+
+# ============================================================
+# 决策节点 2: Isoform聚类
+# ============================================================
+isoform_clustering:
+  - rule_id: "clust-isoseq3-001"
+    priority: 10
+    condition:
+      method_preference: "standard"
+    recommend: "isoseq3_cluster"
+    reason: "标准流程 → IsoSeq3聚类。PacBio官方工具，生成高质量一致性序列。"
+    tool_id: "isoseq3"
+    params:
+      min_aln_coverage: 0.99
+      min_seq_identity: 0.99
+      max_forks: 1
+      min_ce_idle: 0.8
+
+  - rule_id: "clust-cupcake-002"
+    priority: 9
+    condition:
+      method_preference: "cupcake"
+    recommend: "cupcake_clustering"
+    reason: "Cupcake方法 → IsoSeq Cupcake工具包。灵活的后处理选项。"
+    tool_id: "cupcake"
+    params:
+      cluster_method: "hierarchical"
+      min_coverage: 0.99
+      min_identity: 0.99
+      min_counts: 2
+
+# ============================================================
+# 决策节点 3: 错误校正
+# ============================================================
+error_correction:
+  - rule_id: "corr-lordec-001"
+    priority: 10
+    condition:
+      has_illumina: true
+      reference_available: false
+    recommend: "lordec"
+    reason: "有Illumina无参考 → LoRDEC混合校正。使用k-mer方法校正错误。"
+    tool_id: "lordec"
+    params:
+      kmer_size: 21
+      abundance: 2
+      threads: 8
+      solid_kmer_abundance: 3
+
+  - rule_id: "corr-proovread-002"
+    priority: 9
+    condition:
+      has_illumina: true
+      method_preference: "proovread"
+    recommend: "proovread"
+    reason: "偏好proovread → Proovread校正工具。基于比对的校正方法。"
+    tool_id: "proovread"
+    params:
+      coverage: 50
+      threads: 8
+      min_identity: 0.9
+      long_read_type: "pacbio"
+
+  - rule_id: "corr-none-003"
+    priority: 7
+    condition:
+      has_illumina: false
+    recommend: "no_correction"
+    reason: "无Illumina → 不进行校正。PacBio CCS本身准确度已较高（>99.9%）。"
+    params:
+      skip_correction: true
+      trust_hq_transcripts: true
+
+# ============================================================
+# 决策节点 4: 比对和去冗余
+# ============================================================
+alignment_dedup:
+  - rule_id: "align-minimap2-001"
+    priority: 10
+    condition:
+      has_reference: true
+    recommend: "minimap2_align"
+    reason: "有参考基因组 → minimap2比对。使用-splice:hq参数适合高质量全长转录本。"
+    tool_id: "minimap2"
+    params:
+      preset: "splice:hq -uf"
+      secondary: "yes"
+      secondary_seq: 10
+
+  - rule_id: "align-cdna-002"
+    priority: 9
+    condition:
+      has_reference: true
+      method_preference: "cdna"
+    recommend: "minimap2_cdna"
+    reason: "cDNA模式 → minimap2 cDNA比对模式。"
+    tool_id: "minimap2"
+    params:
+      preset: "map-ont"
+      splice: true
+      secondary: "yes"
+
+  - rule_id: "dedup-cupcake-003"
+    priority: 10
+    condition:
+      dedup_needed: true
+    recommend: "cupcake_dedup"
+    reason: "去冗余 → Cupcake去冗余工具。基于比对结果去除冗余转录本。"
+    tool_id: "cupcake"
+    params:
+      min_identity: 0.99
+      min_coverage: 0.99
+      collapse_isoforms: true
+
+# ============================================================
+# 决策节点 5: 转录本注释
+# ============================================================
+transcript_annotation:
+  - rule_id: "anno-sqanti3-001"
+    priority: 10
+    condition:
+      has_reference: true
+    recommend: "sqanti3"
+    reason: "标准注释 → SQANTI3。全面的Iso-Seq转录本分类和质量评估。"
+    tool_id: "sqanti3"
+    params:
+      categorization: "full"
+      isoform_counts: true
+      rt_switching: true
+      canonical_splice: true
+
+  - rule_id: "anno-tama-002"
+    priority: 9
+    condition:
+      method_preference: "tama"
+    recommend: "tama"
+    reason: "TAMA方法 → TAMA转录本注释工具。"
+    tool_id: "tama"
+    params:
+      collapse: true
+      min_coverage: 0.8
+      min_identity: 0.9
+      no_fusion: true
+
+  - rule_id: "anno-de-novo-003"
+    priority: 8
+    condition:
+      has_reference: false
+    recommend: "trinotate"
+    reason: "无参考基因组 → Trinotate功能注释。"
+    tool_id: "trinotate"
+    params:
+      include_pfam: true
+      include_swissprot: true
+      include_kegg: true
+      evalue: 1e-5
+
+# ============================================================
+# 决策节点 6: 可变剪接分析
+# ============================================================
+splicing_analysis:
+  - rule_id: "splice-suppa2-001"
+    priority: 10
+    condition:
+      has_reference: true
+    recommend: "suppa2"
+    reason: "可变剪接分析 → SUPPA2。从转录本识别剪接事件。"
+    tool_id: "suppa2"
+    params:
+      event_type: "SE,SS,MX,RI,FL"
+      io: true
+      ge: true
+      boundary: 50
+
+  - rule_id: "splice-majiq-002"
+    priority: 9
+    condition:
+      has_reference: true
+      method_preference: "majiq"
+    recommend: "majiq"
+    reason: "MAJIQ方法 → MAJIQ剪接分析工具。"
+    tool_id: "majiq"
+    params:
+      min_reads: 10
+      threshold: 0.2
+      output_type: "voila"
+
+  - rule_id: "splice-astalavista-003"
+    priority: 8
+    condition:
+      complex_events: true
+    recommend: "astalavista"
+    reason: "复杂事件 → AStalavista分析复杂剪接事件。"
+    tool_id: "astalavista"
+    params:
+      analysis: "complex"
+      output: "gtf"
+
+# ============================================================
+# 决策节点 7: 融合基因检测
+# ============================================================
+fusion_detection:
+  - rule_id: "fusion-fusionseeker-001"
+    priority: 10
+    condition:
+      fusion_analysis: true
+    recommend: "fusionseeker"
+    reason: "融合基因检测 → FusionSeeker。检测Iso-Seq数据中的融合转录本。"
+    tool_id: "fusionseeker"
+    params:
+      min_support: 3
+      min_distance: 10000
+      output_format: "tsv"
+
+  - rule_id: "fusion-jafet-002"
+    priority: 9
+    condition:
+      method_preference: "jafet"
+    recommend: "jafet"
+    reason: "JAFET方法 → JAFET融合检测工具。"
+    tool_id: "jafet"
+    params:
+      min_fusion_reads: 5
+      min_split_reads: 3
+
+# ============================================================
+# 决策节点 8: 多聚腺苷酸分析
+# ============================================================
+polya_analysis:
+  - rule_id: "polya-identification-001"
+    priority: 10
+    condition:
+      polya_analysis: true
+    recommend: "polya_tail_analysis"
+    reason: "PolyA分析 → 检测和分析多聚腺苷酸尾。"
+    params:
+      min_tail_length: 10
+      max_tail_length: 300
+      output_file: "{prefix}_polya.tsv"
+
+  - rule_id: "polya-apa-002"
+    priority: 9
+    condition:
+      apa_analysis: true
+    recommend: "apa_analysis"
+    reason: "APA分析 → 分析可变多聚腺苷酸化位点。"
+    params:
+      min_reads_per_site: 5
+      upstream_distance: 1000
+      downstream_distance: 500
+
+fallback:
+  - rule_id: "iso-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      reason: "No matching rule found"
+      suggestion: "Consult Iso-Seq analysis specialist for custom workflow"

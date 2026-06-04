@@ -31,17 +31,37 @@ peak_detection:
     recommend: "xcms3"
     reason: "LC-MS → XCMS3峰检测和对齐。XCMS是LC-MS非靶向代谢组学最通用的选择。对植物代谢组学数据（通常有1000-10000个特征），XCMS3的peak detection（centWave算法）对高分辨数据（Orbitrap/Q-TOF）优化好。参数提示：植物次生代谢物的峰宽范围通常比标准代谢物宽（特别是疏水性化合物在反相柱上峰宽较宽），peakwidth设置应适当放宽（如c(5, 30)而非默认的c(5, 20)）。"
     tool_id: "peak-detection"
+    params:
+      peakwidth: [5, 30]
+      ppm: 15
+      snthresh: 10
+      integrate: 1
   - rule_id: "metab-mzmine-gc-nmr-002"
     priority: 10
     condition: { platform: ["gc_ms", "nmr"] }
     recommend: "mzmine3"
     reason: "GC-MS或NMR → MZmine3更适合。MZmine3提供GC-MS特有的EI谱库搜索（NIST/MoNA/GMD集成）和交互式峰积分检查。NMR数据中MZmine3可处理1D和2D NMR（J-resolved, HSQC等）。对植物挥发物（GC-MS常用平台），MZmine3的ADAP峰检测算法对色谱峰的积分准确度优于XCMS。"
     tool_id: "peak-detection"
+    params:
+      noise_level: 100000
+      min_peak_height: 100000
+      chromatographic_threshold: 0.0
+      mass_detector: "centroid"
+      adap_peak_finder: true
+      spectral_library: ["NIST", "MoNA", "GMD"]
   - rule_id: "metab-msdial-lipidomics-003"
     priority: 9
     condition: { platform: "lc_ms_ms", data_type: "lipidomics" }
     recommend: "ms_dial_for_lipidomics"
     reason: "脂质组学数据 → MS-DIAL。MS-DIAL对植物脂质组学（磷脂、甘油脂、鞘脂、固醇脂等）有专门的鉴定流程和参考库（LipidBlast）。提供脂质类别、碳链长度、双键数的注释。与XCMS/MZmine互补——后者更适合一般代谢物，MS-DIAL在脂质鉴定上有优势。"
+    tool_id: "peak-detection"
+    params:
+      ionization: "esi"
+      identification_score_cutoff: 0.8
+      alignment_retention_time_tolerance: 0.15
+      peak_detection_intensity_threshold: 1000
+      lipid_database: "LipidBlast"
+      adduct_types: ["[M+H]+", "[M+Na]+", "[M+NH4]+", "[M-H]-", "[M+Ac-H]-"]
 
 diff_analysis:
   - rule_id: "metab-limma-standard-001"
@@ -50,18 +70,33 @@ diff_analysis:
     recommend: "limma_trend_diff_metabolites"
     reason: "≥3生物学重复 → limma-trend差异代谢物分析。limma的经验贝叶斯方差调节（empirical Bayes moderation）对小样本量的植物代谢组实验（n=3-6常见）提供稳健的方差估计。使用limma-trend（而非voom）因为代谢组数据的mean-variance关系与RNA-seq不同（不需要精确权重）。log2 fold change + adjusted p-value + 95% CI应同时报告。"
     tool_id: "diff-analysis"
+    params:
+      fdr: 0.05
+      log2fc: 1
+      trend: TRUE
   - rule_id: "metab-limma-small-n-002"
     priority: 9
     condition: { rep_count: "== 2" }
     recommend: "limma_with_cautious_interpretation"
     reason: "仅2个重复 → limma可行但需谨慎。统计效力很低（仅能检测fold change > 3-4倍的代谢物）。建议不进行多重检验校正（或使用更宽松的q < 0.2），报告全部p值但不依赖其排序。建议使用火山图中效应量（log2FC）和p值联合筛选候选代谢物，优先取fold change大的特征。"
     tool_id: "diff-analysis"
+    params:
+      fdr: 0.2
+      log2fc: 1.5
+      trend: TRUE
+      robust: TRUE
+      adjust_method: "none"
   - rule_id: "metab-ttest-single-003"
     priority: 5
     condition: { rep_count: "< 2" }
     recommend: "fold_change_ranking_only"
     reason: "无重复 → 无法做统计推断。只能基于fold change排序。不要运行t-test（1 vs 1的t-test无统计意义）。如果为探索性实验（如分析单个突变体的代谢物pool），报告fold change的top hits并标注受限于无重复的局限性。推荐后续增加重复验证。"
     tool_id: "diff-analysis"
+    params:
+      fc_threshold: 3.0
+      report_pvalue: false
+      method: "fold_change_ranking"
+      top_n: 50
 
 normalization:
   - rule_id: "metab-norm-pqn-or-vsn-001"
@@ -70,12 +105,25 @@ normalization:
     recommend: "pqn_or_vsn_normalization"
     reason: "LC-MS/GC-MS → PQN或VSN归一化。Probabilistic Quotient Normalization (PQN) 基于样本间大多数代谢物不变（most features not differentially abundant）的假设，鲁棒性高。VSN (variance stabilizing normalization) 同时校正heteroscedasticity（方差随均值变化）。植物粗提物样本间总离子强度可能差异大（因组织含水量、色素含量），PQN通常优于仅基于总离子流（TIC）的简单归一化。"
     tool_id: "normalization"
+    params:
+      method: "pqn"
+      vsn_on: false
+      reference_sample: "median"
+      min_valid_features: 0.5
+      log_transform: true
   - rule_id: "metab-norm-combat-batch-002"
     priority: 9
     condition: { has_batch_effect: true }
     recommend: "combat_or_qc_rlsc_batch_correction"
     reason: "存在批次效应 → ComBat或QC-RLSC批次校正。植物代谢组学批次效应常见（不同日期提取、不同LC-MS运行日）。ComBat基于经验贝叶斯方法调整批次间均值和方差。QC-RLSC（Quality Control-Robust LOESS Signal Correction）利用QC样本在运行序列中的信号趋势进行非线性校正。注意：批次校正不应消除真实的生物学差异——在校正前后分别做PCA检查分组是否被保留。"
     tool_id: "normalization"
+    params:
+      method: "combat"
+      parametric: TRUE
+      mean_only: FALSE
+      preserve_group_effect: TRUE
+      qc_based_correction: "rlsc"
+      loess_span: 0.75
 
 pathway_mapping:
   - rule_id: "metab-plantcyc-primary-001"
@@ -84,18 +132,34 @@ pathway_mapping:
     recommend: "plantcyc_with_metacyc"
     reason: "植物次生代谢通路 → PlantCyc（首选）+ MetaCyc（补充核心代谢）。PlantCyc包含600+植物特异通路（黄酮、苯丙素、萜类、生物碱、芥子油苷等），覆盖度远超KEGG。但PlantCyc的初级代谢通路（TCA循环、糖酵解）不如MetaCyc全面（后者经过实验验证）。建议：初级代谢用MetaCyc，次生代谢用PlantCyc。"
     tool_id: "pathway"
+    params:
+      database: "plantcyc"
+      pvalue_cutoff: 0.05
+      min_metabolites: 3
   - rule_id: "metab-kegg-cross-species-002"
     priority: 9
     condition: { need_cross_species_comparison: true }
     recommend: "kegg_plant_pathway"
     reason: "需要跨物种比较 → KEGG Plant。KEGG的参考通路（reference pathway）提供了一个通用框架，可以将多个物种的代谢组数据映射到同一张通路上进行比较。如果研究涉及不同植物物种的代谢差异（如拟南芥vs水稻vs玉米），KEGG Plant的通用性比PlantCyc更好。但KEGG对植物特异次生代谢通路的覆盖不足。"
     tool_id: "pathway"
+    params:
+      database: "kegg_plant"
+      pvalue_cutoff: 0.05
+      min_metabolites: 3
+      organism_code: "auto"
+      pathway_type: "reference"
   - rule_id: "metab-msea-unknown-003"
     priority: 8
     condition: { identified_metabolites: "< 20%", need_pathway_context: true }
     recommend: "msea_or_chemical_class_enrichment"
     reason: "代谢物鉴定率 < 20% → 不推荐传统通路富集分析。替代策略：使用CANOPUS预测的化合物类别进行化学类别富集分析（如'黄酮类显著富集'），而非声称特定通路被激活。或使用MS2-based分子网络与已知化合物簇共定位来推断通路参与。诚实报告鉴定率和富集分析的局限性。"
     tool_id: "pathway"
+    params:
+      method: "chemical_class_enrichment"
+      canopus_predictions: TRUE
+      classyfire_level: "subclass"
+      min_compounds_per_class: 5
+      enrichment_test: "fisher"
 
 annotation:
   - rule_id: "metab-ms2-sirius-001"
@@ -104,23 +168,174 @@ annotation:
     recommend: "sirius_csi_fingerid_canopus"
     reason: "有MS/MS数据 → SIRIUS+CSI:FingerID+CANOPUS全流程。SIRIUS从同位素模式+MS/MS碎片树推断分子式；CSI:FingerID将MS/MS谱与结构数据库匹配；CANOPUS预测化合物类别。植物代谢组中60-80%的特征无数据库匹配，CANOPUS即使在没有具体结构匹配时也能提供化合物类别信息（ClassyFire分类）。植物天然产物结构预测推荐使用扩展的植物天然产物数据库（COCONUT、NPAtlas）。"
     tool_id: "metabolite-identification"
+    params:
+      max_molecular_formula_candidates: 100
+      profile: "qtof"
+      fingerid_db: ["pubchem", "coconut", "npatlas"]
+      canopus_on: TRUE
+      zodiac_on: TRUE
+      ms2_tolerance_ppm: 10
   - rule_id: "metab-gnps-molecular-networking-002"
     priority: 9
     condition: { has_ms2: true, need_unknown_discovery: true }
     recommend: "gnps_feature_based_molecular_networking"
     reason: "需要发现未知代谢物 → GNPS Feature-Based Molecular Networking (FBMN)。FBMN基于MS/MS谱相似性将代谢物特征连接成分子网络——未知特征如果与已知物相邻（cosine similarity > 0.7），可以推断其可能的化学家族或结构修饰（如糖苷化、甲基化、羟化）。这在植物代谢组学中极其有用，因为糖苷化和修饰变异是普遍现象。结合MASST（质谱搜索工具）探索在公共数据中是否存在类似的MS/MS谱。"
     tool_id: "metabolite-identification"
+    params:
+      cosine_threshold: 0.7
+      min_matched_peaks: 6
+      network_topk: 10
+      cluster_min_size: 2
+      masst_search: TRUE
+      ion_identity_networking: TRUE
   - rule_id: "metab-nmr-structure-003"
     priority: 8
     condition: { platform: "nmr", need_structure_elucidation: true }
     recommend: "nmr_2d_structure_elucidation_with_chenomx"
     reason: "NMR数据+结构鉴定需求 → Chenomx + 2D NMR解析。NMR提供绝对的化学位移和耦合常数，可以直接推导官能团和连接方式。对完全未知的植物天然产物，NMR是结构鉴定的金标准。Chenomx提供常用的植物代谢物NMR谱库。结合1D 1H、COSY、HSQC、HMBC进行逐步结构推导。"
+    tool_id: "metabolite-identification"
+    params:
+      nmr_types: ["1h", "cosy", "hsqc", "hmbc"]
+      chenomx_library: TRUE
+      concentration_unit: "mM"
+      reference_compound: "TSP"
+      solvent: "D2O"
+
+# ============================================================
+# 多元统计分析模块 (OPLS-DA / PLS-DA / PCA)
+# ============================================================
+multivariate_analysis:
+  - rule_id: "metab-pca-unsupervised-001"
+    priority: 10
+    condition: { sample_count: ">= 6" }
+    recommend: "pca_analysis"
+    reason: "PCA无监督降维 → 首先进行PCA分析评估样本整体分布、批次效应和离群样本。使用FactoMineR或prcomp计算，ggplot2可视化。检查：1) 同组样本是否聚类；2) 是否存在批次效应；3) QC样本是否紧密聚集（LC-MS质量控制）。"
+    tool_id: "multivariate"
+    params:
+      scale: "unit variance"
+      ncp: 5
+      plot_type: "score_plot"
+
+  - rule_id: "metab-oplsda-supervised-002"
+    priority: 10
+    condition: { group_count: "== 2", sample_count: ">= 6" }
+    recommend: "oplsda_analysis"
+    reason: "两组比较 → OPLS-DA有监督判别分析。OPLS-DA分离组间差异（预测成分）和组内变异（正交成分），比PLS-DA更易解释。VIP值用于筛选差异代谢物。必须报告：R2X（解释率）、R2Y（Y变量解释率）、Q2（预测能力）。Q2 > 0.5为可接受，Q2 > 0.9为优秀。使用ropls包。"
+    tool_id: "multivariate"
+    params:
+      predI: 1
+      orthoI: "NA"
+      cross_validation: "7-fold"
+      permutation_test: 200
+
+  - rule_id: "metab-plsda-multigroup-003"
+    priority: 9
+    condition: { group_count: ">= 3", sample_count: ">= 6" }
+    recommend: "plsda_analysis"
+    reason: "多组比较 → PLS-DA有监督判别分析。PLS-DA适合三组及以上的分类问题。VIP值 > 1的代谢物被认为是重要贡献者。使用mixOmics或ropls包。需进行置换检验验证模型显著性（permutation test, n >= 200）。报告R2和Q2值，警惕过拟合（R2与Q2差距过大）。"
+    tool_id: "multivariate"
+    params:
+      ncomp: 2
+      scale: TRUE
+      cross_validation: "LOOCV or M-fold"
+
+  - rule_id: "metab-vip-filtering-004"
+    priority: 9
+    condition: { has_oplsda_or_plsda: true }
+    recommend: "vip_based_selection"
+    reason: "VIP筛选 → Variable Importance in Projection (VIP)用于识别对分组贡献最大的代谢物。VIP > 1为常用阈值，VIP > 1.5为严格阈值。VIP筛选应与单变量统计（t-test/limma p值）结合使用，避免假阳性。"
+    tool_id: "multivariate"
+    params:
+      vip_threshold: 1.0
+      combine_with_pvalue: true
+      pvalue_threshold: 0.05
+
+# ============================================================
+# 机器学习特征选择模块
+# ============================================================
+machine_learning:
+  - rule_id: "metab-randomforest-001"
+    priority: 9
+    condition: { sample_count: ">= 20", need_feature_selection: true }
+    recommend: "random_forest_feature_selection"
+    reason: "随机森林特征选择 → 适用于中大规模代谢组数据（n >= 20）。RandomForest包计算变量重要性（Mean Decrease Accuracy/Gini）。相比VIP，随机森林能捕捉非线性关系和交互作用。使用交叉验证优化mtry参数。报告OOB error和混淆矩阵。"
+    tool_id: "machine-learning"
+    params:
+      ntree: 1000
+      mtry: "sqrt(p)"
+      cross_validation: 5
+      importance: "TRUE"
+
+  - rule_id: "metab-rf-tsne-umap-002"
+    priority: 8
+    condition: { sample_count: ">= 30", need_visualization: true }
+    recommend: "tsne_umap_visualization"
+    reason: "降维可视化 → t-SNE或UMAP用于高维代谢组数据的可视化。相比PCA，能更好地展示局部结构和聚类模式。t-SNE perplexity参数通常设为 sqrt(n) 到 n/3 之间。UMAP更适合大规模数据且保留更多全局结构。"
+    tool_id: "machine-learning"
+    params:
+      tsne_perplexity: "auto"
+      umap_n_neighbors: 15
+      umap_min_dist: 0.1
+
+  - rule_id: "metab-roc-validation-003"
+    priority: 8
+    condition: { has_biomarker_need: true, sample_count: ">= 15" }
+    recommend: "roc_analysis"
+    reason: "ROC曲线验证 → 用于评估代谢物作为生物标志物的分类能力。pROC包计算AUC值、最佳截断值、敏感性和特异性。AUC > 0.7可接受，> 0.8良好，> 0.9优秀。使用caret进行训练/测试集划分验证模型泛化能力。"
+    tool_id: "machine-learning"
+    params:
+      method: "cv"
+      folds: 5
+      metric: "ROC"
+
+# ============================================================
+# 可视化模块
+# ============================================================
+visualization:
+  - rule_id: "metab-volcano-plot-001"
+    priority: 10
+    condition: { has_diff_analysis: true }
+    recommend: "volcano_plot"
+    reason: "火山图 → 差异代谢物可视化必备。横轴为log2 fold change，纵轴为-log10(p-value)。标注显著代谢物（颜色/标签）。常用阈值：|log2FC| > 1 且 p < 0.05。使用ggplot2或EnhancedVolcano包。"
+    tool_id: "visualization"
+    params:
+      log2fc_threshold: 1
+      pvalue_threshold: 0.05
+      label_top_n: 20
+      color_scheme: "significant"
+
+  - rule_id: "metab-heatmap-002"
+    priority: 10
+    condition: { has_diff_metabolites: true }
+    recommend: "heatmap_clustering"
+    reason: "热图聚类 → 展示差异代谢物在样本间的表达模式。使用pheatmap或ComplexHeatmap包。Z-score标准化（行标准化）使不同代谢物可比。聚类方法：complete或average linkage，距离：euclidean或correlation。添加行注释（代谢物类别）和列注释（样本分组）。"
+    tool_id: "visualization"
+    params:
+      scale: "row"
+      clustering_method: "complete"
+      distance: "euclidean"
+      show_rownames: false
+      show_colnames: true
+      annotation: true
+
+  - rule_id: "metab-heatmap-top-003"
+    priority: 9
+    condition: { diff_metabolite_count: "> 100" }
+    recommend: "heatmap_top_features"
+    reason: "差异代谢物过多 → 仅展示Top 50-100差异代谢物。按p值或VIP值排序选择。保留关键生物学信息同时避免图像过于拥挤。"
+    tool_id: "visualization"
+    params:
+      top_n: 50
+      sort_by: "pvalue"
 
 fallback:
   - rule_id: "metab-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "No matching rule found"
+      suggestion: "Consult specialist for custom approach"
 
 design_gates:
   - id: "metab-qc-samples"
@@ -143,3 +358,8 @@ design_gates:
     check: "replicates_per_group >= 3"
     severity: "warn"
     on_fail: "每组 < 3 个重复 → 代谢组学数据本身变异较大（技术变异 + 生物变异），统计功效不足。植物代谢组尤其受环境和发育阶段影响。"
+  - id: "metab-ion-mode"
+    rule: "推荐同时采集正负离子模式"
+    check: "has_both_ion_modes == true"
+    severity: "warn"
+    on_fail: "仅有单一离子模式 → 会漏检部分代谢物类别。正离子检测生物碱、氨基酸；负离子检测有机酸、黄酮。建议分别分析后合并结果。"

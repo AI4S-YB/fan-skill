@@ -76,6 +76,9 @@ analysis_unit:
     recommend: "gene_level_haplotype"
     reason: "高密度标记 + 自交物种 → 基因级单倍型降维，减少检验次数，直接观察纯合单倍型，提高生物学解释性"
     tool_id: "haplotype-analysis"
+    params:
+      min_snp_per_haplotype: 3
+      maf: 0.05
 
   - rule_id: "cand-unit-haplotype-outcross-002"
     priority: 9
@@ -86,6 +89,10 @@ analysis_unit:
     recommend: "statistical_phasing_then_haplotype"
     reason: "高密度标记 + 异交物种 → 需先统计 phasing 再构建单倍型，注意 phasing 不确定性"
     tool_id: "haplotype-analysis"
+    params:
+      phasing_method: "beagle"
+      min_snp_per_haplotype: 3
+      maf: 0.05
 
   - rule_id: "cand-unit-single-snp-003"
     priority: 8
@@ -95,6 +102,10 @@ analysis_unit:
     recommend: "single_snp"
     reason: "低密度标记 → 每个 SNP 独立检验，基因为单位汇总显著 SNP 数"
     tool_id: "association-test"
+    params:
+      analysis_unit: "snp"
+      maf: 0.05
+      missing_rate_max: 0.1
 
 # ============================================================
 # 决策节点 2: 关联检验方法
@@ -108,6 +119,9 @@ association_method:
     recommend: "spearman_rank"
     reason: "表型非正态 → Spearman 秩相关，对离群值稳健，不依赖正态假设"
     tool_id: "association-test"
+    params:
+      method: "spearman"
+      alternative: "two.sided"
 
   - rule_id: "cand-method-pearson-002"
     priority: 8
@@ -117,6 +131,9 @@ association_method:
     recommend: "pearson"
     reason: "表型正态 → Pearson 相关系数，统计功效最高"
     tool_id: "association-test"
+    params:
+      method: "pearson"
+      alternative: "two.sided"
 
   - rule_id: "cand-method-kruskal-003"
     priority: 10
@@ -125,6 +142,9 @@ association_method:
     recommend: "kruskal_wallis"
     reason: "等级型表型 → Kruskal-Wallis 秩和检验"
     tool_id: "association-test"
+    params:
+      test: "kruskal.test"
+      p_adjust_method: "BH"
 
   - rule_id: "cand-method-glm-004"
     priority: 11
@@ -134,6 +154,10 @@ association_method:
     recommend: "generalized_linear_model"
     reason: "有协变量 + 足够样本 → GLM 可同时控制群体结构和环境效应"
     tool_id: "association-test"
+    params:
+      family: "gaussian"
+      covariate_pcs: 3
+      fdr_threshold: 0.10
 
 # ============================================================
 # 决策节点 3: 稀有变异处理
@@ -146,18 +170,27 @@ rare_variant:
       candidate_gene_count: "< 100"
     recommend: "maf_0.01"
     reason: "检验次数少 → 可降低 MAF 阈值至 0.01，增加罕见功能等位变异的检测机会"
+    params:
+      maf_min: 0.01
+      allow_rare_variants: true
   - rule_id: "cand-maf-standard-002"
     priority: 8
     condition:
       test_count: ">= 500"
     recommend: "maf_0.05"
     reason: "检验次数多 → 用标准 MAF 0.05 控制假阳性"
+    params:
+      maf_min: 0.05
+      allow_rare_variants: false
   - rule_id: "cand-maf-singleton-filter-003"
     priority: 5
     condition:
       sample_count: "< 50"
     recommend: "filter_singletons"
     reason: "小群体 → 仅出现一次的变异无法统计检验，过滤掉"
+    params:
+      filter_singletons: true
+      min_count: 2
 
 # ============================================================
 # 决策节点 4: 多重检验校正
@@ -169,18 +202,27 @@ multiple_testing:
       test_count: "< 1000"
     recommend: "bh_fdr_0.10"
     reason: "检验次数少 (<1000) → FDR (Benjamini-Hochberg) 比 Bonferroni 更合适，允许更高检出率。候选基因分析用 FDR 0.10 是植物领域常见做法"
+    params:
+      method: "BH"
+      fdr_threshold: 0.10
   - rule_id: "cand-mt-fdr-strict-002"
     priority: 9
     condition:
       test_count: "< 100"
     recommend: "bh_fdr_0.05"
     reason: "检验次数很少 (<100) → 可以使用更严格的 FDR 0.05"
+    params:
+      method: "BH"
+      fdr_threshold: 0.05
   - rule_id: "cand-mt-bonferroni-003"
     priority: 8
     condition:
       test_count: ">= 1000"
     recommend: "bonferroni_0.05_over_n"
     reason: "检验次数多 → Bonferroni 控制 FWER，阈值 = 0.05/n_tests"
+    params:
+      method: "bonferroni"
+      alpha: 0.05
 
 # ============================================================
 # 决策节点 5: 群体结构处理
@@ -193,6 +235,8 @@ population_structure:
       species_type: "inbred"
     recommend: "skip_structure_correction"
     reason: "亚群内遗传均匀 + 自交物种 → 无需群体结构校正，候选区域内 LD 结构本身已足够"
+    params:
+      population_correction: false
   - rule_id: "cand-pop-pca-002"
     priority: 8
     condition:
@@ -200,6 +244,9 @@ population_structure:
       has_subpopulations: true
     recommend: "pca_covariates"
     reason: "存在亚群结构 → 将前 2-3 个 PCA 主成分作为协变量加入模型"
+    params:
+      n_pcs: 3
+      correction_method: "pca"
   - rule_id: "cand-pop-kmatrix-003"
     priority: 7
     condition:
@@ -208,6 +255,9 @@ population_structure:
       genomic_inflation: "> 1.1"
     recommend: "kinship_matrix"
     reason: "样本充足 + 近交物种 + 有分层 → 用亲缘关系 K 矩阵控制复杂系谱结构"
+    params:
+      k_matrix_method: "vanRaden"
+      correction_method: "kinship"
 
 # ============================================================
 # 决策节点 6: 候选基因排序
@@ -219,15 +269,29 @@ ranking:
       has_functional_annotation: true
     recommend: "multi_dimension_scoring"
     reason: "有功能注释 → 综合效应量、显著性、单倍型稳健性（跨环境一致性）、功能注释相关性、文献支持进行多维排序"
+    params:
+      scoring_weights:
+        effect_size: 0.30
+        significance: 0.25
+        haplotype_stability: 0.20
+        functional_annotation: 0.15
+        literature_support: 0.10
   - rule_id: "cand-rank-stat-only-002"
     priority: 8
     condition:
       has_functional_annotation: false
     recommend: "statistical_ranking_only"
     reason: "无功能注释 → 仅基于统计指标排序（效应量 + p 值 + 单倍型解释的表型变异比例）"
+    params:
+      scoring_weights:
+        effect_size: 0.50
+        significance: 0.30
+        variance_explained: 0.20
 
 fallback:
   - rule_id: "cand-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"

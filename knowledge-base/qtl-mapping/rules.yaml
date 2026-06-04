@@ -44,6 +44,10 @@ genetic_map:
     recommend: "rqtl_est_map"
     reason: "标准双亲群体 -> R/qtl est.map 构建遗传图谱"
     tool_id: "genetic-map"
+    params:
+      max_rf: 0.35
+      error_prob: 0.001
+      map_function: "kosambi"
 
   - rule_id: "gmap-lepmap-large-002"
     priority: 9
@@ -52,6 +56,13 @@ genetic_map:
     recommend: "lepmap3"
     reason: "高密度标记 -> LepMap3 处理效率更高"
     tool_id: "genetic-map"
+    params:
+      min_maf: 0.01
+      max_missing: 0.1
+      segregation_distortion: 0.001
+      join_singles: "no"
+      map_function: "kosambi"
+      n_iter: 10
 
   - rule_id: "gmap-asmap-003"
     priority: 8
@@ -60,6 +71,12 @@ genetic_map:
     recommend: "asmap"
     reason: "MAGIC/多亲本群体 -> ASMap 更适合复杂群体"
     tool_id: "genetic-map"
+    params:
+      mst_cross: "geno"
+      max_miss_rate: 0.15
+      segregation_distortion_pval: 0.001
+      map_function: "kosambi"
+      n_cluster_rounds: 3
 
 qtl_method:
   - rule_id: "qtl-cim-standard-001"
@@ -69,6 +86,11 @@ qtl_method:
     recommend: "composite_interval_mapping"
     reason: "复合区间作图 (CIM) 控制背景 QTL 效应，标准选择"
     tool_id: "composite-interval"
+    params:
+      step: 1
+      n_marcovar: 5
+      window_size: 10
+      lod_threshold: 3
 
   - rule_id: "qtl-mqm-multiple-002"
     priority: 9
@@ -77,6 +99,13 @@ qtl_method:
     recommend: "multiple_qtl_mapping"
     reason: "预期多个 QTL -> MQM 自动构建多 QTL 模型"
     tool_id: "multi-qtl"
+    params:
+      step: 1
+      penalty: "bic"
+      model_selection: "forward"
+      max_qtl: 10
+      cofactor_selection: "automatic"
+      lod_drop_threshold: 1.5
 
   - rule_id: "qtl-im-simple-003"
     priority: 7
@@ -85,6 +114,12 @@ qtl_method:
     recommend: "interval_mapping"
     reason: "标记少 -> 区间作图 (IM) 足够"
     tool_id: "rqtl"
+    params:
+      method: "hk"
+      step: 1
+      lod_threshold: 3
+      n_perm: 1000
+      alpha: 0.05
 
 lod_threshold:
   - rule_id: "lod-permutation-001"
@@ -94,6 +129,9 @@ lod_threshold:
     action: "permutation_1000"
     reason: ">=100样本 -> 1000次置换检验确定LOD阈值"
     tool_id: "rqtl"
+    params:
+      n_perm: 1000
+      alpha: 0.05
 
   - rule_id: "lod-analytical-002"
     priority: 7
@@ -102,6 +140,11 @@ lod_threshold:
     action: "analytical_or_500_permutations"
     reason: "<100样本 -> 分析性阈值或500次置换"
     tool_id: "rqtl"
+    params:
+      n_perm: 500
+      alpha: 0.05
+      method: "permutation"
+      fallback_threshold: 3.0
 
 multi_env_qtl:
   - rule_id: "qtl-met-joint-001"
@@ -111,6 +154,12 @@ multi_env_qtl:
     recommend: "joint_multi_env_qtl"
     reason: "多环境 -> 联合 QTL 分析可估计 QTLxE"
     tool_id: "multi-qtl"
+    params:
+      model: "joint"
+      gxe_analysis: true
+      stability_index: "blup"
+      env_weighting: "equal"
+      qxe_significance: 0.05
 
 fallback:
   - rule_id: "qtl-fallback-999"
@@ -118,6 +167,8 @@ fallback:
     condition: "none_matched"
     action: "delegate_to_expert"
     reason: "数据特征不在预设规则内，切换到 expert 推理"
+    params:
+      reason: "no_matching_rule"
 
 design_gates:
   - id: "qtl-population-type"

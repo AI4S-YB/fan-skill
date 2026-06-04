@@ -226,3 +226,125 @@
 1. 检查数据来源说明
 2. 染色体数 + 基因组大小可缩小候选范围
 3. 让用户确认，不要猜测
+
+---
+
+## 植物特异性参数速查表
+
+以下参数设置基于植物基因组的特殊性，与动物/人类分析有显著差异。
+
+### 差异表达分析 (DESeq2/edgeR)
+
+| 参数 | 通用做法 | 植物特异性调整 | 原因 |
+|------|---------|---------------|------|
+| `lfcThreshold` | 0 | **1** | 植物小样本(2-rep)策略，减少假阳性 |
+| `alpha` | 0.05 | 0.05 | 保持不变 |
+| `minReplicatesForReplace` | 7 | 7 | 保持不变 |
+
+```r
+# 植物DESeq2推荐参数
+dds <- DESeq(dds)
+res <- results(dds, lfcThreshold=1, alpha=0.05)
+```
+
+### 系统发育树 (IQ-TREE)
+
+| 参数 | 通用做法 | 植物特异性调整 | 原因 |
+|------|---------|---------------|------|
+| `-m` | GTR+G | **MFP** | 自动选择最佳模型 |
+| ASC校正 | 不使用 | **必须使用** (SNP数据) | SNP数据缺失不变位点 |
+| `--asc-corr` | - | **lewis** | Lewis校正方法 |
+
+```bash
+# SNP数据必须使用ASC校正
+iqtree2 -s snp_alignment.fasta -m MFP+ASC --asc-corr lewis -B 1000
+
+# 蛋白质数据标准参数
+iqtree2 -s proteins.fasta -m MFP -B 1000 --alrt 1000
+```
+
+### lncRNA鉴定 (CNCI/FEELnc)
+
+| 参数 | 通用做法 | 植物特异性调整 | 原因 |
+|------|---------|---------------|------|
+| CNCI `-m` | ve (脊椎动物) | **pl** (植物) | 植物密码子使用模式不同 |
+| FEELnc `--monoex` | 0 | **-1** | 植物单外显子lncRNA常见 |
+
+```bash
+# 植物lncRNA分析
+CNCI.py -i transcripts.fasta -m pl -o cnci_output
+FEELnc_filter.pl -i transcripts.fasta --monoex=-1
+```
+
+### Motif分析 (MEME)
+
+| 参数 | 通用做法 | 植物特异性调整 | 原因 |
+|------|---------|---------------|------|
+| `-mod` | zoops | **anr** | 植物蛋白结构域常重复 |
+| `-nmotifs` | 5 | **10** | 植物基因家族更复杂 |
+
+```bash
+# 植物基因家族MEME分析
+meme proteins.fasta -mod anr -nmotifs 10 -minw 6 -maxw 50 -protein
+```
+
+### 甲基化分析 (DMR)
+
+| 参数 | 通用做法 | 植物特异性调整 | 原因 |
+|------|---------|---------------|------|
+| 窗口大小 | 默认 | **600bp** | 植物甲基化区域特征 |
+| 步长 | 默认 | **200bp** | 更精细的分辨率 |
+| 最小覆盖度 | 默认 | **4** | 植物样本覆盖度通常较低 |
+| \|meth.diff\| | 默认 | **≥20** | 植物甲基化差异阈值 |
+
+```bash
+# 植物DMR参数
+dmr_caller --window 600 --step 200 --min-cov 4 --meth-diff 20
+```
+
+### 启动子分析 (PlantCARE)
+
+| 参数 | 通用做法 | 植物特异性调整 | 原因 |
+|------|---------|---------------|------|
+| 启动子长度 | 1000bp | **2000bp** | 植物调控元件更分散 |
+
+```bash
+# 提取植物启动子序列（2000bp上游）
+bedtools flank -g genome.fasta.fai -b 2000 -i genes.bed > promoters.bed
+bedtools getfasta -fi genome.fasta -bed promoters.bed -fo promoters.fasta
+```
+
+### 共线性分析 (MCScanX)
+
+| 参数 | 通用做法 | 植物特异性调整 | 原因 |
+|------|---------|---------------|------|
+| GAP_PENALTY | -1 | **-25** | 植物经历多次WGD和基因丢失 |
+| MIN_ALIGN | 5 | **5** | 保持不变 |
+
+```bash
+# 植物共线性分析参数
+# 在MCScanX源码中修改参数后编译
+```
+
+### 基因组组装 (hifiasm)
+
+| 参数 | 通用做法 | 植物特异性调整 | 原因 |
+|------|---------|---------------|------|
+| `--n-hap` | 2 (二倍体) | 根据倍性设置 | 多倍体组装必须指定 |
+| BUSCO数据库 | 自动 | **embryophyta_odb10** | 陆地植物专用 |
+
+```bash
+# 多倍体植物组装
+hifiasm -o assembly --n-hap 4 -t 32 hifi_reads.fastq.gz
+
+# 二倍体植物组装
+hifiasm -o assembly -t 32 hifi_reads.fastq.gz
+```
+
+### 注意事项汇总
+
+1. **多倍体物种**: 所有涉及基因组/转录组的分析都需要考虑倍性
+2. **基因家族扩张**: 植物基因家族通常比动物大，需要调整数量阈值
+3. **高重复序列**: 植物基因组重复序列占比高，影响比对和组装
+4. **非模式物种**: 注释数据库可能不完整，使用近缘物种数据库
+5. **组织特异性**: 植物基因表达组织特异性强，需要考虑采样时间

@@ -31,24 +31,44 @@ peak_calling:
     recommend: "macs2_narrow_peak"
     reason: "TF ChIP → MACS2 narrow peak模式。转录因子结合区域通常为100-300bp的局部富集，narrow peak模式能精确定位结合位点。使用--nomodel --extsize 200参数（ChIP-seq片段化后选择200bp的典型长度）。q值阈值建议0.01（而非默认0.05）以减少植物重复序列区域的假阳性。"
     tool_id: "peak-calling"
+    params:
+      mode: "narrow"
+      qvalue: 0.01
+      nomodel: true
+      extsize: 200
+      keep_dup: "auto"
   - rule_id: "chip-macs2-histone-broad-002"
     priority: 10
     condition: { target_type: "histone_mark", histone_mark: ["H3K27ac", "H3K27me3", "H3K36me3", "H3K9me2", "H3K4me1"] }
     recommend: "macs2_broad_peak"
     reason: "broad修饰 → MACS2 broad peak模式。H3K27ac/H3K27me3/H3K36me3/H3K9me2/H3K4me1的富集区域通常为2-50Kb的宽域，broad peak模式（--broad --broad-cutoff 0.1）更准确。植物中H3K9me2特异性标记转座子和重复序列区域，broad peak至关重要。"
     tool_id: "peak-calling"
+    params:
+      mode: "broad"
+      broad_cutoff: 0.1
+      qvalue: 0.05
   - rule_id: "chip-macs2-histone-narrow-003"
     priority: 10
     condition: { target_type: "histone_mark", histone_mark: ["H3K4me3", "H3K9ac", "H3K14ac"] }
     recommend: "macs2_narrow_peak"
     reason: "narrow修饰 → 仍使用narrow peak模式。H3K4me3和H3K9ac/H3K14ac主要在启动子和基因体5'端富集，与narrow peak模式匹配。但建议使用--nomodel --extsize 150（而非TF的200bp），因为核小体DNA片段更短。"
     tool_id: "peak-calling"
+    params:
+      mode: "narrow"
+      qvalue: 0.01
+      nomodel: true
+      extsize: 150
   - rule_id: "chip-plant-genome-size-004"
     priority: 5
     condition: { species_type: "plant" }
     recommend: "set_effective_genome_size_correctly"
     reason: "植物基因组 → 设置MAC2 -g参数为有效基因组大小。不同于动物，植物基因组中大量区域不可比对（重复序列>60%），-g参数应使用'可唯一比对的基因组大小'而非实际基因组大小。例如玉米实际2.3Gb但有效大小约1.6Gb。不正确的-g值会导致假阳性率计算错误。"
     tool_id: "peak-calling"
+    params:
+      arabidopsis_effective_gs: "1.19e8"
+      rice_effective_gs: "3.74e8"
+      maize_effective_gs: "1.6e9"
+      soybean_effective_gs: "9.75e8"
 
 diff_binding:
   - rule_id: "chip-diffbind-deseq2-001"
@@ -57,18 +77,31 @@ diff_binding:
     recommend: "diffbind_deseq2"
     reason: "≥3生物学重复 → DiffBind+DESeq2差异结合分析。DESeq2的经验贝叶斯离散度估计对ChIP-seq的over-dispersion特征适合。使用dba.count时设置bUseSummarizeOverlaps=TRUE获得更准确的read计数。植物样本间变异（特别是田间样本）通常大于可控环境的动物实验，需要更多的重复来检测差异。"
     tool_id: "diff-binding"
+    params:
+      method: "DESeq2"
+      bUseSummarizeOverlaps: true
+      minMembers: 2
+      fdr_threshold: 0.05
   - rule_id: "chip-diffbind-edger-002"
     priority: 9
     condition: { rep_count: "== 2" }
     recommend: "diffbind_edger"
     reason: "仅2个重复 → DiffBind+edgeR。edgeR对超低重复数比DESeq2更稳健（使用quantile-adjusted conditional maximum likelihood估计离散度）。但2重复的统计效力很低，建议使用较宽松的FDR阈值（< 0.1）并明确标注结果需要额外实验验证。"
     tool_id: "diff-binding"
+    params:
+      method: "edgeR"
+      bUseSummarizeOverlaps: true
+      fdr_threshold: 0.1
   - rule_id: "chip-manorm-003"
     priority: 8
     condition: { rep_count: "< 2", has_input_control: true }
     recommend: "manorm_for_qualitative_comparison"
     reason: "无重复但有Input对照 → MAnorm用于定性比较。MAnorm基于Input归一化的read密度比较两个样本间peak信号差异，不需要重复。但只能报告fold change，不能给出显著性。适用于探索性分析或筛选候选区域，不能替代统计检验。"
     tool_id: "diff-binding"
+    params:
+      method: "MAnorm"
+      normalization: "input"
+      statistical_test: false
 
 annotation:
   - rule_id: "chip-annotate-plant-txdb-001"
@@ -77,12 +110,20 @@ annotation:
     recommend: "chipseeker_with_orgdb"
     reason: "有物种TxDb → ChIPseeker+OrgDb注释peak到基因。对于拟南芥直接使用TxDb.Athaliana.BioMart.plantsmart28；其他物种从GFF3文件创建TxDb（makeTxDbFromGFF）。tssRegion参数对植物建议c(-2000, 500)，因为植物核心启动子通常更紧凑（TSS上游-2000到下游+500）。"
     tool_id: "peak-annotation"
+    params:
+      tssRegion: [-2000, 500]
+      annoDb: "org.At.tair.db"
+      level: "gene"
   - rule_id: "chip-annotate-plant-gff-002"
     priority: 9
     condition: { has_txdb: false, has_gff3: true }
     recommend: "chipseeker_with_gff3_txdb"
     reason: "仅有GFF3注释 → 从GFF3创建TxDb后使用ChIPseeker。非模式植物常见情况。注意GFF3文件中gene/mRNA/exon/CDS的层级关系必须正确，否则annotatePeak的注释分类（promoter/exon/intron/intergenic）不准确。提前用AGAT或gffread验证GFF3格式。"
     tool_id: "peak-annotation"
+    params:
+      tssRegion: [-2000, 500]
+      format: "GFF3"
+      level: "gene"
 
 motif_analysis:
   - rule_id: "chip-motif-meme-plant-001"
@@ -91,17 +132,29 @@ motif_analysis:
     recommend: "meme_chip_with_jaspar_plants_and_planttfdb"
     reason: "植物motif分析 → MEME-ChIP + JASPAR Plants + PlantTFDB motifs。JASPAR Plants包含~800个植物TF的position weight matrix；PlantTFDB提供更多物种特有TF家族的motif。de novo motif discovery（MEME）和known motif enrichment（TOMTOM）联合使用。植物TF结合位点通常较短（5-8bp），motif degeneracy高。"
     tool_id: "motif-analysis"
+    params:
+      meme_args: "-mod zoops -nmotifs 5 -minw 6 -maxw 15"
+      tomtom_db: ["JASPAR2022_plants", "PlantTFDB"]
+      evalue_threshold: 0.05
   - rule_id: "chip-motif-homer-002"
     priority: 9
     condition: { motif_database: "plant", need_de_novo: true }
     recommend: "homer_find_motifs_genome"
     reason: "从头motif发现需求 → HOMER findMotifsGenome.pl。HOMER的ZOOPS scoring和hypergeometric enrichment对植物基因组（高AT含量、重复序列）有较好适应性。注意-mask参数屏蔽重复序列区域（植物基因组中重复序列区域可能产生虚假motif富集信号）。"
     tool_id: "motif-analysis"
+    params:
+      size: 200
+      mask: true
+      len: [8, 10, 12]
+      n_motifs: 10
   - rule_id: "chip-motif-polyploid-003"
     priority: 8
     condition: { ploidy: ">= 4" }
     recommend: "subgenome_specific_motif_analysis"
     reason: "多倍体物种 → 亚基因组特异性motif分析。多倍体中不同亚基因组的启动子序列可能分化，导致同一TF在A、B亚基因组上结合不同motif。建议分别对每个亚基因组进行motif enrichment分析，比较motif偏好是否存在亚基因组偏差（homeolog bias）。"
+    params:
+      analysis_mode: "subgenome_separate"
+      compare_homeologs: true
 
 quality_control:
   - rule_id: "chip-qc-frip-001"
@@ -110,17 +163,109 @@ quality_control:
     recommend: "check_ip_efficiency_and_antibody_quality"
     reason: "FRiP < 5% → ChIP效率可能不足。对TF ChIP，FRiP应 > 5%（理想 > 10%）；对broad组蛋白修饰（H3K27me3），FRiP要求可降至 > 15%。植物ChIP-seq的FRiP通常低于人和小鼠（植物细胞壁使交联效率低，且植物材料起始量受限）。如果FRiP过低，检查抗体质量和IP条件。"
     tool_id: "quality-control"
+    params:
+      tf_frip_min: 0.05
+      tf_frip_ideal: 0.10
+      broad_frip_min: 0.15
   - rule_id: "chip-qc-nrf-002"
     priority: 8
     condition: { non_redundant_fraction: "< 0.5" }
     recommend: "check_library_complexity_and_sequencing_depth"
     reason: "NRF < 0.5 → 文库复杂度低或PCR重复过高。植物ChIP-seq中如果起始DNA量不足（植物材料的共同问题），文库复杂度可能低，导致大量PCR duplicates。考虑合并多个IP反应增加起始量，或使用低input ChIP-seq protocol。"
+    tool_id: "quality-control"
+    params:
+      nrf_min: 0.5
+      nrf_ideal: 0.8
+      action: "increase_input_or_use_low_input_protocol"
 
 fallback:
   - rule_id: "chip-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
+
+# ============================================================
+# ChIP-seq + ATAC-seq 联合分析场景 (P1级增强)
+# ============================================================
+chip_atac_integration:
+  - rule_id: "chip-atac-joint-001"
+    priority: 10
+    condition:
+      has_chip_data: true
+      has_atac_data: true
+      analysis_goal: "regulatory_element_integration"
+    recommend: "chip_atac_integrated_analysis"
+    reason: "有ChIP-seq和ATAC-seq数据 → 联合分析可精确定位调控元件。ATAC-seq提供开放染色质区域，ChIP-seq提供TF结合位置，叠加分析可识别功能性增强子和启动子。"
+    params:
+      overlap_min_fraction: 0.5
+      peak_type: "narrow"
+    workflow:
+      - step: "peak_overlap_analysis"
+        tools: ["bedtools", "pybedtools"]
+        description: "识别ChIP peaks与ATAC peaks的重叠区域"
+      - step: "motif_enrichment_in_accessible_regions"
+        tools: ["homer", "meme"]
+        description: "在开放染色质区域进行motif富集"
+      - step: "footprint_analysis"
+        tools: ["hint-at", "wellington"]
+        description: "TF footprinting分析精确定位结合位点"
+      - step: "chromatin_state_integration"
+        tools: ["chromhmm", "segway"]
+        description: "整合组蛋白修饰和染色质开放性定义染色质状态"
+
+  - rule_id: "chip-atac-tf-activity-002"
+    priority: 9
+    condition:
+      has_chip_data: true
+      has_atac_data: true
+      target_type: "transcription_factor"
+    recommend: "tf_binding_activity_analysis"
+    reason: "TF ChIP-seq + ATAC-seq → 可评估TF结合位点的染色质开放性。结合位点位于开放区域暗示活跃的转录调控。"
+    params:
+      atac_signal_cutoff: 10
+      footprint_analysis: true
+
+  - rule_id: "chip-atac-enhancer-003"
+    priority: 9
+    condition:
+      has_chip_data: true
+      histone_mark: ["H3K27ac", "H3K4me1"]
+      has_atac_data: true
+    recommend: "active_enhancer_identification"
+    reason: "H3K27ac/H3K4me1 ChIP-seq + ATAC-seq → 精确识别活跃增强子。H3K27ac标记活跃增强子，ATAC-seq确认染色质开放，两者重叠为高置信度增强子。"
+    params:
+      h3k27ac_cutoff: 0.05
+      atac_signal_cutoff: 10
+
+  - rule_id: "chip-atac-promoter-004"
+    priority: 8
+    condition:
+      has_chip_data: true
+      histone_mark: ["H3K4me3", "H3K9ac"]
+      has_atac_data: true
+    recommend: "active_promoter_identification"
+    reason: "H3K4me3/H3K9ac ChIP-seq + ATAC-seq → 精确识别活跃启动子。"
+    params:
+      h3k4me3_cutoff: 0.05
+      atac_signal_cutoff: 10
+      tss_window: [-2000, 500]
+
+# ============================================================
+# 联合分析设计门禁
+# ============================================================
+integration_gates:
+  - id: "chip-atac-genome-coord"
+    rule: "ChIP-seq和ATAC-seq必须使用相同的参考基因组版本"
+    check: "genome_versions_match == true"
+    severity: "block"
+    on_fail: "基因组版本不一致 → 需要liftOver坐标转换后再进行联合分析"
+  - id: "chip-atac-sample-match"
+    rule: "ChIP-seq和ATAC-seq应来自相同或匹配的样本类型"
+    check: "sample_types_match == true"
+    severity: "warn"
+    on_fail: "样本类型不匹配 → 联合分析结果可能不准确"
 
 design_gates:
   - id: "chip-input-control"

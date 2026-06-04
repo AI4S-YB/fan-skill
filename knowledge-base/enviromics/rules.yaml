@@ -33,12 +33,20 @@ env_index:
     recommend: "pca_env_index"
     reason: "≥3气候变量 → PCA构建综合环境指数"
     tool_id: "env-index"
+    params:
+      n_components: 2
+      scale: TRUE
   - rule_id: "env-index-single-002"
     priority: 8
     condition:
       climate_vars: "< 3"
     recommend: "direct_env_variable"
     reason: "气候变量少 → 直接使用原始变量"
+    tool_id: "env-index"
+    params:
+      method: "direct"
+      scale: TRUE
+      transform: "none"
 
 gxe_modeling:
   - rule_id: "gxe-fa-001"
@@ -49,6 +57,9 @@ gxe_modeling:
     recommend: "factor_analytic_gxe"
     reason: "≥5环境≥50基因型 → FA模型估计G×E协方差"
     tool_id: "gxe-modeling"
+    params:
+      n_factors: 2
+      method: "REML"
   - rule_id: "gxe-ammi-002"
     priority: 8
     condition:
@@ -56,12 +67,21 @@ gxe_modeling:
     recommend: "ammi_gge"
     reason: "≥2环境 → AMMI/GGE描述G×E模式"
     tool_id: "gxe-modeling"
+    params:
+      n_pc: 2
+      scaling: "environment"
   - rule_id: "gxe-reaction-norm-003"
     priority: 7
     condition:
       env_index_available: true
     recommend: "reaction_norm"
     reason: "有环境指数 → 反应规范模型刻画基因型对环境梯度的响应"
+    tool_id: "gxe-modeling"
+    params:
+      model_type: "linear"
+      spline_df: 3
+      random_slope: TRUE
+      random_intercept: TRUE
 
 tpe_analysis:
   - rule_id: "tpe-cluster-envs-001"
@@ -71,6 +91,11 @@ tpe_analysis:
     recommend: "cluster_environments"
     reason: "≥5环境 → 聚类划分目标环境群体 (TPE)"
     tool_id: "tpe-analysis"
+    params:
+      cluster_method: "hierarchical"
+      n_clusters: 3
+      distance_metric: "euclidean"
+      linkage: "ward.D2"
 
 stability:
   - rule_id: "stab-multiple-metrics-001"
@@ -78,12 +103,23 @@ stability:
     action: "multiple_stability_metrics"
     reason: "多种稳定性指标交叉验证"
     tool_id: "stability"
+    params:
+      metrics:
+        - "Shukla_stability"
+        - "Finlay_Wilkinson"
+        - "AMMI_stability_value"
+        - "Eberhart_Russell"
+      ranking_method: "weighted_sum"
+      weight_equal: TRUE
 
 fallback:
   - rule_id: "env-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      fallback_mode: "expert_consultation"
+      log_decision: TRUE
 
 design_gates:
   - id: "env-multi-env-data"

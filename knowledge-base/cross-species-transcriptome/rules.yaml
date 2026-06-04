@@ -1,0 +1,517 @@
+name: cross-species-transcriptome
+description: "Cross-species transcriptome comparison analysis. Covers ortholog identification, expression normalization across species, batch effect correction, tissue-specificity analysis, and evolutionary expression divergence. Uses a dual-mode decision system (rule matrix + expert notebook)."
+triggers:
+  - "cross-species transcriptome"
+  - "跨物种转录组"
+  - "comparative transcriptome"
+  - "expression evolution"
+  - "tissue-specificity"
+  - "ortholog expression"
+  - "expression conservation"
+
+inputs:
+  - transcriptome_data_multiple_species
+  - ortholog_mappings
+  - species_phylogeny
+  - tissue_metadata
+
+outputs:
+  - ortholog_expression_matrix
+  - tissue_specificity_scores
+  - expression_conservation_analysis
+  - batch_corrected_data
+  - comparative_visualization
+  - analysis_report
+
+version: "1.0"
+analysis: cross_species_transcriptome
+
+inputs_required:
+  - transcriptome_data_multiple_species
+  - ortholog_mappings
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "cst-species-count"
+    rule: "必须有至少2个物种的转录组数据"
+    check: "species_count >= 2"
+    severity: "block"
+    on_fail: "物种数量不足 → 跨物种转录组比较需要至少2个物种的数据。"
+  - id: "cst-ortholog-mapping"
+    rule: "必须有同源基因映射关系"
+    check: "has_ortholog_mapping == true"
+    severity: "block"
+    on_fail: "无同源基因映射 → 无法进行跨物种基因表达比较。需要提供OrthoFinder/OrthoMCL等工具生成的直系同源基因对应关系。"
+  - id: "cst-expression-unit"
+    rule: "表达值必须使用可比单位(TPM/FPKM/CPM)"
+    check: "expression_unit in ['TPM', 'FPKM', 'CPM', 'counts']"
+    severity: "warn"
+    on_fail: "表达单位不一致或未知 → 不同物种间的绝对表达值不可直接比较。建议使用TPM或经过标准化处理的值。"
+  - id: "cst-tissue-annotation"
+    rule: "组织/样本类型注释完整"
+    check: "has_tissue_annotation == true"
+    severity: "warn"
+    on_fail: "无组织注释 → 无法进行组织特异性分析或组织间比较。"
+  - id: "cst-divergence-time"
+    rule: "物种间分化时间已知(推荐)"
+    check: "has_divergence_time == true"
+    severity: "warn"
+    on_fail: "无分化时间信息 → 进化速率分析将受限。建议提供物种树或分化时间估计。"
+
+# ============================================================
+# 决策节点 1: 同源基因鉴定与映射
+# ============================================================
+ortholog_identification:
+  - rule_id: "cst-orthofinder-001"
+    priority: 10
+    condition:
+      has_protein_sequences: true
+      species_count: ">= 2"
+    recommend: "orthofinder"
+    reason: "标准方法 → OrthoFinder鉴定直系同源基因。支持系统发育推断，输出直系同源组和物种树。"
+    tool_id: "orthofinder"
+    params:
+      algorithm: "diamond"
+      msa: "true"
+      threads: 16
+
+  - rule_id: "cst-biomart-002"
+    priority: 9
+    condition:
+      species_in_ensembl: true
+      species_count: "2-5"
+    recommend: "biomaRt"
+    reason: "Ensembl物种 → biomaRt直接获取同源基因映射。适用于有Ensembl注释的物种对。"
+    tool_id: "biomaRt"
+    params:
+      dataset: "hsapiens_gene_ensembl"
+      attributes: ["ensembl_gene_id", "external_gene_name", "homolog_ensembl_gene"]
+      filters: "with_ortholog"
+
+  - rule_id: "cst-reciprocal-best-003"
+    priority: 8
+    condition:
+      has_protein_sequences: true
+      need_simple_mapping: true
+    recommend: "reciprocal_best_hit"
+    reason: "简单映射 → 双向最佳命中(BBH)方法。速度快，适合快速获得一对一映射。"
+    tool_id: "blast"
+    params:
+      evalue: 1e-5
+      max_target_seqs: 1
+      coverage_threshold: 0.5
+      identity_threshold: 0.3
+
+  - rule_id: "cst-orthodb-004"
+    priority: 8
+    condition:
+      species_in_orthodb: true
+    recommend: "orthodb_mapping"
+    reason: "OrthoDB数据库 → 直接从OrthoDB获取预计算的直系同源关系。"
+    tool_id: "orthodb"
+    params:
+      level: "vertebrates"
+      output_format: "orthogroups"
+      include_paralogs: false
+
+# ============================================================
+# 决策节点 2: 表达标准化与可比性
+# ============================================================
+expression_normalization:
+  - rule_id: "cst-tpm-standard-001"
+    priority: 10
+    condition:
+      expression_type: "cross_species_comparison"
+    recommend: "tpm_normalization"
+    reason: "跨物种比较 → TPM标准化，消除基因长度和测序深度差异。跨物种表达比较的标准做法。"
+    params:
+      method: "TPM"
+      log_transform: true
+      pseudocount: 1
+
+  - rule_id: "cst-quantile-002"
+    priority: 9
+    condition:
+      has_distribution_difference: true
+    recommend: "quantile_normalization"
+    reason: "分布差异大 → 分位数标准化，使不同物种的表达分布一致。适用于跨物种批次效应校正后的标准化。"
+    params:
+      method: "quantile"
+      preserve_distribution: true
+
+  - rule_id: "cst-tmm-003"
+    priority: 8
+    condition:
+      has_count_data: true
+      need_differential: true
+    recommend: "tmm_normalization"
+    reason: "计数数据差异分析 → TMM标准化，适用于edgeR/limma差异分析流程。"
+    params:
+      method: "TMM"
+      ref_column: "auto"
+      log_transform: true
+
+# ============================================================
+# 决策节点 3: 批次效应校正
+# ============================================================
+batch_correction:
+  - rule_id: "cst-combat-species-001"
+    priority: 10
+    condition:
+      species_as_batch: true
+      sample_per_species: ">= 3"
+    recommend: "combat_batch_correction"
+    reason: "物种作为批次 → ComBat校正物种间的系统性偏差。使用物种作为批次变量，保留组织/处理效应。"
+    tool_id: "sva"
+    params:
+      mod: "~ tissue"  # 保留组织效应
+      par.prior: true
+      prior.plots: false
+
+  - rule_id: "cst-combat-seq-002"
+    priority: 9
+    condition:
+      has_count_data: true
+      need_count_output: true
+    recommend: "combat_seq"
+    reason: "计数数据 → ComBat-seq保留整数计数特性。适用于后续需要count数据的差异分析。"
+    tool_id: "sva"
+    params:
+      batch: "species"
+      group: "tissue"
+
+  - rule_id: "cst-limma-removebatch-003"
+    priority: 8
+    condition:
+      has_linear_model: true
+    recommend: "limma_removeBatchEffect"
+    reason: "线性模型 → limma的removeBatchEffect函数。适用于已构建线性模型的场景。"
+    tool_id: "limma"
+    params:
+      batch: "species"
+      covariates: null
+      preserve_design: true
+
+  - rule_id: "cst-mnn-004"
+    priority: 7
+    condition:
+      high_dimensional: true
+      non_linear_batch: true
+    recommend: "mnn_correct"
+    reason: "非线性批次效应 → MNN (Mutual Nearest Neighbors)校正。适用于高维数据的非线性批次效应。"
+    tool_id: "batchelor"
+    params:
+      k: 20
+      sigma: 1.0
+      cos_norm: true
+
+# ============================================================
+# 决策节点 4: 降维分析
+# ============================================================
+dimensionality_reduction:
+  - rule_id: "cst-pca-standard-001"
+    priority: 10
+    condition:
+      sample_count: ">= 6"
+      need_overview: true
+    recommend: "pca_analysis"
+    reason: "标准降维 → PCA评估整体数据结构和批次效应。检查样本是否按物种或组织聚类。"
+    tool_id: "prcomp"
+    params:
+      scale: TRUE
+      center: TRUE
+      ncp: 5
+
+  - rule_id: "cst-tsne-002"
+    priority: 9
+    condition:
+      sample_count: ">= 10"
+      need_local_structure: true
+    recommend: "tsne_visualization"
+    reason: "局部结构 → t-SNE展示局部聚类模式。perplexity参数根据样本数调整。"
+    tool_id: "Rtsne"
+    params:
+      perplexity: "max(5, floor(sqrt(n)))"
+      max_iter: 1000
+      dims: 2
+
+  - rule_id: "cst-umap-003"
+    priority: 9
+    condition:
+      sample_count: ">= 10"
+      need_global_structure: true
+    recommend: "umap_visualization"
+    reason: "全局+局部结构 → UMAP同时保留全局和局部结构。适合大规模跨物种样本的可视化。"
+    tool_id: "umap"
+    params:
+      n_neighbors: 15
+      min_dist: 0.1
+      metric: "euclidean"
+
+  - rule_id: "cst-pcoa-004"
+    priority: 8
+    condition:
+      has_distance_matrix: true
+    recommend: "pcoa_analysis"
+    reason: "距离矩阵 → PCoA基于任意距离矩阵降维。适用于已计算距离矩阵的场景。"
+    tool_id: "ape"
+    params:
+      correction: "cailliez"
+      rn: null
+
+# ============================================================
+# 决策节点 5: 组织复杂度探索
+# ============================================================
+tissue_complexity:
+  - rule_id: "cst-expressed-genes-001"
+    priority: 10
+    condition:
+      has_tissue_annotation: true
+    recommend: "expressed_genes_per_tissue"
+    reason: "表达基因统计 → 计算每个组织/物种中表达的基因数量。TPM>1或counts>5通常被视为表达阈值。"
+    params:
+      expression_threshold: 1
+      tpm_threshold: 1
+
+  - rule_id: "cst-abundance-distribution-002"
+    priority: 9
+    condition:
+      need_expression_profile: true
+    recommend: "abundance_distribution_analysis"
+    reason: "丰度分布 → 分析不同物种/组织的表达丰度分布。检测分布差异和偏态。"
+    params:
+      plot_type: "density"
+      log_scale: true
+      compare_groups: ["species", "tissue"]
+
+  - rule_id: "cst-dispersion-003"
+    priority: 8
+    condition:
+      need_variability: true
+    recommend: "dispersion_analysis"
+    reason: "离散度分析 → 计算基因表达的变异系数(CV)和离散度。识别高变基因。"
+    params:
+      method: "biological_cv"
+
+# ============================================================
+# 决策节点 6: 组织特异性分析
+# ============================================================
+tissue_specificity:
+  - rule_id: "cst-tau-index-001"
+    priority: 10
+    condition:
+      has_multi_tissue: true
+      tissue_count: ">= 3"
+    recommend: "tau_specificity_index"
+    reason: "Tau指数 → 组织特异性标准度量(0=泛表达, 1=组织特异性)。跨物种组织特异性比较的首选指标。"
+    tool_id: "tspex"
+    params:
+      method: "tau"
+
+  - rule_id: "cst-spm-index-002"
+    priority: 9
+    condition:
+      has_multi_tissue: true
+      need_scaled: true
+    recommend: "spm_specificity_index"
+    reason: "SPM指数 → Scaled Specificity Measure，提供更稳健的组织特异性评估。适用于跨物种比较。"
+    tool_id: "tspex"
+    params:
+      method: "spm"
+
+  - rule_id: "cst-tsi-index-003"
+    priority: 8
+    condition:
+      has_multi_tissue: true
+    recommend: "tsi_specificity_index"
+    reason: "TSI指数 → Tissue Specificity Index，简单直观的组织特异性度量。"
+    params:
+      method: "tsi"
+
+  - rule_id: "cst-gini-index-004"
+    priority: 7
+    condition:
+      has_multi_tissue: true
+      alternative_metric: true
+    recommend: "gini_coefficient"
+    reason: "Gini系数 → 基于Gini系数的组织特异性评估，提供互补的特异性视角。"
+    params:
+      method: "gini"
+      normalize: true
+
+# ============================================================
+# 决策节点 7: 跨物种差异表达分析
+# ============================================================
+cross_species_de:
+  - rule_id: "cst-limma-cross-species-001"
+    priority: 10
+    condition:
+      has_ortholog_expression: true
+      design_matrix_defined: true
+    recommend: "limma_cross_species"
+    reason: "跨物种差异分析 → limma的线性模型框架。构建包含物种和组织因素的复杂设计矩阵。"
+    tool_id: "limma"
+    params:
+      design: "~ species + tissue + species:tissue"
+      contrast_method: "makeContrasts"
+
+  - rule_id: "cst-deseq2-cross-002"
+    priority: 9
+    condition:
+      has_count_data: true
+      need_shrinkage: true
+    recommend: "deseq2_cross_species"
+    reason: "计数数据差异分析 → DESeq2适用于count数据，提供lfcShrink收缩估计。"
+    tool_id: "deseq2"
+    params:
+      design: "~ species + tissue + species:tissue"
+      lfc_shrink: "apeglm"
+      independent_filter: true
+
+  - rule_id: "cst-edger-cross-003"
+    priority: 8
+    condition:
+      has_count_data: true
+      complex_design: true
+    recommend: "edger_glm_cross_species"
+    reason: "复杂设计 → edgeR的GLM框架处理复杂实验设计。"
+    tool_id: "edger"
+    params:
+      design: "~ species + tissue + species:tissue"
+      dispersion_method: "tagwise"
+      trend_method: "movingave"
+
+# ============================================================
+# 决策节点 8: 表达保守性分析
+# ============================================================
+expression_conservation:
+  - rule_id: "cst-pearson-correlation-001"
+    priority: 10
+    condition:
+      has_paired_tissues: true
+    recommend: "pearson_expression_correlation"
+    reason: "表达相关性 → 计算直系同源基因在配对组织间的表达相关性。高相关性暗示表达保守。"
+    params:
+      method: "pearson"
+      log_transform: true
+
+  - rule_id: "cst-spearman-correlation-002"
+    priority: 9
+    condition:
+      has_paired_tissues: true
+      non_linear: true
+    recommend: "spearman_expression_correlation"
+    reason: "非参数相关性 → Spearman秩相关，不假设线性关系，对离群值稳健。"
+    params:
+      method: "spearman"
+      log_transform: true
+      exact: false
+
+  - rule_id: "cst-evolutionary-rate-003"
+    priority: 8
+    condition:
+      has_phylogeny: true
+      has_divergence_time: true
+    recommend: "expression_evolution_rate"
+    reason: "进化速率分析 → 结合系统发育和分化时间估计表达进化速率。"
+    tool_id: "phylogenetic_independent_contrasts"
+    params:
+      method: "pic"
+      model: "brownian"
+      log_transform: true
+
+# ============================================================
+# 决策节点 9: 选择压力与表达关联
+# ============================================================
+selection_expression_link:
+  - rule_id: "cst-dnds-expression-001"
+    priority: 9
+    condition:
+      has_dnds: true
+      has_expression: true
+    recommend: "dnds_expression_correlation"
+    reason: "dN/dS与表达关联 → 分析选择压力与表达保守性的关系。高dN/dS可能对应快速表达进化。"
+    params:
+      correlation_method: "spearman"
+      dnds_threshold: 1.0
+      expression_metric: "tau"
+
+  - rule_id: "cst-paml-expression-002"
+    priority: 8
+    condition:
+      has_codeml_results: true
+    recommend: "paml_expression_integration"
+    reason: "PAML结果整合 → 将codeml的选择压力结果与表达数据整合分析。"
+    tool_id: "paml"
+    params:
+      models: ["M0", "M1a", "M2a", "M7", "M8"]
+      site_classes: true
+      output_format: "dataframe"
+
+# ============================================================
+# 决策节点 10: 可视化
+# ============================================================
+visualization:
+  - rule_id: "cst-heatmap-001"
+    priority: 10
+    condition:
+      has_diff_genes: true
+    recommend: "expression_heatmap"
+    reason: "表达热图 → 展示差异/特异性基因的表达模式。使用Z-score标准化。"
+    tool_id: "pheatmap"
+    params:
+      scale: "row"
+      clustering_method: "complete"
+
+  - rule_id: "cst-pca-plot-002"
+    priority: 10
+    condition:
+      has_pca_result: true
+    recommend: "pca_biplot"
+    reason: "PCA双标图 → 展示样本和主要贡献基因。"
+    tool_id: "ggplot2"
+    params:
+      x_axis: "PC1"
+      y_axis: "PC2"
+      color_by: "species"
+      shape_by: "tissue"
+      label_samples: true
+
+  - rule_id: "cst-correlation-scatter-003"
+    priority: 9
+    condition:
+      has_paired_expression: true
+    recommend: "correlation_scatter_plot"
+    reason: "相关性散点图 → 展示直系同源基因表达保守性。"
+    tool_id: "ggplot2"
+    params:
+      x_label: "expression_species1"
+      y_label: "expression_species2"
+      log_scale: true
+      add_regression: true
+      show_correlation: true
+
+  - rule_id: "cst-specificity-bar-004"
+    priority: 8
+    condition:
+      has_specificity_scores: true
+    recommend: "specificity_bar_plot"
+    reason: "特异性条形图 → 展示组织特异性分数分布。"
+    params:
+      x_axis: "gene"
+      y_axis: "specificity_score"
+      fill_by: "species"
+      sort_by: "specificity"
+      top_n: 50
+
+fallback:
+  - rule_id: "cst-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      expert_mode: true
+      require_justification: true
+      log_decision: true

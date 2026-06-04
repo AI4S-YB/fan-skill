@@ -44,6 +44,11 @@ quantification:
     recommend: "maxquant"
     reason: "DDA → MaxQuant LFQ"
     tool_id: "maxquant"
+    params:
+      fdr: 0.01
+      min_peptide_len: 7
+      max_peptide_len: 25
+      lfq_min_ratio_count: 2
 
   - rule_id: "prot-diann-dia-002"
     priority: 10
@@ -52,21 +57,39 @@ quantification:
     recommend: "diann"
     reason: "DIA → DIA-NN"
     tool_id: "diann"
+    params:
+      fdr: 0.01
+      qvalue: 0.01
+      min_pr_peptides: 2
+      min_pg_peptides: 2
 
   - rule_id: "prot-tmt-quant-003"
     priority: 9
+    tool_id: "maxquant"
     condition:
       acquisition: "tmt"
     recommend: "maxquant_tmt"
     reason: "TMT标记定量 → MaxQuant TMT模式"
+    params:
+      fdr: 0.01
+      tmt_plex: 10
+      min_peptide_len: 7
+      max_peptide_len: 25
+      reporter_intensity_min: 100
 
   - rule_id: "prot-spectronaut-dia-004"
     priority: 11
+    tool_id: "spectronaut"
     condition:
       acquisition: "dia"
       prefer_gui: true
     recommend: "spectronaut"
     reason: "DIA且有商业许可 → Spectronaut"
+    params:
+      fdr: 0.01
+      qvalue: 0.01
+      min_peptide_len: 7
+      cross_run_normalization: true
 
 # ============================================================
 # Decision Node 2: Differential Analysis
@@ -78,6 +101,10 @@ diff_analysis:
       rep_count: ">= 3"
     recommend: "limma_diff_proteins"
     tool_id: "diff-analysis"
+    params:
+      fdr: 0.05
+      log2fc: 1
+      min_intensity: 0
 
   - rule_id: "prot-ttest-002"
     priority: 8
@@ -85,6 +112,11 @@ diff_analysis:
       rep_count: "< 3"
     recommend: "ttest_with_warning"
     reason: "重复<3 → t检验但功效极低"
+    params:
+      fdr: 0.05
+      log2fc: 1
+      min_intensity: 0
+      warning: "Low statistical power due to insufficient replicates"
 
   - rule_id: "prot-msstats-003"
     priority: 11
@@ -92,6 +124,11 @@ diff_analysis:
       has_fractionation: true
     recommend: "msstats"
     reason: "有分级分离数据 → MSstats建模"
+    params:
+      fdr: 0.05
+      log2fc: 1
+      normalization: "median"
+      feature_selection: "high_quality"
 
 # ============================================================
 # Decision Node 3: PPI Network
@@ -102,6 +139,11 @@ ppi_network:
     recommend: "string_db_plant"
     reason: "STRING DB植物PPI"
     tool_id: "ppi-network"
+    params:
+      confidence_score: 0.7
+      species: "auto_detect"
+      max_interactions: 100
+      network_type: "full"
 
   - rule_id: "prot-cytoscape-002"
     priority: 6
@@ -109,6 +151,11 @@ ppi_network:
       has_custom_network: true
     recommend: "cytoscape_viz"
     reason: "自定义网络 → Cytoscape可视化"
+    params:
+      layout: "force_directed"
+      node_size: "degree"
+      edge_width: "confidence"
+      export_format: "pdf"
 
 # ============================================================
 # Decision Node 4: PTM Analysis
@@ -121,6 +168,11 @@ ptm:
     recommend: "motif_x_analysis"
     reason: "PTM数据 → Motif-x激酶基序分析"
     tool_id: "ptm-analysis"
+    params:
+      min_occurrence: 10
+      significance_threshold: 0.01
+      motif_width: 15
+      background_correction: true
 
   - rule_id: "prot-phospho-enrich-002"
     priority: 6
@@ -128,6 +180,11 @@ ptm:
       ptm_type: "phosphorylation"
     recommend: "kinase_enrichment"
     reason: "磷酸化 → 激酶富集分析"
+    params:
+      fdr: 0.05
+      min_sites: 2
+      kinase_database: "phosphositeplus"
+      enrichment_method: "fisher"
 
   - rule_id: "prot-ptm-nomod-003"
     priority: 4
@@ -135,6 +192,9 @@ ptm:
       has_ptm_data: false
     recommend: "skip_ptm"
     reason: "无PTM数据 → 跳过PTM分析"
+    params:
+      skip_ptm_analysis: true
+      note: "No PTM data available for analysis"
 
 # ============================================================
 # Decision Node 5: Visualization
@@ -145,6 +205,12 @@ visualization:
     recommend: "volcano_heatmap"
     reason: "火山图+热图 → 差异蛋白展示"
     tool_id: "visualization"
+    params:
+      fdr_threshold: 0.05
+      log2fc_threshold: 1
+      top_n_labels: 20
+      color_scheme: "default"
+      show_annotations: true
 
   - rule_id: "prot-vis-ppi-002"
     priority: 6
@@ -152,6 +218,12 @@ visualization:
       has_ppi: true
     recommend: "ppi_network_viz"
     reason: "PPI网络 → STRING/Cytoscape网络图"
+    params:
+      layout: "force_directed"
+      node_color: "log2fc"
+      edge_color: "confidence"
+      highlight_hubs: true
+      export_format: "pdf"
 
 # ============================================================
 # Fallback
@@ -161,6 +233,8 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
 
 design_gates:
   - id: "prot-extraction-method"

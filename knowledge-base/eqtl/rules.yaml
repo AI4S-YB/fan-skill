@@ -32,6 +32,10 @@ eqtl_type:
     recommend: "cis_eqtl_matrixeqtl"
     reason: "cis-eQTL ±1Mb → MatrixEQTL线性模型"
     tool_id: "cis-trans"
+    params:
+      cis_dist: 1000000
+      pvOutputThreshold: 1e-5
+      useModel: "modelLINEAR"
   - rule_id: "eqtl-trans-002"
     priority: 9
     condition:
@@ -40,6 +44,12 @@ eqtl_type:
     recommend: "trans_eqtl_matrixeqtl"
     reason: "trans-eQTL需要大样本量"
     tool_id: "cis-trans"
+    params:
+      trans_dist_min: 1000000
+      pvOutputThreshold: 1e-8
+      useModel: "modelLINEAR"
+      fdr_threshold: 0.05
+      min_sample_count: 200
 
 multiple_testing:
   - rule_id: "eqtl-fdr-001"
@@ -48,6 +58,11 @@ multiple_testing:
       test_count: ">= 1000000"
     action: "fdr_0.05_with_permutation"
     reason: "百万级检验 → FDR+置换双重校正"
+    params:
+      fdr_method: "BH"
+      fdr_threshold: 0.05
+      permutation_count: 1000
+      min_test_count: 1000000
 
 colocalization:
   - rule_id: "eqtl-coloc-gwas-001"
@@ -57,6 +72,10 @@ colocalization:
     recommend: "coloc_analysis"
     reason: "有GWAS结果 → coloc共定位分析"
     tool_id: "colocalization"
+    params:
+      p12: 0.25
+      p1: 1e-4
+      p2: 1e-4
 
 multi_tissue:
   - rule_id: "eqtl-multi-tissue-001"
@@ -66,12 +85,19 @@ multi_tissue:
     recommend: "tissue_specific_vs_shared_eqtl"
     reason: "多组织 → 区分组织特异性和共享eQTL"
     tool_id: "multi-tissue"
+    params:
+      min_tissue_count: 2
+      tissue_specificity_threshold: 0.8
+      shared_eqtl_pvalue_threshold: 1e-5
+      effect_size_consistency: 0.5
 
 fallback:
   - rule_id: "eqtl-fallback-999"
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
 
 design_gates:
   - id: "eqtl-matched-data"

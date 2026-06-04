@@ -42,6 +42,10 @@ graph_construction:
     recommend: "minigraph"
     reason: "<20基因组 → Minigraph高效构建泛基因组图"
     tool_id: "minigraph"
+    params:
+      max_path: 100
+      min_mapq: 1
+      threads: 16
 
   - rule_id: "pan-pggb-large-002"
     priority: 9
@@ -50,6 +54,10 @@ graph_construction:
     recommend: "pggb"
     reason: "≥20基因组 → PGGB全比对图"
     tool_id: "pggb"
+    params:
+      p_identity: 0.95
+      n_haplotypes: "auto"
+      threads: 32
 
   - rule_id: "pan-cactus-complex-003"
     priority: 10
@@ -58,6 +66,10 @@ graph_construction:
       has_haplotypes: true
     recommend: "cactus_pangenome"
     reason: "≥20基因组且含单倍型 → Cactus渐进式比对更稳健"
+    params:
+      reference: "auto"
+      max_secondary: 1000
+      cactus_options: "--binCores auto"
 
 # ============================================================
 # Decision Node 2: Core/Variable Gene Classification
@@ -80,6 +92,9 @@ core_variable:
       has_orthogroups: true
     recommend: "orthofinder_clustering"
     reason: "已有OrthoFinder结果 → 基于直系同源群定义核心基因组"
+    params:
+      inflation: 1.5
+      msa_method: "diamond"
 
 # ============================================================
 # Decision Node 3: PAV Detection
@@ -90,6 +105,10 @@ pav_detection:
     recommend: "pangene_or_panGenie"
     reason: "PAV检测 → PanGene或PanGenie"
     tool_id: "pav-detection"
+    params:
+      min_coverage: 5
+      max_missing_rate: 0.2
+      method: "pangenie"
 
   - rule_id: "pan-pav-svgap-002"
     priority: 6
@@ -97,6 +116,9 @@ pav_detection:
       has_graph: true
     recommend: "svgap_pav"
     reason: "已有泛基因组图 → SV-GAP从图中提取PAV"
+    params:
+      min_genotype_quality: 20
+      min_depth: 5
 
 # ============================================================
 # Decision Node 4: SV Genotyping
@@ -107,6 +129,10 @@ sv_genotyping:
     recommend: "vg_giraffe"
     reason: "SV基因分型 → vg giraffe比对到泛基因组图"
     tool_id: "sv-genotyping"
+    params:
+      mapper: "giraffe"
+      min_mapq: 20
+      max_threads: 32
 
   - rule_id: "pan-sv-graphaligner-002"
     priority: 6
@@ -114,6 +140,10 @@ sv_genotyping:
       sv_class: "large_sv"
     recommend: "graphaligner"
     reason: "大片段SV → GraphAligner长读长比对更准确"
+    params:
+      reads_type: "pacbio"
+      min_identity: 0.85
+      max_gap: 10000
 
   - rule_id: "pan-sv-paragraph-003"
     priority: 6
@@ -121,6 +151,10 @@ sv_genotyping:
       sv_class: "small_sv"
     recommend: "paragraph"
     reason: "小SV → Paragraph基因分型工具"
+    params:
+      min_support: 3
+      max_support: 1000
+      genotyper: "paragraph"
 
 # ============================================================
 # Decision Node 5: Visualization
@@ -131,6 +165,10 @@ visualization:
     recommend: "odgi_viz"
     reason: "泛基因组图可视化 → ODGI layout + Bandage"
     tool_id: "visualization"
+    params:
+      layout: "sgd"
+      viz_type: "2d"
+      path_highlight: true
 
   - rule_id: "pan-vis-circos-002"
     priority: 6
@@ -138,6 +176,10 @@ visualization:
       view_type: "comparative"
     recommend: "circos_plot"
     reason: "多基因组比较 → Circos图展示PAV分布"
+    params:
+      track_type: "heatmap"
+      color_palette: "RdYlBu"
+      show_links: true
 
 # ============================================================
 # Fallback
@@ -147,6 +189,8 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
 
 design_gates:
   - id: "pan-multiple-accessions"

@@ -1,0 +1,340 @@
+name: wgd
+description: "Plant whole genome duplication (WGD) analysis. Covers WGD detection, KS distribution analysis, synteny-based WGD inference, polyploidy history reconstruction, and post-WGD gene retention analysis."
+triggers:
+  - "wgd"
+  - "whole genome duplication"
+  - "全基因组复制"
+  - "多倍化"
+  - "polyploidy"
+  - "ks distribution"
+  - "syntenic depth"
+  - "ancestral karyotype"
+
+inputs:
+  - genome_sequence
+  - gene_annotation
+  - comparative_genomes
+  - ks_data
+
+outputs:
+  - ks_distribution
+  - wgd_events
+  - synteny_blocks
+  - gene_retention
+  - ancestral_karyotype
+  - analysis_report
+
+version: "1.0"
+analysis: wgd_analysis
+
+inputs_required:
+  - genome_sequence
+  - gene_annotation
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "wgd-genome"
+    rule: "必须有基因组组装"
+    check: "has_genome == true"
+    severity: "block"
+    on_fail: "没有基因组组装 → 无法进行WGD分析。需要基因组序列和基因注释。"
+  - id: "wgd-annotation"
+    rule: "必须有基因注释"
+    check: "has_annotation == true"
+    severity: "block"
+    on_fail: "没有基因注释 → 无法进行KS分布分析和共线性分析。需要GFF/GTF格式的基因注释。"
+  - id: "wgd-comparative"
+    rule: "有比较物种数据用于区分WGD"
+    check: "has_comparative_genomes == true"
+    severity: "warn"
+    on_fail: "无比较物种 → 无法区分共享WGD和独立WGD。建议添加近缘物种数据。"
+  - id: "wgd-quality"
+    rule: "基因组质量足够"
+    check: "busco_complete >= 80"
+    severity: "warn"
+    on_fail: "基因组质量较低 → 可能影响共线性分析和WGD检测。建议使用高质量组装。"
+
+# ============================================================
+# 决策节点 1: KS分布分析
+# ============================================================
+ks_analysis:
+  - rule_id: "ks-wgdi-001"
+    priority: 10
+    condition:
+      species_type: "plant"
+    recommend: "wgdi_ks"
+    reason: "植物KS分析 → WGDI。专为植物设计，支持多种KS计算方法，可视化友好。"
+    tool_id: "wgdi"
+    params:
+      ks_method: "yn00"
+      ks_range: "0-3"
+
+  - rule_id: "ks-simple-002"
+    priority: 9
+    condition:
+      sample_count: "1"
+    recommend: "simple_ks_pipeline"
+    reason: "单物种分析 → 简单KS流程。使用BLAST+PAML计算KS分布。"
+    params:
+      ks_method: "yn00"
+      evalue_cutoff: 1e-5
+
+  - rule_id: "ks-batch-003"
+    priority: 8
+    condition:
+      species_count: ">= 3"
+    recommend: "batch_ks_comparison"
+    reason: "多物种比较 → 批量KS分析。比较多个物种的KS分布。"
+    params:
+      batch_mode: true
+      normalize_ks: true
+
+# ============================================================
+# 决策节点 2: 共线性分析
+# ============================================================
+synteny_analysis:
+  - rule_id: "syn-mcscanx-001"
+    priority: 10
+    condition:
+      species_type: "plant"
+      has_annotation: true
+    recommend: "mcscanx_wgd"
+    reason: "植物共线性 → MCScanX。检测共线性区块，识别WGD基因对，统计复制类型。"
+    tool_id: "mcscanx"
+    params:
+      gap_score: "-25"
+      match_score: "50"
+
+  - rule_id: "syn-wgdi-dot-002"
+    priority: 10
+    condition:
+      visualization_needed: true
+    recommend: "wgdi_dotplot"
+    reason: "可视化 → WGDI点图。直观展示共线性模式和WGD信号。"
+    tool_id: "wgdi"
+    params:
+      dotplot_type: "whole_genome"
+      point_size: 0.5
+      ks_color_gradient: true
+
+  - rule_id: "syn-synfind-003"
+    priority: 8
+    condition:
+      online_analysis: true
+    recommend: "synfind"
+    reason: "在线分析 → SynFind (CoGe)。在线共线性分析工具。"
+    params:
+      platform: "CoGe"
+      syntenic_depth: 5
+
+# ============================================================
+# 决策节点 3: 同源性深度分析
+# ============================================================
+homology_depth:
+  - rule_id: "depth-2-way-001"
+    priority: 10
+    condition:
+      expected_ploidy: "2"
+    recommend: "two_way_synteny"
+    reason: "二倍体 → 双向共线性分析。查找1:1和2:2共线性模式。"
+    params:
+      synteny_depth: 2
+      anchor_gap_max: 30
+
+  - rule_id: "depth-4-way-002"
+    priority: 10
+    condition:
+      expected_ploidy: ">= 4"
+    recommend: "four_way_synteny"
+    reason: "多倍体 → 四向共线性分析。查找1:2:2:1等多拷贝模式。"
+    params:
+      synteny_depth: 4
+      subgenome_identification: true
+
+  - rule_id: "depth-syntenic-depth-003"
+    priority: 9
+    condition:
+      wgd_inference: true
+    recommend: "syntenic_depth_analysis"
+    reason: "WGD推断 → 共线性深度分析。统计共线性区块的拷贝数分布。"
+    params:
+      depth_histogram: true
+      minimum_block_genes: 5
+
+# ============================================================
+# 决策节点 4: WGD年龄估计
+# ============================================================
+wgd_dating:
+  - rule_id: "date-ks-peak-001"
+    priority: 10
+    condition:
+      has_ks_distribution: true
+    recommend: "ks_peak_dating"
+    reason: "KS峰定年 → 基于KS峰值估计WGD年龄。需要分子钟校准。"
+    params:
+      substitution_rate: "1.5e-8"  # 植物常用值
+
+  - rule_id: "date-fossil-002"
+    priority: 9
+    condition:
+      has_fossil_calibration: true
+    recommend: "fossil_calibrated_dating"
+    reason: "化石校准 → 使用化石证据校准WGD年龄。"
+    params:
+      calibration_method: "fossil"
+      confidence_interval: true
+
+  - rule_id: "date-cross-species-003"
+    priority: 8
+    condition:
+      has_comparative_genomes: true
+    recommend: "cross_species_dating"
+    reason: "跨物种定年 → 比较多个物种区分共享WGD。"
+    params:
+      comparison_mode: "cross_species"
+      phylogeny_integration: true
+
+# ============================================================
+# 决策节点 5: WGD类型区分
+# ============================================================
+wgd_type:
+  - rule_id: "type-auto-vs-allo-001"
+    priority: 10
+    condition:
+      polyploid_species: true
+    recommend: "auto_allo_distinction"
+    reason: "多倍体类型 → 区分同源多倍体和异源多倍体。基于共线性和分子标记模式。"
+    params:
+      disomic_inheritance_check: true
+      pairing_behavior_analysis: true
+
+  - rule_id: "type-shared-vs-independent-002"
+    priority: 10
+    condition:
+      species_count: ">= 2"
+      has_phylogeny: true
+    recommend: "shared_independent_test"
+    reason: "共享/独立WGD → 基于系统发育和KS分布比较。"
+    params:
+      reconciliation_method: "gene_tree_species_tree"
+      ks_comparison: true
+
+# ============================================================
+# 决策节点 6: 基因保留分析
+# ============================================================
+gene_retention:
+  - rule_id: "retention-go-001"
+    priority: 10
+    condition:
+      has_wgd_genes: true
+    recommend: "go_enrichment_retention"
+    reason: "GO富集 → 分析WGD保留基因的功能偏好。"
+    tool_id: "go_enrichment"
+    params:
+      enrichment_test: "Fisher"
+      p_adjust: "BH"
+      background: "all_genes"
+
+  - rule_id: "retention-category-002"
+    priority: 9
+    condition:
+      detailed_analysis: true
+    recommend: "gene_category_retention"
+    reason: "基因类别分析 → 分析不同功能类别的保留率。"
+    params:
+      categories: ["TF", "kinase", "metabolic", "structural"]
+      retention_rate_calculation: true
+
+  - rule_id: "retention-dosage-003"
+    priority: 8
+    condition:
+      dosage_sensitive: true
+    recommend: "dosage_balance_analysis"
+    reason: "剂量平衡 → 分析剂量敏感基因的保留/丢失模式。"
+    params:
+      dosage_sensitive_categories: ["TF", "kinase", "ribosomal"]
+      retention_bias_test: true
+
+# ============================================================
+# 决策节点 7: 祖先核型重建
+# ============================================================
+ancestral_karyotype:
+  - rule_id: "ak-multi-species-001"
+    priority: 10
+    condition:
+      species_count: ">= 3"
+      has_synteny: true
+      has_phylogeny: true
+    recommend: "multi_species_reconstruction"
+    reason: "多物种重建 → 基于多个物种的共线性重建祖先核型。"
+    tool_id: "ancestralchrom"
+    params:
+      reconstruction_method: "parsimony"
+      min_chromosome_support: 3
+
+  - rule_id: "ak-single-species-002"
+    priority: 8
+    condition:
+      species_count: "1"
+    recommend: "intra_genomic_evidence"
+    reason: "单物种分析 → 基于基因组内共线性推断祖先结构。"
+    params:
+      method: "internal_synteny"
+      confidence_level: "moderate"
+
+  - rule_id: "ak-circos-003"
+    priority: 7
+    condition:
+      visualization_needed: true
+    recommend: "circos_karyotype"
+    reason: "可视化 → Circos展示祖先核型重建结果。"
+    tool_id: "circos"
+    params:
+      track_height: 0.08
+      show_synteny_links: true
+      color_scheme: "chromosome"
+
+# ============================================================
+# 决策节点 8: WGD后进化分析
+# ============================================================
+post_wgd_evolution:
+  - rule_id: "post-fractionation-001"
+    priority: 10
+    condition:
+      has_wgd_genes: true
+    recommend: "fractionation_analysis"
+    reason: "分化丢失分析 → 分析WGD后的基因丢失模式。"
+    params:
+      bias_detection: true
+      subgenome_comparison: true
+
+  - rule_id: "post-neofunctionalization-002"
+    priority: 9
+    condition:
+      has_expression_data: true
+    recommend: "expression_divergence"
+    reason: "表达分化 → 分析WGD基因对的表达分化。"
+    params:
+      correlation_threshold: 0.5
+      tissue_specificity_analysis: true
+
+  - rule_id: "post-subfunctionalization-003"
+    priority: 8
+    condition:
+      has_expression_data: true
+      has_tissue_specific: true
+    recommend: "subfunctionalization_analysis"
+    reason: "亚功能化 → 分析组织特异性表达分化。"
+    params:
+      tau_threshold: 0.8
+      complementary_expression_check: true
+
+fallback:
+  - rule_id: "wgd-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"

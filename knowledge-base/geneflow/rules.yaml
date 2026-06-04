@@ -1,0 +1,346 @@
+name: geneflow
+description: "Plant gene flow and introgression analysis. Covers population structure analysis, gene flow detection, introgression quantification, and admixture graph inference. Full pipeline for studying interspecies gene exchange."
+triggers:
+  - "gene flow"
+  - "基因流"
+  - "introgression"
+  - "渐渗"
+  - "admixture"
+  - "混合"
+  - "hybridization"
+  - "杂交"
+  - "abba baba"
+  - "fd"
+  - "treemix"
+
+inputs:
+  - vcf_file
+  - sample_metadata
+  - species_tree
+
+outputs:
+  - population_structure
+  - admixture_proportions
+  - gene_flow_events
+  - introgression_statistics
+  - analysis_report
+
+version: "1.0"
+analysis: gene_flow_analysis
+
+inputs_required:
+  - vcf_file
+  - sample_metadata
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "gf-samples"
+    rule: "必须有足够的样本量"
+    check: "sample_count >= 3"
+    severity: "block"
+    on_fail: "样本量不足 → 基因流分析需要每个物种至少3个样本。"
+  - id: "gf-multi-species"
+    rule: "必须有至少2个物种/群体"
+    check: "species_count >= 2"
+    severity: "block"
+    on_fail: "物种/群体数量不足 → 基因流分析需要至少2个物种或群体进行比较。"
+  - id: "gf-outgroup"
+    rule: "有合适的外群"
+    check: "has_outgroup == true"
+    severity: "warn"
+    on_fail: "无外群 → ABBA-BABA等方法需要外群来确定祖先状态。建议添加近缘外群物种。"
+  - id: "gf-snp-density"
+    rule: "SNP密度足够"
+    check: "snp_count >= 1000"
+    severity: "warn"
+    on_fail: "SNP数量不足 → 统计功效可能较低。建议使用全基因组数据。"
+  - id: "gf-tree-known"
+    rule: "有系统发育树参考"
+    check: "has_species_tree == true"
+    severity: "warn"
+    on_fail: "无系统发育参考 → 基因流方向推断可能不准确。"
+
+# ============================================================
+# 决策节点 1: 群体结构分析
+# ============================================================
+population_structure:
+  - rule_id: "struct-pca-001"
+    priority: 10
+    condition:
+      sample_count: ">= 3"
+    recommend: "pca_analysis"
+    reason: "标准方法 → PCA主成分分析。快速直观地展示群体结构。"
+    tool_id: "plink"
+    params:
+      n_components: 10
+
+  - rule_id: "struct-admixture-002"
+    priority: 10
+    condition:
+      sample_count: ">= 5"
+    recommend: "admixture"
+    reason: "混合比例估计 → ADMIXTURE。估计每个个体的祖先成分比例。"
+    tool_id: "admixture"
+    params:
+      k_range: "2-10"
+      cv: 10
+
+  - rule_id: "struct-structure-003"
+    priority: 8
+    condition:
+      method_preference: "classic"
+      sample_count: "< 50"
+    recommend: "structure"
+    reason: "经典方法 → STRUCTURE。MCMC方法，计算量大但结果稳定。"
+    params:
+      k_range: "1-10"
+      burnin: 10000
+      mcmc_iterations: 100000
+      admixture_model: true
+
+  - rule_id: "struct-finestructure-004"
+    priority: 7
+    condition:
+      sample_count: ">= 50"
+      high_resolution: true
+    recommend: "finestructure"
+    reason: "高分辨率 → fineSTRUCTURE。适合大规模数据的精细结构分析。"
+    params:
+      mcmc_iterations: 100000
+      burnin: 10000
+      coancestry_matrix: true
+
+# ============================================================
+# 决策节点 2: 物种树推断
+# ============================================================
+species_tree:
+  - rule_id: "tree-astral-001"
+    priority: 10
+    condition:
+      has_gene_trees: true
+    recommend: "astral"
+    reason: "基因树整合 → ASTRAL。基于基因树的物种树推断，考虑基因树不一致性。"
+    tool_id: "astral"
+    params:
+      bootstrap: true
+      quartet_support: true
+      branch_length: "coalescent"
+
+  - rule_id: "tree-snaq-002"
+    priority: 9
+    condition:
+      has_gene_trees: true
+      reticulation_expected: true
+    recommend: "snaq"
+    reason: "预期网状进化 → SNaQ。推断带有杂交边的网络树。"
+    tool_id: "phylornetworks"
+    params:
+      max_hybridizations: 3
+      optimization_runs: 10
+      tolerance: 1e-6
+
+  - rule_id: "tree-concatenated-003"
+    priority: 8
+    condition:
+      has_alignment: true
+      method_preference: "concatenation"
+    recommend: "iqtree_concatenated"
+    reason: "串联分析 → IQ-TREE串联建树。假设所有位点共享同一树。"
+    tool_id: "iqtree"
+    params:
+      model: "MFP"
+      bootstrap: 1000
+      partition_model: "MERGE"
+
+# ============================================================
+# 决策节点 3: ABBA-BABA检验
+# ============================================================
+abba_baba:
+  - rule_id: "abba-dsuite-001"
+    priority: 10
+    condition:
+      has_vcf: true
+      has_tree: true
+    recommend: "dsuite"
+    reason: "标准方法 → Dsuite。高效的ABBA-BABA检验，支持全基因组分析。"
+    tool_id: "dsuite"
+    params:
+      fbranch: true
+
+  - rule_id: "abba-d-stat-002"
+    priority: 9
+    condition:
+      sample_count: "< 20"
+    recommend: "d_statistic"
+    reason: "小样本 → 手动计算D统计量。使用ANGSD或自定义脚本。"
+    params:
+      jackknife: true
+      block_size: 1000000
+      significance: 0.05
+
+  - rule_id: "abba-fd-003"
+    priority: 10
+    condition:
+      introgression_quantification: true
+    recommend: "fd_analysis"
+    reason: "渐渗量化 → f4-ratio和f_d统计量。量化渐渗比例。"
+    params:
+      window_size: 50000
+      step_size: 10000
+      significance: 0.05
+
+# ============================================================
+# 决策节点 4: TreeMix分析
+# ============================================================
+treemix:
+  - rule_id: "treemix-standard-001"
+    priority: 10
+    condition:
+      sample_count: ">= 10"
+      species_count: ">= 3"
+    recommend: "treemix"
+    reason: "标准基因流推断 → TreeMix。推断群体历史和迁移事件。"
+    tool_id: "treemix"
+    params:
+      migration_edges: "0-5"
+      window_size: 1000
+
+  - rule_id: "treemix-large-002"
+    priority: 8
+    condition:
+      sample_count: ">= 50"
+    recommend: "treemix_large"
+    reason: "大数据集 → TreeMix大窗口模式。使用更大的窗口减少噪音。"
+    params:
+      migration_edges: "0-10"
+      window_size: 5000
+
+# ============================================================
+# 决策节点 5: 局部渐渗分析
+# ============================================================
+local_introgression:
+  - rule_id: "local-fd-window-001"
+    priority: 10
+    condition:
+      genome_data: true
+      window_analysis: true
+    recommend: "fd_sliding_window"
+    reason: "滑动窗口 → f_d滑动窗口分析。识别基因组上的渐渗区域。"
+    params:
+      window_size: 50000
+      step_size: 10000
+
+  - rule_id: "local-hmm-002"
+    priority: 9
+    condition:
+      high_resolution: true
+    recommend: "hmm_introgression"
+    reason: "高分辨率 → HMM方法。更精确地识别渐渗片段边界。"
+    params:
+      hidden_states: 2
+      emission_model: "multinomial"
+      training_method: "baum-welch"
+
+  - rule_id: "local-ancestry-003"
+    priority: 8
+    condition:
+      hybrid_individuals: true
+    recommend: "local_ancestry"
+    reason: "杂交个体 → 局部祖先推断。识别个体的渐渗片段。"
+    tool_id: "rfmix"
+    params:
+      reference_populations: 2
+      window_size: 0.2
+      recombination_rate: 1e-8
+
+# ============================================================
+# 决策节点 6: 渐渗方向推断
+# ============================================================
+direction_analysis:
+  - rule_id: "dir-fbranch-001"
+    priority: 10
+    condition:
+      has_tree: true
+      has_dsuite_results: true
+    recommend: "fbranch"
+    reason: "f-branch分析 → Dsuite的f-branch方法。推断渐渗方向。"
+    tool_id: "dsuite"
+    params:
+      significance: 0.05
+      multiple_testing: "fdr"
+
+  - rule_id: "dir-f4ratio-002"
+    priority: 9
+    condition:
+      has_outgroup: true
+    recommend: "f4_ratio"
+    reason: "f4-ratio → 估计渐渗比例和方向。"
+    params:
+      jackknife: true
+      block_size: 1000000
+      confidence_interval: 0.95
+
+  - rule_id: "dir-qll-003"
+    priority: 7
+    condition:
+      method_preference: "likelihood"
+    recommend: "qpaul"
+    reason: "似然方法 → qpaul方法。基于似然的渐渗方向推断。"
+    params:
+      method: "qpaul"
+      significance: 0.05
+      optimization: "quasinewton"
+
+# ============================================================
+# 决策节点 7: 网络进化分析
+# ============================================================
+network_analysis:
+  - rule_id: "net-phyml-001"
+    priority: 10
+    condition:
+      reticulation_expected: true
+      has_gene_trees: true
+    recommend: "phylonetworks"
+    reason: "网状进化 → PhyloNetworks。推断带有杂交边的进化网络。"
+    tool_id: "phylornetworks"
+    params:
+      max_hybridizations: 5
+      optimization_runs: 20
+      inheritance_prob: true
+
+  - rule_id: "net-split-graph-002"
+    priority: 8
+    condition:
+      visualization_needed: true
+    recommend: "split_decomposition"
+    reason: "可视化 → Split decomposition。可视化网状信号。"
+    params:
+      method: "neighbor-net"
+      distance_metric: "p-distance"
+      bootstrap: false
+
+# ============================================================
+# 决策节点 8: IQ-TREE ASC校正
+# ============================================================
+phylogenetic_correction:
+  - rule_id: "phylo-asc-001"
+    priority: 10
+    condition:
+      data_type: "snp"
+    recommend: "iqtree_asc"
+    reason: "SNP数据 → IQ-TREE ASC校正。SNP数据存在不变位点缺失偏差，必须使用ASC校正。"
+    tool_id: "iqtree"
+    params:
+      model: "MFP+ASC"
+      asc_correction: "--asc-corr lewis"
+
+fallback:
+  - rule_id: "gf-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      notification: true
+      log_decision: true

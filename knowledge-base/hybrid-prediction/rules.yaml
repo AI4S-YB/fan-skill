@@ -45,6 +45,10 @@ gca_sca:
     recommend: "gca_sca_nc2"
     reason: "NCII/双列杂交 → GCA+SCA估计"
     tool_id: "gca-sca"
+    params:
+      method: "REML"
+      random_gca: TRUE
+      random_sca: TRUE
 
   - rule_id: "hyb-gca-factorial-002"
     priority: 9
@@ -52,6 +56,11 @@ gca_sca:
       design: "factorial"
     recommend: "gca_sca_factorial"
     reason: "因子设计 → 部分双列杂交GCA估计"
+    params:
+      method: "REML"
+      partial_diallel: true
+      estimate_gca_only: true
+      combining_ability_model: "additive"
 
   - rule_id: "hyb-gca-pedigree-003"
     priority: 8
@@ -59,6 +68,11 @@ gca_sca:
       has_pedigree: true
     recommend: "blup_pedigree"
     reason: "有系谱 → BLUP育种值估计"
+    params:
+      method: "BLUP"
+      pedigree_model: "additive"
+      relationship_matrix: "A"
+      variance_component: "REML"
 
 # ============================================================
 # Decision Node 2: Heterotic Group Classification
@@ -69,6 +83,12 @@ heterotic_group:
     recommend: "genomic_heterotic_grouping"
     reason: "基因组数据 → 分子标记划分杂优群"
     tool_id: "heterotic-group"
+    params:
+      method: "PCA"
+      clustering: "kmeans"
+      n_clusters: "auto"
+      genetic_distance: "Nei"
+      marker_selection: "neutral"
 
   - rule_id: "hyb-heterotic-pedigree-002"
     priority: 6
@@ -76,6 +96,12 @@ heterotic_group:
       has_pedigree: true
     recommend: "pedigree_based_grouping"
     reason: "系谱数据 → 系谱聚类划分杂优群"
+    params:
+      method: "hierarchical"
+      clustering: "Ward"
+      kinship_threshold: 0.25
+      distance_metric: "kinship_coefficient"
+      min_group_size: 5
 
   - rule_id: "hyb-heterotic-phenotype-003"
     priority: 7
@@ -84,6 +110,12 @@ heterotic_group:
       has_genotype: false
     recommend: "phenotype_based_grouping"
     reason: "仅有表型 → 基于配合力划分杂优群"
+    params:
+      method: "GCA_clustering"
+      traits: ["yield", "quality"]
+      clustering: "kmeans"
+      combining_ability_weight: 0.7
+      heterosis_threshold: 0.15
 
 # ============================================================
 # Decision Node 3: Cross Prediction
@@ -96,6 +128,10 @@ cross_prediction:
     recommend: "genomic_best_linear_prediction"
     reason: "有基因型 → 基因组预测未测杂交组合"
     tool_id: "cross-prediction"
+    params:
+      model: "GBLUP"
+      n_folds: 5
+      n_repeat: 3
 
   - rule_id: "hyb-gca-based-prediction-002"
     priority: 8
@@ -103,6 +139,12 @@ cross_prediction:
       has_genotype: false
     recommend: "gca_based_prediction"
     reason: "无基因型 → 基于GCA预测杂交表现"
+    params:
+      method: "GCA_additive"
+      predict_heterosis: false
+      use_sca: false
+      mid_parent_heterosis: true
+      confidence_interval: 0.95
 
   - rule_id: "hyb-bayesian-prediction-003"
     priority: 11
@@ -111,6 +153,13 @@ cross_prediction:
       prefer_bayesian: true
     recommend: "bayes_rrblup"
     reason: "高密度标记 → BayesR/BayesB考虑标记效应异质性"
+    params:
+      model: "BayesR"
+      n_iterations: 15000
+      burn_in: 5000
+      prior: "mixture_normal"
+      n_components: 4
+      variance_priors: "inverse_wishart"
 
 # ============================================================
 # Decision Node 4: Mate Selection
@@ -121,6 +170,14 @@ mate_selection:
     recommend: "optimal_contribution_with_constraints"
     reason: "最优贡献选择+育种约束"
     tool_id: "mate-selection"
+    params:
+      method: "optimal_contribution"
+      max_inbreeding: 0.05
+      n_mates: 10
+      constraints: ["inbreeding", "coancestry"]
+      objective_weights:
+        genetic_gain: 0.7
+        diversity: 0.3
 
   - rule_id: "hyb-mate-genetic-gain-002"
     priority: 6
@@ -128,6 +185,12 @@ mate_selection:
       objective: "genetic_gain"
     recommend: "truncation_selection_with_inbreeding_control"
     reason: "遗传增益最大化 → 截断选择+近交控制"
+    params:
+      method: "truncation_selection"
+      selection_intensity: 0.2
+      max_inbreeding_rate: 0.01
+      n_generations: 3
+      selection_index_weights: null
 
 # ============================================================
 # Decision Node 5: Visualization
@@ -138,6 +201,12 @@ visualization:
     recommend: "heterotic_group_plot"
     reason: "杂优群PCA+MDS可视化"
     tool_id: "visualization"
+    params:
+      plot_type: "PCA"
+      color_by: "heterotic_group"
+      dimensions: 2
+      show_centroids: true
+      ellipse_confidence: 0.95
 
   - rule_id: "hyb-vis-cross-prediction-002"
     priority: 6
@@ -145,6 +214,13 @@ visualization:
       has_prediction_result: true
     recommend: "prediction_accuracy_scatter"
     reason: "预测准确性散点图"
+    params:
+      plot_type: "scatter"
+      x_axis: "predicted"
+      y_axis: "observed"
+      show_diagonal: true
+      show_r2: true
+      show_rmse: true
 
 # ============================================================
 # Fallback
@@ -154,6 +230,8 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
 
 design_gates:
   - id: "hybrid-training-population"

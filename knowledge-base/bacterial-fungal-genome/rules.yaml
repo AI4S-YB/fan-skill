@@ -1,0 +1,454 @@
+name: bacterial-fungal-genome
+description: "Bacterial and fungal genome assembly and annotation. Covers short-read (SPAdes), long-read (Flye), and hybrid (Unicycler) assembly approaches. Includes Prokka annotation, antiSMASH secondary metabolite prediction, CAZy carbohydrate enzyme annotation, and comparative genomics. Uses a dual-mode decision system."
+
+triggers:
+  - "bacterial genome"
+  - "fungal genome"
+  - "bacteria assembly"
+  - "fungi assembly"
+  - "prokaryote genome"
+  - "microbial genome"
+  - "antismash"
+  - "secondary metabolite"
+  - "cazy"
+  - "prokka"
+
+inputs:
+  - sequencing_reads
+  - reference_genome_optional
+
+outputs:
+  - genome_assembly
+  - gene_annotations
+  - functional_annotations
+  - secondary_metabolite_clusters
+  - comparative_genomics_results
+  - analysis_report
+
+version: "1.0"
+analysis: bacterial_fungal_genome
+
+# ============================================================
+# 实验设计门禁
+# ============================================================
+design_gates:
+  - id: "bf-reads-available"
+    rule: "需要测序数据"
+    check: "has_reads == true"
+    severity: "block"
+    on_fail: "无测序数据 → 无法进行基因组组装。"
+  - id: "bf-read-type"
+    rule: "推荐长读长或混合平台"
+    check: "has_long_reads == true or has_hybrid_data == true"
+    severity: "warn"
+    on_fail: "仅有短读长 → 组装可能不完整，重复区域和环状结构难以解析。建议补充长读长数据。"
+  - id: "bf-coverage-check"
+    rule: "覆盖度推荐 >= 50x"
+    check: "coverage >= 50"
+    severity: "warn"
+    on_fail: "覆盖度不足 → 可能影响组装完整性。细菌推荐100x+，真菌推荐50x+。"
+
+# ============================================================
+# 决策节点 1: 组装策略选择
+# ============================================================
+assembly:
+  - rule_id: "bf-unicycler-hybrid-001"
+    priority: 10
+    condition:
+      has_short_reads: true
+      has_long_reads: true
+      need_complete_genome: true
+    recommend: "unicycler_hybrid"
+    reason: "混合组装 → Unicycler结合短读长精度和长读长连续性。适合获得完整环状基因组（细菌）或高质量框架（真菌）。"
+    tool_id: "assembly"
+    params:
+      mode: "bold"
+      min_fasta_length: 500
+      min_component_size: 1000
+      min_dead_end_size: 1000
+
+  - rule_id: "bf-flye-long-002"
+    priority: 10
+    condition:
+      has_long_reads: true
+      has_short_reads: false
+    recommend: "flye_long_read"
+    reason: "长读长组装 → Flye专为长读长设计。适合PacBio或ONT数据。需要后续polishing。"
+    tool_id: "assembly"
+    params:
+      genome_size: "auto"
+      min_overlap: 1000
+      meta: false
+
+  - rule_id: "bf-spades-short-003"
+    priority: 9
+    condition:
+      has_short_reads: true
+      has_long_reads: false
+    recommend: "spades_short_read"
+    reason: "短读长组装 → SPAdes专为细菌基因组优化。适合高质量Illumina数据。可能产生contig级别组装。"
+    tool_id: "assembly"
+    params:
+      careful: true
+      cov_cutoff: "auto"
+
+  - rule_id: "bf-canu-correction-004"
+    priority: 8
+    condition:
+      has_long_reads: true
+      need_correction: true
+    recommend: "canu_correction"
+    reason: "长读长矫正 → Canu用于长读长纠错和组装。适合高错误率的ONT数据。"
+    tool_id: "assembly"
+    params:
+      genome_size: "auto"
+      cor_out_coverage: 40
+      cor_min_coverage: 2
+      raw_correction: true
+
+# ============================================================
+# 决策节点 2: Polishing策略
+# ============================================================
+polishing:
+  - rule_id: "bf-medaka-ont-001"
+    priority: 10
+    condition:
+      platform: "ont"
+    recommend: "medaka_polish"
+    reason: "ONT纠错 → Medaka专门针对ONT数据优化。使用神经网络模型校正序列错误。"
+    tool_id: "polishing"
+    params:
+      model: "auto"
+      threads: 16
+
+  - rule_id: "bf-arrow-pacbio-002"
+    priority: 10
+    condition:
+      platform: "pacbio"
+    recommend: "arrow_polish"
+    reason: "PacBio纠错 → Arrow/Gcpp是PacBio官方纠错工具。"
+    tool_id: "polishing"
+    params:
+      algorithm: "arrow"
+      min_coverage: 10
+      min_alt_count: 2
+      min_alt_fraction: 0.2
+
+  - rule_id: "bf-pilon-hybrid-003"
+    priority: 10
+    condition:
+      has_short_reads: true
+      has_assembly: true
+    recommend: "pilon_polish"
+    reason: "短读长纠错 → Pilon使用高精度Illumina数据校正组装错误。推荐2-3轮。"
+    tool_id: "polishing"
+    params:
+      rounds: 2
+      fix: "all"
+
+# ============================================================
+# 决策节点 3: 基因注释
+# ============================================================
+gene_annotation:
+  - rule_id: "bf-prokka-bacteria-001"
+    priority: 10
+    condition:
+      organism_type: "bacteria"
+    recommend: "prokka"
+    reason: "细菌注释 → Prokka是细菌基因组注释的标准工具。整合Prodigal基因预测、Aragorn tRNA、Barrnap rRNA、SignalP等。"
+    tool_id: "annotation"
+    params:
+      kingdom: "Bacteria"
+      genus: "{genus}"
+      species: "{species}"
+      evalue: 1e-06
+      coverage: 80
+
+  - rule_id: "bf-dfast-bacteria-002"
+    priority: 9
+    condition:
+      organism_type: "bacteria"
+      need_comprehensive: true
+    recommend: "dfast"
+    reason: "全面细菌注释 → DFAST提供更全面的注释，包括毒力因子、抗性基因等。"
+    tool_id: "annotation"
+    params:
+      genome_type: "bacteria"
+      database: "default"
+      min_gene_length: 90
+      evalue: 1e-06
+
+  - rule_id: "bf-braker-fungal-003"
+    priority: 10
+    condition:
+      organism_type: "fungi"
+      has_rnaseq: true
+    recommend: "braker3_fungal"
+    reason: "真菌注释 → BRAKER3结合RNA-seq证据进行真菌基因预测。使用fungi特定的BUSCO lineage。"
+    tool_id: "annotation"
+    params:
+      lineage: "fungi_odb10"
+      etpmode: true
+
+  - rule_id: "bf-augustus-fungal-004"
+    priority: 9
+    condition:
+      organism_type: "fungi"
+      has_rnaseq: false
+    recommend: "augustus_fungal"
+    reason: "真菌从头注释 → AUGUSTUS使用真菌训练集进行基因预测。"
+    tool_id: "annotation"
+    params:
+      species: "aspergillus_nidulans"
+
+# ============================================================
+# 决策节点 4: 功能注释
+# ============================================================
+functional_annotation:
+  - rule_id: "bf-eggnog-mapper-001"
+    priority: 10
+    condition:
+      has_protein_fasta: true
+    recommend: "eggnog_mapper"
+    reason: "功能注释 → EggNOG-mapper提供GO、KEGG、COG等全面功能注释。"
+    tool_id: "functional"
+    params:
+      database: "bacteria"  # or "fungi"
+      go_evidence: "all"
+
+  - rule_id: "bf-interproscan-002"
+    priority: 9
+    condition:
+      has_protein_fasta: true
+      need_domains: true
+    recommend: "interproscan"
+    reason: "结构域注释 → InterProScan提供蛋白结构域和功能位点注释。"
+    tool_id: "functional"
+    params:
+      applications: ["Pfam", "SMART", "CDD", "PROSITE", "Gene3D"]
+      goterms: true
+      pathways: true
+      evalue: 1e-05
+
+# ============================================================
+# 决策节点 5: CMPP专项注释
+# ============================================================
+cmpp_annotation:
+  - rule_id: "bf-cazy-annotation-001"
+    priority: 10
+    condition:
+      need_carbohydrate_enzymes: true
+    recommend: "cazy_annotation"
+    reason: "CAZy注释 → 碳水化合物活性酶注释，包括糖苷水解酶(GH)、糖基转移酶(GT)、多糖裂解酶(PL)、碳水化合物酯酶(CE)等。使用dbCAN2或run_dbcan。"
+    tool_id: "cazy"
+    params:
+      dbcan_db: "dbCAN"
+      evalue: 1e-5
+      coverage: 0.35
+
+  - rule_id: "bf-merops-annotation-002"
+    priority: 9
+    condition:
+      need_proteases: true
+    recommend: "merops_annotation"
+    reason: "MEROPS注释 → 蛋白酶和蛋白酶抑制剂注释。"
+    tool_id: "merops"
+    params:
+      blast_evalue: 1e-5
+      identity_cutoff: 30
+
+  - rule_id: "bf-p450-annotation-003"
+    priority: 9
+    condition:
+      need_p450: true
+    recommend: "p450_annotation"
+    reason: "P450注释 → 细胞色素P450酶注释，对真菌次级代谢重要。"
+    tool_id: "p450"
+    params:
+      hmmscan_evalue: 1e-5
+
+  - rule_id: "bf-phi-base-annotation-004"
+    priority: 8
+    condition:
+      organism_type: "fungi"
+      need_pathogen_info: true
+    recommend: "phi_base_annotation"
+    reason: "PHI-base注释 → 病原菌-宿主相互作用相关基因注释。"
+    tool_id: "phi_base"
+    params:
+      blast_evalue: 1e-5
+
+# ============================================================
+# 决策节点 6: 次级代谢基因簇
+# ============================================================
+secondary_metabolites:
+  - rule_id: "bf-antismash-bacteria-001"
+    priority: 10
+    condition:
+      organism_type: "bacteria"
+    recommend: "antismash_bacteria"
+    reason: "细菌次级代谢 → antiSMASH预测细菌次级代谢基因簇(BGC)，包括PKS、NRPS、萜类、羊毛硫肽等。输出已知BGC的相似性比较。"
+    tool_id: "antismash"
+    params:
+      taxon: "bacteria"
+      cb_knownclusters: true
+      cb_subclusters: true
+      asf: true
+      smcog_trees: true
+
+  - rule_id: "bf-antismash-fungi-002"
+    priority: 10
+    condition:
+      organism_type: "fungi"
+    recommend: "antismash_fungi"
+    reason: "真菌次级代谢 → antiSMASH真菌模式，预测真菌特异的BGC类型。"
+    tool_id: "antismash"
+    params:
+      taxon: "fungi"
+
+  - rule_id: "bf-prism-003"
+    priority: 8
+    condition:
+      need_bgc_detail: true
+    recommend: "prism"
+    reason: "补充BGC预测 → PRISM提供额外的BGC预测和化学结构预测。"
+    tool_id: "prism"
+    params:
+      analyze_all: true
+      predict_clusters: true
+      output_format: "json"
+
+# ============================================================
+# 决策节点 7: 比较基因组学
+# ============================================================
+comparative_genomics:
+  - rule_id: "bf-phylogeny-001"
+    priority: 10
+    condition:
+      has_multiple_genomes: true
+    recommend: "core_genome_phylogeny"
+    reason: "核心基因组系统发育 → 使用core-genome比对构建系统发育树。适合物种/菌株水平比较。"
+    tool_id: "phylogeny"
+    params:
+      method: "roary"  # or "panx", "panaroo"
+      tree_builder: "iq-tree"
+
+  - rule_id: "bf-ani-calculation-002"
+    priority: 10
+    condition:
+      need_species_delineation: true
+    recommend: "ani_calculation"
+    reason: "ANI计算 → 平均核苷酸一致性用于物种界定。>95% ANI通常为同一物种。"
+    tool_id: "ani"
+    params:
+      method: "fastani"
+
+  - rule_id: "bf-synteny-003"
+    priority: 9
+    condition:
+      has_reference_genome: true
+    recommend: "synteny_analysis"
+    reason: "共线性分析 → Mauve或MUMmer进行基因组比对和共线性可视化。"
+    tool_id: "synteny"
+    params:
+      tool: "progressive_mauve"
+
+  - rule_id: "bf-gene-family-004"
+    priority: 8
+    condition:
+      has_multiple_genomes: true
+      need_pan_genome: true
+    recommend: "pan_genome_analysis"
+    reason: "泛基因组分析 → Roary或Panaroo构建泛基因组。识别核心基因和附属基因。"
+    tool_id: "pan_genome"
+    params:
+      tool: "panaroo"
+      core_threshold: 0.99
+      min_identity: 95
+      aligner: "mafft"
+
+# ============================================================
+# 决策节点 8: 抗性基因注释
+# ============================================================
+resistance_genes:
+  - rule_id: "bf-card-annotation-001"
+    priority: 10
+    condition:
+      need_antibiotic_resistance: true
+    recommend: "card_rgi"
+    reason: "抗性基因注释 → CARD数据库的RGI工具预测抗生素抗性基因。"
+    tool_id: "resistance"
+    params:
+      include_loose: true
+      exclude_nudge: true
+
+  - rule_id: "bf-resfinder-002"
+    priority: 9
+    condition:
+      organism_type: "bacteria"
+      need_phenotype: true
+    recommend: "resfinder"
+    reason: "抗性表型预测 → ResFinder预测抗生素抗性表型。"
+    tool_id: "resistance"
+    params:
+      min_coverage: 60
+      threshold: 90
+      database: "resfinder"
+
+# ============================================================
+# 决策节点 9: 质量评估
+# ============================================================
+quality_assessment:
+  - rule_id: "bf-quast-001"
+    priority: 10
+    condition:
+      has_assembly: true
+    recommend: "quast_assessment"
+    reason: "组装质量评估 → QUAST计算N50、总长度、基因数等统计指标。"
+    tool_id: "qc"
+    params:
+      min_contig: 500
+
+  - rule_id: "bf-busco-bacteria-002"
+    priority: 10
+    condition:
+      organism_type: "bacteria"
+    recommend: "busco_bacteria"
+    reason: "细菌完整性评估 → BUSCO使用bacteria_odb10评估基因组完整性。"
+    tool_id: "qc"
+    params:
+      lineage: "bacteria_odb10"
+      mode: "genome"
+
+  - rule_id: "bf-busco-fungi-003"
+    priority: 10
+    condition:
+      organism_type: "fungi"
+    recommend: "busco_fungi"
+    reason: "真菌完整性评估 → BUSCO使用fungi_odb10评估基因组完整性。"
+    tool_id: "qc"
+    params:
+      lineage: "fungi_odb10"
+      mode: "genome"
+
+  - rule_id: "bf-checkm-004"
+    priority: 9
+    condition:
+      organism_type: "bacteria"
+      is_metagenome_assembly: false
+    recommend: "checkm"
+    reason: "基因组完整性评估 → CheckM使用单拷贝标记基因评估完整性和污染度。"
+    tool_id: "qc"
+    params:
+      lineage_set: "auto"
+      reduce_analysis: false
+      threads: 16
+
+fallback:
+  - rule_id: "bf-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      reason: "No matching rule found"
+      suggestion: "Consult specialist for custom approach"

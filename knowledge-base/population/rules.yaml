@@ -55,6 +55,7 @@ k_range:
     condition:
       sample_count: ">= 100"
     recommend: "K=1 to 15"
+    params: {k_min: 1, k_max: 15, cv_folds: 10, max_iter: 500, tolerance: 1e-6, random_seed: 42, n_bootstrap: 100}
     reason: "大样本可能需要更多祖先成分"
 
   - rule_id: "k-small-dataset-002"
@@ -62,6 +63,7 @@ k_range:
     condition:
       sample_count: "< 100"
     recommend: "K=1 to 8"
+    params: {k_min: 1, k_max: 8, cv_folds: 5, max_iter: 200, tolerance: 1e-5, random_seed: 42, n_bootstrap: 50}
     reason: "小样本限定 K 上限避免过拟合"
 
 # Population structure interpretation
@@ -71,6 +73,7 @@ structure_interpretation:
     condition:
       pc1_variance: ">= 0.15"
     interpretation: "strong_discrete_structure"
+    params: {n_pcs: 10, clustering_method: "kmeans", min_cluster_size: 5, silhouette_threshold: 0.5, visualization_type: "discrete"}
     reason: "PC1 > 15% → 明显的离散亚群"
 
   - rule_id: "struct-moderate-002"
@@ -78,6 +81,7 @@ structure_interpretation:
     condition:
       pc1_variance: ">= 0.05"
     interpretation: "moderate_structure"
+    params: {n_pcs: 15, clustering_method: "hierarchical", linkage: "ward", min_cluster_size: 3, silhouette_threshold: 0.3, visualization_type: "gradient"}
     reason: "PC1 5-15% → 适度的群体结构"
 
   - rule_id: "struct-weak-003"
@@ -85,6 +89,7 @@ structure_interpretation:
     condition:
       pc1_variance: "< 0.05"
     interpretation: "weak_continuous_structure"
+    params: {n_pcs: 20, clustering_method: "gaussian_mixture", n_components: 3, covariance_type: "full", visualization_type: "continuous", use_spatial_coords: true}
     reason: "PC1 < 5% → 无明显群体分化或沿连续梯度分布"
 
   - rule_id: "struct-polyploid-004"
@@ -92,6 +97,7 @@ structure_interpretation:
     condition:
       ploidy: ["allopolyploid", "autopolyploid"]
     interpretation: "caution_polyploid"
+    params: {n_pcs: 15, allele_dosage_correction: true, autopolyploid_mode: false, use_polyploid_pca: true, minor_allele_freq_threshold: 0.01, genotype_likelihood_method: "freebayes"}
     reason: "多倍体物种的 PCA 解释需谨慎"
 
 # Fst interpretation
@@ -101,24 +107,28 @@ fst_interpretation:
     condition:
       fst_value: ">= 0.25"
     interpretation: "very_great_differentiation"
+    params: {fst_window_size: 100000, fst_step_size: 10000, min_snps_per_window: 10, outlier_percentile: 99, bootstrap_replicates: 1000, confidence_level: 0.95}
 
   - rule_id: "fst-great-002"
     priority: 5
     condition:
       fst_value: ">= 0.15"
     interpretation: "great_differentiation"
+    params: {fst_window_size: 50000, fst_step_size: 5000, min_snps_per_window: 15, outlier_percentile: 97.5, bootstrap_replicates: 500, confidence_level: 0.95}
 
   - rule_id: "fst-moderate-003"
     priority: 5
     condition:
       fst_value: ">= 0.05"
     interpretation: "moderate_differentiation"
+    params: {fst_window_size: 25000, fst_step_size: 2500, min_snps_per_window: 20, outlier_percentile: 95, bootstrap_replicates: 500, confidence_level: 0.95}
 
   - rule_id: "fst-low-004"
     priority: 5
     condition:
       fst_value: "< 0.05"
     interpretation: "low_differentiation"
+    params: {fst_window_size: 10000, fst_step_size: 1000, min_snps_per_window: 30, outlier_percentile: 90, bootstrap_replicates: 1000, confidence_level: 0.99, use_hudson_estimator: true}
 
 # Fallback
 fallback:
@@ -126,6 +136,7 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params: {reason: "no_matching_rule"}
 
 design_gates:
   - id: "pop-sampling-adequate"

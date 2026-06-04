@@ -42,6 +42,10 @@ assembly:
     recommend: "megahit"
     reason: "中等-大数据量 → MEGAHIT高效"
     tool_id: "megahit"
+    params:
+      min_count: 2
+      k_list: "21,33,55,77,99,127"
+      preserv_temp: FALSE
 
   - rule_id: "meta-metaspades-sensitive-002"
     priority: 9
@@ -49,7 +53,13 @@ assembly:
       data_volume: "small"
     recommend: "metaspades"
     reason: "小数据量 → metaSPAdes更敏感"
-    tool_id: "preprocessing"
+    tool_id: "metaspades"
+    params:
+      meta: true
+      k: "21,33,55,77,99,127"
+      careful: true
+      threads: 16
+      memory: 32
 
   - rule_id: "meta-hybrid-assembly-003"
     priority: 11
@@ -57,6 +67,13 @@ assembly:
       has_long_reads: true
     recommend: "hybrid_assembly"
     reason: "有长读长 → 混合组装提升连续性"
+    tool_id: "metaspades"
+    params:
+      meta: true
+      nanopore: "{long_read_file}"
+      k: "21,33,55,77"
+      threads: 24
+      memory: 64
 
 # ============================================================
 # Decision Node 2: Preprocessing / Quality Control
@@ -66,7 +83,14 @@ preprocessing:
     priority: 10
     recommend: "fastp_trimming"
     reason: "fastp质控+去宿主"
-    tool_id: "preprocessing"
+    tool_id: "fastp"
+    params:
+      qualified_quality_phred: 20
+      length_required: 50
+      cut_front: true
+      cut_tail: true
+      detect_adapter_for_se: true
+      thread: 8
 
   - rule_id: "meta-kneaddata-host-002"
     priority: 11
@@ -74,6 +98,12 @@ preprocessing:
       host_contamination: true
     recommend: "kneaddata_dehost"
     reason: "需去宿主污染 → KneadData比对宿主基因组"
+    tool_id: "kneaddata"
+    params:
+      reference: "{host_reference_db}"
+      threads: 12
+      bowtie2_options: "--very-sensitive"
+      remove_intermediate_output: true
 
 # ============================================================
 # Decision Node 3: Binning
@@ -84,6 +114,10 @@ binning:
     recommend: "metabat2"
     reason: "MetaBAT2自动分箱"
     tool_id: "metabat2"
+    params:
+      min_contig: 1500
+      sensitive: TRUE
+      min_cv_sum: 1
 
   - rule_id: "meta-concoct-002"
     priority: 11
@@ -91,6 +125,13 @@ binning:
       binning_method: "composition"
     recommend: "concoct"
     reason: "基于组成的分箱 → CONCOCT四核苷酸频率"
+    tool_id: "concoct"
+    params:
+      chunk_length: 10000
+      overlap_length: 0
+      kmer_length: 4
+      read_length: 100
+      threads: 16
 
   - rule_id: "meta-maxbin-003"
     priority: 7
@@ -98,6 +139,12 @@ binning:
       binning_method: "coverage"
     recommend: "maxbin2"
     reason: "基于覆盖度的分箱 → MaxBin2"
+    tool_id: "maxbin2"
+    params:
+      min_contig_length: 1000
+      max_iteration: 50
+      prob_threshold: 0.9
+      threads: 16
 
   - rule_id: "meta-das-tool-ensemble-004"
     priority: 11
@@ -105,6 +152,11 @@ binning:
       binning_consensus: true
     recommend: "das_tool"
     reason: "多工具共识分箱 → DASTool整合结果"
+    tool_id: "das_tool"
+    params:
+      score_threshold: 0.5
+      duplicate_similarity: 0.99
+      threads: 16
 
 # ============================================================
 # Decision Node 4: MAG Quality Assessment
@@ -115,6 +167,10 @@ mag_qc:
     recommend: "checkm_quality"
     reason: "CheckM评估MAG完整性和污染"
     tool_id: "checkm"
+    params:
+      completeness_threshold: 50
+      contamination_threshold: 10
+      extension: "fa"
 
   - rule_id: "meta-gtdbtk-002"
     priority: 11
@@ -123,6 +179,12 @@ mag_qc:
       classification: true
     recommend: "gtdbtk_classify"
     reason: "GTDB-Tk物种分类"
+    tool_id: "gtdbtk"
+    params:
+      workflow: "classify_wf"
+      extension: "fa"
+      cpus: 24
+      memory: 64
 
 # ============================================================
 # Decision Node 5: Functional Annotation
@@ -132,7 +194,12 @@ annotation:
     priority: 5
     recommend: "prokka_or_dram"
     reason: "MAG功能注释"
-    tool_id: "functional-annotation"
+    tool_id: "dram"
+    params:
+      min_contig_length: 1000
+      use_uniref: false
+      threads: 16
+      verbose: true
 
   - rule_id: "meta-eggnog-002"
     priority: 4
@@ -140,6 +207,13 @@ annotation:
       database: "eggnog"
     recommend: "eggnog_mapper"
     reason: "EggNOG-mapper COG/KEGG注释"
+    tool_id: "eggnog_mapper"
+    params:
+      mode: "diamond"
+      data_dir: "{eggnog_db_path}"
+      cpu: 16
+      annotate_hits_table: true
+      go_evidence: "non-electronic"
 
   - rule_id: "meta-kegg-plant-003"
     priority: 4
@@ -147,6 +221,11 @@ annotation:
       focus: "plant_pathway"
     recommend: "kegg_decoder"
     reason: "植物相关通路 → KEGG-Decoder可视化"
+    tool_id: "kegg_decoder"
+    params:
+      input_file: "{kegg_annotation_file}"
+      output_file: "{output_prefix}_pathways.tsv"
+      format: "heatmap"
 
 # ============================================================
 # Decision Node 6: Visualization
@@ -156,7 +235,12 @@ visualization:
     priority: 5
     recommend: "phyloseq_barplot"
     reason: "群落组成 → phyloseq柱状图+PCoA"
-    tool_id: "visualization"
+    tool_id: "phyloseq"
+    params:
+      plot_type: "barplot"
+      top_n_taxa: 20
+      color_palette: "Set2"
+      pcoa_method: "bray"
 
 # ============================================================
 # Fallback
@@ -166,6 +250,9 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "No matching rule found"
+      suggestion: "Consult with bioinformatics expert for custom analysis"
 
 design_gates:
   - id: "metag-negative-control"

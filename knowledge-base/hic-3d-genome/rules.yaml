@@ -1,0 +1,345 @@
+name: hic-3d-genome
+description: "Plant 3D genome analysis using Hi-C data. Covers loop detection, TAD calling, compartment analysis, and differential analysis. Full pipeline from raw data to 3D structure visualization."
+triggers:
+  - "hic"
+  - "hi-c"
+  - "3d genome"
+  - "chromatin conformation"
+  - "loop detection"
+  - "tad"
+  - "topologically associating domain"
+  - "compartment"
+  - "contact map"
+
+inputs:
+  - hic_fastq
+  - reference_genome
+  - restriction_enzyme
+  - contact_matrix
+
+outputs:
+  - contact_map
+  - loops
+  - tads
+  - compartments
+  - differential_results
+  - analysis_report
+
+version: "1.0"
+analysis: hic_3d_genome
+
+inputs_required:
+  - hic_data
+  - reference_genome
+
+# ============================================================
+# 实验设计门禁：在生成分析计划前自动检查
+# ============================================================
+design_gates:
+  - id: "hic-raw-data"
+    rule: "必须有Hi-C数据（原始FASTQ或处理后的矩阵）"
+    check: "has_hic_data == true"
+    severity: "block"
+    on_fail: "没有Hi-C数据 → 无法进行三维基因组分析。Hi-C数据可以通过Illumina测序获得，需要使用限制性内切酶(如MboI)交联和酶切。"
+  - id: "hic-genome-assembly"
+    rule: "必须有参考基因组（染色体水平）"
+    check: "has_reference_genome == true"
+    severity: "block"
+    on_fail: "没有参考基因组 → 无法进行Hi-C比对和分析。需要染色体水平的基因组组装，contig水平的组装可以用于scaffolding但无法做完整的3D分析。"
+  - id: "hic-enzyme-info"
+    rule: "需要知道限制性内切酶类型"
+    check: "has_enzyme_info == true"
+    severity: "warn"
+    on_fail: "未知内切酶 → 可能影响比对效率。常用内切酶：MboI (GATC)、HindIII (AAGCTT)、DpnII (GATC)。"
+  - id: "hic-sequencing-depth"
+    rule: "测序深度足够（建议>100M reads）"
+    check: "sequencing_depth >= 100000000"
+    severity: "warn"
+    on_fail: "测序深度不足 → 可能无法达到高分辨率分析。建议>100M PE reads用于基本TAD分析，>500M用于精细Loop检测。"
+  - id: "hic-biological-reps"
+    rule: "有生物学重复"
+    check: "biological_replicates >= 2"
+    severity: "warn"
+    on_fail: "无生物学重复 → 差异分析结果可靠性降低。建议每个条件至少2个生物学重复。"
+
+# ============================================================
+# 决策节点 1: 数据预处理流程
+# ============================================================
+preprocessing:
+  - rule_id: "preprocess-raw-fastq-001"
+    priority: 10
+    condition:
+      data_format: "raw_fastq"
+    recommend: "juicer_pipeline"
+    reason: "原始FASTQ数据 → Juicer完整流程。Juicer是Hi-C数据处理的金标准，从原始数据到contact矩阵一步到位。"
+    tool_id: "juicer"
+    params:
+      restriction_enzyme: "MboI"
+      thread: 16
+
+  - rule_id: "preprocess-fastqc-002"
+    priority: 9
+    condition:
+      data_format: "raw_fastq"
+      qc_needed: true
+    recommend: "fastqc_preprocessing"
+    reason: "需要质控 → FastQC评估数据质量。检查接头污染、碱基质量等。"
+    tool_id: "fastqc"
+    params:
+      threads: 8
+      format: "fastq"
+      contaminants: "adapters"
+
+  - rule_id: "preprocess-matrix-ready-003"
+    priority: 8
+    condition:
+      data_format: "contact_matrix"
+    recommend: "skip_to_analysis"
+    reason: "已有contact矩阵 → 跳过预处理直接分析。常见格式：.hic、.cool、.mcool。"
+    params:
+      input_format: "auto_detect"
+      validate_matrix: true
+
+# ============================================================
+# 决策节点 2: 比对策略
+# ============================================================
+alignment:
+  - rule_id: "align-bwa-mem-001"
+    priority: 10
+    condition:
+      genome_quality: "good"
+    recommend: "bwa_mem"
+    reason: "高质量基因组 → BWA-MEM标准比对。Hi-C数据的比对策略与普通DNA-seq类似，但需要注意配对规则。"
+    tool_id: "bwa-mem"
+    params:
+      thread: 16
+      algorithm: "mem"
+
+  - rule_id: "align-bowtie2-002"
+    priority: 8
+    condition:
+      genome_quality: "fragmented"
+    recommend: "bowtie2_sensitive"
+    reason: "碎片化基因组 → Bowtie2敏感模式。对于组装质量较差的基因组，使用更敏感的比对参数。"
+    tool_id: "bowtie2"
+    params:
+      mode: "--very-sensitive"
+
+# ============================================================
+# 决策节点 3: Contact矩阵构建
+# ============================================================
+matrix_building:
+  - rule_id: "matrix-juicer-001"
+    priority: 10
+    condition:
+      pipeline: "juicer"
+    recommend: "juicer_tools"
+    reason: "Juicer流程 → 使用Juicer工具构建.hic格式矩阵。支持多分辨率，便于下游分析。"
+    tool_id: "juicer"
+    params:
+      output_format: "hic"
+      resolutions: "2500000,1000000,500000,250000,100000,50000,25000,10000,5000"
+      normalization: "KR"
+
+  - rule_id: "matrix-cooler-002"
+    priority: 9
+    condition:
+      pipeline: "custom"
+    recommend: "cooler"
+    reason: "自定义流程 → Cooler构建.cool格式矩阵。灵活控制bin大小和标准化方法。"
+    tool_id: "cooler"
+    params:
+      bin_size: 10000
+
+# ============================================================
+# 决策节点 4: Loop检测
+# ============================================================
+loop_detection:
+  - rule_id: "loop-hiccups-001"
+    priority: 10
+    condition:
+      resolution: "<= 10000"
+      species_type: "human_mouse"
+    recommend: "hiccups"
+    reason: "高分辨率数据 → HiCCUPS Loop检测。Juicer内置的Loop检测工具，使用GPU加速。"
+    tool_id: "juicer"
+    params:
+      resolution: 5000
+
+  - rule_id: "loop-mustache-002"
+    priority: 9
+    condition:
+      resolution: "> 10000"
+    recommend: "mustache"
+    reason: "较低分辨率 → Mustache Loop检测。对分辨率要求较低，适合大多数植物Hi-C数据。"
+    tool_id: "mustache"
+    params:
+      resolution: 10000
+      fdr_threshold: 0.05
+      min_distance: 50000
+
+  - rule_id: "loop-fit-hi-c-003"
+    priority: 8
+    condition:
+      species_type: "plant"
+      resolution: ">= 10000"
+    recommend: "fit_hi_c"
+    reason: "植物Hi-C → Fit-Hi-C。对植物基因组的非标准参数更友好。"
+    tool_id: "fit-hi-c"
+    params:
+      distance_range: "0-10000000"
+
+# ============================================================
+# 决策节点 5: TAD识别
+# ============================================================
+tad_calling:
+  - rule_id: "tad-arrowhead-001"
+    priority: 10
+    condition:
+      pipeline: "juicer"
+      resolution: "<= 25000"
+    recommend: "arrowhead"
+    reason: "Juicer流程高分辨率 → Arrowhead TAD检测。Juicer内置工具，与HiCCUPS配合使用。"
+    tool_id: "juicer"
+    params:
+      resolution: 10000
+
+  - rule_id: "tad-insulation-002"
+    priority: 9
+    condition:
+      pipeline: "custom"
+    recommend: "insulation_score"
+    reason: "自定义流程 → Insulation Score方法。基于方向性指数和insulation score识别TAD边界。"
+    tool_id: "cooltools"
+    params:
+      window_size: 500000
+
+  - rule_id: "tad-hicexplorer-003"
+    priority: 8
+    condition:
+      species_type: "plant"
+    recommend: "hicexplorer_tad"
+    reason: "植物基因组 → HiCExplorer TAD检测。对植物基因组的非典型特征更友好。"
+    tool_id: "hicexplorer"
+    params:
+      min_depth: 60000
+      max_depth: 1000000
+
+# ============================================================
+# 决策节点 6: Compartment分析
+# ============================================================
+compartment_analysis:
+  - rule_id: "comp-eigen-001"
+    priority: 10
+    condition:
+      resolution: ">= 50000"
+    recommend: "eigenvector_decomposition"
+    reason: "标准分辨率 → 特征向量分解识别A/B区室。基于GC含量相关性的标准方法。"
+    tool_id: "juicer"
+    params:
+      resolution: 100000
+
+  - rule_id: "comp-cooltools-002"
+    priority: 9
+    condition:
+      pipeline: "custom"
+    recommend: "cooltools_eigs"
+    reason: "Cooler格式 → CoolTools特征向量分解。支持标准化后的矩阵。"
+    tool_id: "cooltools"
+    params:
+      resolution: 100000
+      n_eigs: 3
+      phasing_track: "gc_content"
+
+# ============================================================
+# 决策节点 7: 差异分析
+# ============================================================
+differential_analysis:
+  - rule_id: "diff-multihicnorm-001"
+    priority: 10
+    condition:
+      sample_count: ">= 2"
+      biological_replicates: ">= 2"
+    recommend: "multihicnorm_diff"
+    reason: "多样本有重复 → MultiHiCnorm差异分析。标准化后进行统计检验。"
+    tool_id: "multihicnorm"
+    params:
+      bin_size: 40000
+      fdr: 0.05
+      method: "nb"
+
+  - rule_id: "diff-selfish-002"
+    priority: 9
+    condition:
+      sample_count: ">= 2"
+      biological_replicates: ">= 3"
+    recommend: "selfish"
+    reason: "多重复 → SELFISH差异分析。专门用于检测Hi-C数据差异的统计方法。"
+    tool_id: "selfish"
+    params:
+      resolution: 40000
+      fdr: 0.05
+      min_distance: 50000
+      max_distance: 2000000
+
+  - rule_id: "diff-simple-compare-003"
+    priority: 6
+    condition:
+      biological_replicates: "< 2"
+    recommend: "simple_comparison"
+    reason: "无重复 → 只能做简单比较。观察contact map差异，不能做统计推断。"
+    params:
+      method: "visual_comparison"
+      normalize: true
+      log2_fold_change: true
+
+# ============================================================
+# 决策节点 8: 可视化
+# ============================================================
+visualization:
+  - rule_id: "viz-juicebox-001"
+    priority: 10
+    condition:
+      format: "hic"
+    recommend: "juicebox"
+    reason: ".hic格式 → Juicebox交互式可视化。支持放大缩小、轨迹叠加等功能。"
+    tool_id: "juicebox"
+    params:
+      normalize: "KR"
+      color_scale: "auto"
+      show_tads: true
+
+  - rule_id: "viz-hicexplorer-002"
+    priority: 9
+    condition:
+      format: "cool"
+    recommend: "hicexplorer_plot"
+    reason: ".cool格式 → HiCExplorer绘图。灵活的自定义选项。"
+    tool_id: "hicexplorer"
+    params:
+      colormap: "RdYlBu_r"
+      dpi: 300
+      region: "auto"
+      score: "auto"
+
+  - rule_id: "viz-pygenometracks-003"
+    priority: 8
+    condition:
+      custom_tracks: true
+    recommend: "pygenometracks"
+    reason: "需要叠加多轨道 → pyGenomeTracks。可以叠加基因、表观基因组等轨道。"
+    tool_id: "pygenometracks"
+    params:
+      tracks_config: "auto"
+      height: 10
+      width: 40
+      dpi: 300
+
+fallback:
+  - rule_id: "hic-fallback-999"
+    priority: 0
+    condition: "none_matched"
+    action: "delegate_to_expert"
+    params:
+      suggest_expert: "Hi-C specialist"
+      document_case: true

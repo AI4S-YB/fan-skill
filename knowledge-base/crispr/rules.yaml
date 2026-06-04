@@ -44,6 +44,10 @@ sgrna_design:
     recommend: "crispor_with_species_genome"
     reason: "主要作物 → CRISPOR有参考基因组"
     tool_id: "sgrna-design"
+    params:
+      pam: "NGG"
+      guide_length: 20
+      scoring: "doench2016"
 
   - rule_id: "crispr-crispr-p-custom-002"
     priority: 8
@@ -52,6 +56,10 @@ sgrna_design:
     recommend: "crispr_p_with_custom_genome"
     reason: "非模式物种 → CRISPR-P上传自定义基因组"
     tool_id: "sgrna-design"
+    params:
+      pam: "NGG"
+      guide_length: 20
+      custom_genome: true
 
   - rule_id: "crispr-chopchop-003"
     priority: 7
@@ -59,6 +67,10 @@ sgrna_design:
       prefer_local: true
     recommend: "chopchop_local"
     reason: "偏好本地运行 → CHOPCHOP命令行"
+    params:
+      mode: "local"
+      pam: "NGG"
+      guide_length: 20
 
 # ============================================================
 # Decision Node 2: Off-Target Analysis
@@ -69,6 +81,10 @@ off_target:
     recommend: "cas_offinder"
     reason: "Cas-OFFinder全基因组脱靶搜索"
     tool_id: "off-target"
+    params:
+      mismatch_max: 3
+      dna_bulge: 0
+      rna_bulge: 0
 
   - rule_id: "crispr-crispr-offinder-002"
     priority: 11
@@ -76,6 +92,9 @@ off_target:
       tool: "crispr_rgen"
     recommend: "crispr_rgen_offinder"
     reason: "CRISPR RGEN Tools脱靶评估"
+    params:
+      mismatch_max: 3
+      allow_bulge: true
 
   - rule_id: "crispr-mismatch-filter-003"
     priority: 11
@@ -83,6 +102,9 @@ off_target:
       has_multiple_guides: true
     recommend: "mismatch_count_filter"
     reason: "多个sgRNA → 按错配数过滤最优"
+    params:
+      max_offtarget_mismatch: 2
+      filter_by_specificity: true
 
 # ============================================================
 # Decision Node 3: Editing Efficiency Prediction
@@ -93,6 +115,9 @@ editing_efficiency:
     recommend: "deepspcas9_prediction"
     reason: "DeepSpCas9预测编辑效率"
     tool_id: "editing-efficiency"
+    params:
+      model: "DeepSpCas9"
+      efficiency_threshold: 0.5
 
   - rule_id: "crispr-azimuth-plant-002"
     priority: 6
@@ -100,6 +125,9 @@ editing_efficiency:
       species_detected: ["oryza_sativa", "arabidopsis_thaliana"]
     recommend: "azimuth_plant_model"
     reason: "水稻/拟南芥 → Azimuth植物模型"
+    params:
+      model: "Azimuth"
+      species_specific: true
 
   - rule_id: "crispr-indelphi-003"
     priority: 6
@@ -107,6 +135,9 @@ editing_efficiency:
       predict_repair: true
     recommend: "indelphi_repair_prediction"
     reason: "需要预测修复结果 → inDelphi微同源介导修复"
+    params:
+      model: "inDelphi"
+      predict_frameshift: true
 
 # ============================================================
 # Decision Node 4: HDR Template Design
@@ -119,6 +150,10 @@ hdr_template:
     recommend: "hdr_template_design"
     reason: "Knock-in → HDR供体模板设计"
     tool_id: "hdr-template"
+    params:
+      homology_arm_length: 800
+      donor_type: "plasmid"
+      silent_mutations: true
 
   - rule_id: "crispr-prime-editing-002"
     priority: 4
@@ -126,6 +161,9 @@ hdr_template:
       editing_type: "prime_editing"
     recommend: "peg_finder"
     reason: "Prime Editing → pegFinder设计pegRNA"
+    params:
+      peg_rna_length: 20
+      nick_position: "optimal"
 
 # ============================================================
 # Decision Node 5: Validation Strategy
@@ -136,6 +174,9 @@ validation:
     recommend: "pcr_sanger_targeted"
     reason: "靶向PCR+Sanger测序验证基因型"
     tool_id: "validation"
+    params:
+      pcr_product_size: [400, 800]
+      sequencing_method: "sanger"
 
   - rule_id: "crispr-valid-ngs-002"
     priority: 6
@@ -143,6 +184,10 @@ validation:
       multiplex: true
     recommend: "amplicon_ngs"
     reason: "多重编辑 → 扩增子NGS检测"
+    params:
+      amplicon_pool: true
+      min_coverage: 100
+      variant_detection: true
 
 # ============================================================
 # Decision Node 6: Visualization
@@ -153,6 +198,10 @@ visualization:
     recommend: "sgrna_structure_plot"
     reason: "sgRNA结构+靶位点可视化"
     tool_id: "visualization"
+    params:
+      show_sequence: true
+      show_pam: true
+      show_offtargets: true
 
 # ============================================================
 # Fallback
@@ -162,6 +211,8 @@ fallback:
     priority: 0
     condition: "none_matched"
     action: "delegate_to_expert"
+    params:
+      reason: "no_matching_rule"
 
 design_gates:
   - id: "crispr-reference-genome"
