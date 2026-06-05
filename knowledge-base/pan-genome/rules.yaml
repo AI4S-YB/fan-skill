@@ -197,14 +197,17 @@ design_gates:
     rule: "泛基因组分析至少需要 3 个种质的基因组组装"
     check: "accession_count >= 3"
     severity: "block"
-    on_fail: "< 3 个种质 → 不足以构建有意义的泛基因组。一个基因组 + 一个近缘种质的比较是 comparative genomics，不是 pan-genomics。泛基因组需要捕获物种内的基因存在/缺失变异 (PAV)。"
+    on_fail: |
+      < 3 个种质 → 不足以构建有意义的泛基因组。一个基因组 + 一个近缘种质的比较是 comparative genomics，不是 pan-genomics。泛基因组需要捕获物种内遗传多样性。
   - id: "pan-assembly-quality"
     rule: "每个种质的基因组组装质量应达到染色体水平或至少 scaffold N50 > 1Mb"
     check: "assembly_quality_adequate == true"
     severity: "warn"
-    on_fail: "组装质量不足 → 基因存在/缺失的判定会受组装完整性影响。片段化组装中"缺失"的基因可能是组装间隙导致的，而非真正的缺失变异。"
+    on_fail: |
+      组装质量不足 → 基因存在/缺失的判定会受组装完整性影响。片段化组装中"缺失"的基因可能是组装间隙导致的，而非真正的缺失变异。
   - id: "pan-annotation-consistency"
     rule: "所有种质的基因注释应使用统一的方法和参数"
     check: "uniform_annotation_pipeline == true"
     severity: "block"
-    on_fail: "不同种质使用不同的注释方法 → 基因数量的差异可能来自注释方法的不同，而非生物学上的基因存在/缺失变异。必须用统一的 annotation pipeline（如 BRAKER3 + 相同参数）对所有种质进行注释。"
+    on_fail: |
+      不同种质使用不同的注释方法 → 基因数量的差异可能来自注释方法的不同，而非生物学上的基因存在/缺失变异。必须用统一的 annotation pipeline（如 BRAKER3 + 相同参数）对所有种质进行注释。
