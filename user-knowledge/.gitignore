@@ -1,0 +1,4 @@
+# User's personal knowledge layer — not tracked in git
+*
+!.gitignore
+!.gitkeep
