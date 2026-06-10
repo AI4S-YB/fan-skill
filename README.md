@@ -1,6 +1,6 @@
 # fan-skill
 
-AI-powered plant bioinformatics and breeding analysis engine. From biological question to publication-ready results. Knowledge-base driven with B+C dual-mode decision architecture.
+AI-powered plant bioinformatics and breeding analysis engine. From biological question to publication-ready results. Three-layer knowledge architecture (personal → general → Agent fallback) with B+C dual-mode decision system.
 
 > 🇨🇳 [中文文档](README_CN.md)
 
@@ -37,28 +37,39 @@ User says "find genes controlling grain weight"
         ▼
 ┌─────────────────────────────────┐
 │  SKILL.md                       │  ← Unified entry point
-│  Intent → Match → Discover → Execute
+│  Intent → Three-Layer Match → Execute
 └──────────────┬──────────────────┘
                │
     ┌──────────┼──────────┐
     ▼          ▼          ▼
-┌───────┐ ┌───────┐ ┌───────┐
-│ gwas  │ │rnaseq │ │  ...  │  ← knowledge-base/ (30 entries)
-│ rules │ │ rules │ │       │     Each: C-layer rules + B-layer notebook
-└───┬───┘ └───┬───┘ └───┬───┘
-    │         │         │
-    └─────────┼─────────┘
-              ▼
+┌────────┐ ┌───────┐ ┌───────┐
+│  User  │ │ gwas  │ │rnaseq │  ← user-knowledge/ (your experience)
+│ entry  │ │ rules │ │ rules │     knowledge-base/ (31 curated)
+└───┬────┘ └───┬───┘ └───┬───┘
+    │          │         │
+    └──────────┼─────────┘
+               ▼
 ┌─────────────────────────────────┐
 │  engine/                        │  ← Shared execution engine
 │  rule_engine · validate · log   │
 └─────────────────────────────────┘
-              │
-              ▼
-    Analysis report + decision log + figures
+               │
+    ┌──────────┼──────────┐
+    ▼          ▼          ▼
+  分析报告   决策日志   图表
+               │
+    (未匹配时) Agent 兜底推理 → 沉淀到 user-knowledge/
 ```
 
 Validated on apple RNA-seq and rice candidate gene analysis. Each decision is auditable.
+
+### Three-Layer Knowledge
+
+| Layer | Path | Priority | Content |
+|-------|------|:--------:|---------|
+| **User** | `user-knowledge/` | 🔺 Highest | Your personal analysis experience. Starts empty, grows with use. |
+| **General** | `knowledge-base/` | 🔸 Default | 31 curated entries covering major plant bioinfo workflows. |
+| **Agent Fallback** | (model reasoning) | 🔻 Last resort | When neither layer matches, the Agent reasons and can precipitate results into your user layer. |
 
 ### B+C Dual-Mode
 
@@ -67,6 +78,7 @@ Validated on apple RNA-seq and rice candidate gene analysis. Each decision is au
 | **C-layer (Rule)** | Deterministic — same data → same method | `rules.yaml` |
 | **B-layer (Expert)** | Flexible — expert reasoning for edge cases | `notebook.md` |
 | **User control** | `decision_mode: rule | expert | hybrid` | `params.yaml` |
+| **User entries** | Minimum `meta.yaml` + `notebook.md`; optional `rules.yaml` | `user-knowledge/` |
 
 ## Capabilities
 
@@ -91,13 +103,14 @@ Fan-skill encodes **judgment knowledge** — how an expert decides what analysis
 
 - **Pipeline problem**: fixed steps fail on diverse data
 - **Atomic skill problem**: free composition creates unstable invocation paths
-- **Fan-skill solution**: C-layer encodes "what method" as structured rules; B-layer encodes "why" as expert reasoning. Users control stability vs flexibility via `decision_mode`.
+- **Fan-skill solution**: Three-layer knowledge architecture. Your personal experience (`user-knowledge/`) takes priority over the 31 curated entries (`knowledge-base/`). When neither matches, Agent reasoning serves as fallback and can be saved as new personal entries — the system grows with you.
+- **B+C dual-mode**: C-layer encodes "what method" as structured rules; B-layer encodes "why" as expert reasoning. Both layers coexist in every entry.
 
 Every decision is auditable — `engine/log_decision.sh` records why each choice was made.
 
 ## Contribute
 
-New analysis = 4 files (not 14). See **[Contributing Guide](docs/en/contributing.md)**.
+**To the general knowledge base:** New analysis = 4 files (not 14). See **[Contributing Guide](docs/en/contributing.md)**.
 
 ```bash
 cp templates/rules-template.yaml knowledge-base/<name>/rules.yaml
@@ -105,6 +118,8 @@ cp templates/notebook-template.md knowledge-base/<name>/notebook.md
 # + consult-guide.md + analysis-primer.md
 engine/validate_entry.sh knowledge-base/<name>/
 ```
+
+**To your personal knowledge base:** Just use fan-skill. When Agent fallback solves a novel analysis, choose to save it — an entry is auto-generated in `user-knowledge/drafts/`. Review and confirm to move it to `user-knowledge/confirmed/`.
 
 ## License
 
