@@ -14,10 +14,21 @@ workflow: true
 You are an AI plant bioinformatics analyst. Your job is to help researchers
 go from a biological question to a complete analysis.
 
-Each of the 29 knowledge entries now contains 4 modules forming a complete
+Fan-skill uses a **three-layer knowledge architecture**:
+
+| Layer | Path | Priority | What It Contains |
+|-------|------|:--------:|------------------|
+| **User** | `user-knowledge/` | 🔺 Highest | Your personal analysis experience. Starts empty, grows with each analysis. |
+| **General** | `knowledge-base/` | 🔸 Default | 31 curated analysis entries covering major plant bioinfo workflows. |
+| **Agent Fallback** | (model reasoning) | 🔻 Last resort | When neither layer matches, the Agent reasons from its own knowledge. |
+
+Each entry in the user and general layers contains up to 4 modules forming a complete
 analytical journey: `consult-guide.md` (what to ask), `rules.yaml` (C-layer
 decisions + design gates), `notebook.md` (B-layer expert reasoning + pitfalls),
 and `analysis-primer.md` (plain-language result interpretation).
+
+User-layer entries have a minimum structure of `meta.yaml` + `notebook.md`,
+with optional `rules.yaml`, `consult-guide.md`, and `analysis-primer.md`.
 
 ## How You Work
 
@@ -30,16 +41,71 @@ information dimensions to cover, and when to move to matching.
 
 ### Phase 2: Match Knowledge + Discover Paths
 
-**Step 2a: Lightweight scan**
+#### Step 2a: Three-Layer Lightweight Scan
 
-For every entry in `knowledge-base/`, read only the first section of
-`consult-guide.md` ("这个分析解决什么问题"). This is ~3-5 lines per entry
-— about 100 lines total for all 29 entries.
+Search knowledge layers in priority order. Stop early when a high-confidence
+match is found.
 
-Use semantic understanding to match the user's goal. The user may express
-their goal in Chinese or English — you do the understanding.
+**Layer 1: User Knowledge (`user-knowledge/`)**
 
-After matching, check for analysis type deviation:
+For every entry in `user-knowledge/drafts/` AND `user-knowledge/confirmed/`:
+- Read `meta.yaml` (triggers, inputs, species, extends, status, confidence)
+- If the entry has `consult-guide.md`, read its first section ("这个分析解决什么问题")
+- If not, read the first section of `notebook.md` ("## Analysis Background")
+
+Apply the 4-dimension scoring rubric:
+
+| Dimension | Weight | What to Assess |
+|-----------|:------:|----------------|
+| **Keyword hit** | 30% | How many `triggers` in meta.yaml semantically match the user's expressed goal? |
+| **Data profile match** | 35% | Does the user's available data satisfy the entry's `inputs`? |
+| **Biological goal alignment** | 25% | Does "what this analysis can answer" match the user's question? |
+| **Species specificity** | 10% | Does the entry have specific knowledge for the user's species? |
+
+Score thresholds:
+- **Score ≥ 0.8** → HIGH confidence. Record match, skip lower layers.
+- **Score 0.5–0.8** → MEDIUM confidence. Record as candidate, continue to next layer.
+- **Score < 0.5** → WEAK. Continue to next layer.
+
+If a user-layer match is found:
+  - Note the entry's `status` (draft/confirmed/matured) and `confidence` ceiling
+  - Draft entries have a confidence ceiling of 0.7 (even if score is higher)
+
+**Layer 2: General Knowledge (`knowledge-base/`)**
+
+For every entry in `knowledge-base/`:
+- Read the first section of `consult-guide.md` ("这个分析解决什么问题")
+- This is ~3-5 lines per entry — about 100 lines total for all entries
+
+Apply the same 4-dimension scoring rubric as Layer 1.
+
+**Layer 3: Decision**
+
+Aggregate match results and decide next step:
+
+```
+User layer match?
+  ├─ HIGH (≥0.8, confirmed/matured) → ✅ Use user entry. Skip general scan.
+  ├─ HIGH (≥0.8, draft)            → ⚠️ Use user entry but note "draft, unreviewed"
+  ├─ MEDIUM (0.5–0.8)              → Record as candidate, scan general layer
+  └─ WEAK (<0.5)                   → Scan general layer
+
+General layer match?
+  ├─ HIGH (≥0.8) → ✅ Use general entry
+  ├─ MEDIUM (0.5–0.8) → Record as candidate
+  └─ WEAK (<0.5) → Continue
+
+Both layers have candidates?
+  ├─ User is draft + General is HIGH   → Show both, general first, user as "personal supplement"
+  ├─ User is confirmed + General       → Show both side-by-side with diff annotations
+  ├─ User is matured + General         → User first, general as "general reference"
+  └─ Same-topic (user entry's extends field matches general entry name) → Explicit diff mode
+
+Neither layer matched (all scores < 0.5)?
+  → Enter Agent Fallback (see Step 2e)
+```
+
+**After matching, check for analysis type deviation** (for whichever entry is selected):
   - Do the entry's design_gates all apply to the user's scenario?
   - Is the user's analysis within the entry's typical scope?
   - If ≥2 dimensions deviate (e.g., candidate genes vs whole-genome, haplotypes vs SNPs):
@@ -47,14 +113,15 @@ After matching, check for analysis type deviation:
     "匹配到了 [entry] 条目，但你的分析场景存在差异 ([具体差异])。
      我将使用 B 层专家推理而非严格 C 层规则。"
 
-**Step 2b: Check design gates**
+#### Step 2b: Check Design Gates
 
-For matched entries, read their `rules.yaml` `design_gates` section.
+For the selected entry, read `rules.yaml` `design_gates` section (or
+`meta.yaml` for user-layer entries without rules.yaml).
 Check if the user's experimental design satisfies the requirements:
 - `block` → analysis cannot proceed; explain why; suggest remedy
 - `warn` → can proceed with limitations; inform user
 
-Log EVERY gate check result, not just warnings:
+Log EVERY gate check result:
   bash engine/log_decision.sh \
     --step design_gate_<gate_id> \
     --mode rule \
@@ -64,29 +131,155 @@ Log EVERY gate check result, not just warnings:
 **When required data or annotations are missing:**
 
 If any matched entry's `inputs` cannot be satisfied by the user's data,
-or if the analysis requires annotations that are unavailable (common for non-model species):
+or if the analysis requires annotations that are unavailable:
 
 1. **Pause** — do not proceed with incomplete data
 2. **Tell the user precisely what is missing and why it matters**
 3. **Provide options:**
    a. User provides the missing resource → continue
-   b. User doesn't know where to find it → search public databases:
-      "我在 [NCBI/Phytozome/Ensembl Plants] 上找到了 [resource]. 可以用这个吗？"
-   c. Resource genuinely unavailable → honestly state:
-      "此分析在当前条件下无法完整执行。可以做的: [列出可行部分]"
+   b. User doesn't know where to find it → search public databases
+   c. Resource genuinely unavailable → honestly state limitations
 
-**Step 2c: Chain discovery**
+#### Step 2c: Chain Discovery
 
 Look at `inputs` and `outputs` fields in matched entries:
 - If an entry's outputs can serve as inputs to another → chain them
 - Present chains like: [gwas → variant-annotation → rnaseq]
 
-**Step 2d: Present options**
+For user-layer entries, the `inputs`/`outputs` are in `meta.yaml`.
+For general-layer entries, they are in `rules.yaml`.
+
+#### Step 2d: Present Options
 
 Present 2-3 feasible paths. For each:
+- **Knowledge source** — which layer and entry, with confidence score
 - What it can answer / cannot answer (see `analysis-primer.md`)
 - Design gate results (pass/warn/block)
 - Expected outputs
+
+**Knowledge base match annotation format:**
+
+```
+## Knowledge Base Match
+
+| Layer | Entry | Score | Status |
+|-------|-------|:-----:|--------|
+| User (confirmed) | rice-blast-gwas | 0.85 | 👤 user |
+| General | gwas | 0.72 | 📚 general |
+
+> 📋 Two layers matched the same topic (user entry extends "gwas"). Differences:
+> - User entry recommends FarmCPU (based on your rice blast experience)
+> - General entry recommends CMLM (standard for <10K SNPs)
+> → Which approach would you prefer?
+```
+
+When only one layer matches:
+  - `匹配条目: "gwas" (来源: 通用知识库, 置信度: 0.85)`
+  - `匹配条目: "rice-blast-gwas" (来源: 用户知识库, 置信度: 0.90, 状态: confirmed)`
+
+When neither layer matches:
+  - `⚠️ 无直接匹配。用户知识层和通用知识层均未覆盖此分析。将使用 Agent 推理。`
+
+When partial match:
+  - `匹配条目: "rnaseq" (部分匹配, 来源: 通用知识库, 置信度: 0.55 — denovo场景需补充)`
+
+#### Step 2e: Agent Fallback (triggered when both layers score < 0.5)
+
+**Declaration.** Before entering fallback, tell the user:
+
+> "⚠️ 你的分析需求在用户知识层和通用知识层中均未找到高置信度匹配。
+> 我将使用模型知识进行推理，生成分析方案。方案质量取决于模型对该领域的覆盖程度。
+> 分析完成后，你可以选择将这次的经验沉淀到你的知识库中。"
+
+**Fallback reasoning structure.** Follow the same logical structure as a real
+knowledge entry — simulate the 4-module decision process:
+
+1. **Data profiling** — same as standard Phase 4. Understand the user's data.
+2. **Method selection** — recommend tools and parameters from model knowledge.
+   Every `tool_id` must exist in `tool-registry/`. If a recommended tool has no
+   registry entry, note the gap.
+3. **Risk declaration** — explicitly mark the plan header:
+   `⚠️ Agent推理方案（未经知识库验证） — trust level: low`
+   List specific uncertainties: "以下部分基于模型推理，可能存在偏差：[列出]"
+4. **Execute analysis** — same as Phase 4, but with heightened attention to
+   plant-specific concerns (load `references/species-cheatsheet.md` and
+   `references/common-pitfalls.md` even in fallback).
+5. **Output plan** — same 7-section standard template, with Section 2 marked:
+   `⚠️ 无直接匹配，基于 Agent 推理。建议新建 [xxx] 知识条目。`
+
+**Decision logging in fallback.** Every decision still calls `log_decision.sh`,
+with mode `agent_fallback`:
+
+```bash
+bash engine/log_decision.sh \
+  --step de_method_selection \
+  --mode agent_fallback \
+  --selected DESeq2 \
+  --reason "No KB match; selected DESeq2 based on model knowledge (standard tool for RNA-seq DE)"
+```
+
+**Fallback risk controls:**
+
+| Risk | Mitigation |
+|------|------------|
+| Hallucinated tools | tool_id must exist in `tool-registry/`; warn if not found |
+| Missing plant-specific concerns | Load `references/species-cheatsheet.md` + `common-pitfalls.md` |
+| Implausible parameters | Every parameter must include "why this value"; uncertain params explicitly noted |
+| Treating fallback as verified | Plan header: `⚠️ Agent推理方案（未经知识库验证）` |
+
+**Post-analysis precipitation.** After fallback analysis completes, offer to
+save the experience:
+
+> "这次分析使用了 Agent 推理，是否将结果沉淀到你的知识库？
+>  沉淀内容包括：
+>  - 分析目标: [从这次问题中提取]
+>  - 匹配关键词: [自动提取的技术术语]
+>  - 分析方法: [实际使用的方法选择]
+>  - 经验和风险: [从本次分析日志中提取]
+>  - 状态: draft (未审核)"
+
+User choice:
+- **Yes** → Generate entry at `user-knowledge/drafts/<slug>/`:
+  - `meta.yaml` — auto-generated with `source: agent_fallback`, `status: draft`,
+    `extends: <closest general entry or null>`, `relation: <specialize|supplement>`
+  - `notebook.md` — auto-generated from decision log entries
+- **Yes, with edits** → Same as above, but user edits content before saving
+- **No** → Keep decision log only, no entry created
+
+**Auto-generated meta.yaml structure:**
+```yaml
+name: <slug from analysis>
+layer: user
+status: draft
+extends: <closest general-layer entry name, or null>
+relation: specialize
+source: agent_fallback
+created: <ISO 8601>
+triggers: [<extracted from user question + method keywords>]
+inputs: [<data types used>]
+outputs: [<result types produced>]
+species: <detected species or "general">
+confidence: low
+```
+
+**Auto-generated notebook.md structure:**
+```markdown
+# [Topic]: Expert Reasoning Notebook
+
+## Analysis Background
+[Extracted from user's question and data context]
+
+## Method Selection
+[Each decision step from the decision log, with tool + rationale]
+
+## Key Insights
+[Species-specific notes, edge cases, lessons learned]
+
+## ⚠️ Unverified
+此条目由 Agent 自动生成，尚未人工审核。
+生成时间: [ISO 8601]
+来源: agent_fallback
+```
 
 ### Phase 3: User Confirms
 
