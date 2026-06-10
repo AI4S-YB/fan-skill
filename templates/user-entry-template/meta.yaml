@@ -1,0 +1,24 @@
+# User Knowledge Entry — Meta
+# Fill in the fields below. Lines starting with # are comments.
+# Minimal valid entry: name + layer + status + triggers + inputs + outputs.
+
+name: ""                         # kebab-case slug, e.g. "rice-blast-gwas"
+layer: user                      # fixed: user
+status: draft                    # draft | confirmed | matured
+extends: null                    # closest general-layer entry name, or null
+relation: specialize             # specialize | override | supplement
+source: agent_fallback           # agent_fallback | manual | import
+created: ""                      # ISO 8601 date, e.g. "2026-06-11"
+updated: ""                      # ISO 8601 date
+triggers: []                     # keywords that trigger this entry
+  # - "gwas"
+  # - "rice blast resistance"
+inputs: []                       # data types this analysis requires
+  # - genotype_data
+  # - phenotype_data
+outputs: []                      # result types this analysis produces
+  # - significant_snp_table
+  # - manhattan_plot
+species: ""                      # target species, or "general"
+confidence: low                  # low | medium | high
+notes: ""                        # free-form notes about this entry
