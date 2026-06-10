@@ -1,9 +1,28 @@
 #!/bin/bash
 # validate_entry.sh — verify a knowledge entry meets B+C standards
 # Enhanced version with params coverage, plant-specific params, and tool_id checks
+# Usage:
+#   validate_entry.sh <entry_dir>                  # full 4-module validation (general layer)
+#   validate_entry.sh --layer user <entry_dir>     # minimal validation (user layer)
 set -euo pipefail
 
-ENTRY_DIR="${1:-.}"
+LAYER="general"
+ENTRY_DIR=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --layer)
+            LAYER="$2"
+            shift 2
+            ;;
+        *)
+            ENTRY_DIR="$1"
+            shift
+            ;;
+    esac
+done
+
+ENTRY_DIR="${ENTRY_DIR:-.}"
 ERRORS=0
 WARNINGS=0
 
@@ -12,20 +31,83 @@ PARAMS_COVERAGE_THRESHOLD=${PARAMS_COVERAGE_THRESHOLD:-60}
 
 echo "=== Validating: $ENTRY_DIR ==="
 
-# Check required files
-for f in rules.yaml notebook.md consult-guide.md analysis-primer.md; do
-    if [ -f "$ENTRY_DIR/$f" ]; then
-        echo "  [OK] $f"
-    else
-        echo "  [MISSING] $f"
-        ERRORS=$((ERRORS + 1))
+# Check required files — different requirements per layer
+if [ "$LAYER" = "user" ]; then
+    # User layer: meta.yaml + notebook.md required; rules.yaml/consult-guide.md/analysis-primer.md optional
+    for f in meta.yaml notebook.md; do
+        if [ -f "$ENTRY_DIR/$f" ]; then
+            echo "  [OK] $f"
+        else
+            echo "  [MISSING] $f (required for user layer)"
+            ERRORS=$((ERRORS + 1))
+        fi
+    done
+    for f in rules.yaml consult-guide.md analysis-primer.md; do
+        if [ -f "$ENTRY_DIR/$f" ]; then
+            echo "  [OK] $f (optional)"
+        else
+            echo "  [INFO] $f not present (optional for user layer)"
+        fi
+    done
+
+    # Validate meta.yaml structure (replaces rules.yaml validation for user layer)
+    if [ -f "$ENTRY_DIR/meta.yaml" ]; then
+        python3 -c "
+import yaml, sys
+
+with open('$ENTRY_DIR/meta.yaml') as f:
+    meta = yaml.safe_load(f)
+
+required = ['name', 'triggers', 'inputs', 'outputs']
+for key in required:
+    if key not in meta or not meta[key]:
+        print(f'  [MISSING] meta.yaml: {key} is empty or missing')
+        sys.exit(1)
+    else:
+        val = meta[key]
+        if isinstance(val, list):
+            print(f'  [OK] meta.yaml: {key} ({len(val)} items)')
+        else:
+            print(f'  [OK] meta.yaml: {key} = {val}')
+
+# Check extends field
+if 'extends' in meta:
+    print(f'  [OK] meta.yaml: extends = {meta[\"extends\"]}')
+else:
+    print('  [INFO] meta.yaml: no extends field (standalone entry)')
+
+# Check status
+if 'status' in meta:
+    status = meta['status']
+    if status in ('draft', 'confirmed', 'matured'):
+        print(f'  [OK] meta.yaml: status = {status}')
+    else:
+        print(f'  [WARN] meta.yaml: unknown status \"{status}\", expected draft/confirmed/matured')
+else:
+    print('  [INFO] meta.yaml: no status field')
+
+print(f'VALIDATION_PASSED=true')
+"
+        [ $? -ne 0 ] && ERRORS=$((ERRORS + 1))
     fi
-done
+else
+    # General layer: all 4 modules required (original behavior)
+    for f in rules.yaml notebook.md consult-guide.md analysis-primer.md; do
+        if [ -f "$ENTRY_DIR/$f" ]; then
+            echo "  [OK] $f"
+        else
+            echo "  [MISSING] $f"
+            ERRORS=$((ERRORS + 1))
+        fi
+    done
+fi
 
 # Check minimum line counts for new module files
 if [ -f "$ENTRY_DIR/consult-guide.md" ]; then
     LINES=$(wc -l < "$ENTRY_DIR/consult-guide.md" | tr -d ' ')
-    if [ "$LINES" -ge 30 ]; then
+    if [ "$LAYER" = "user" ]; then
+        echo "  [OK] consult-guide.md: $LINES lines (optional for user layer)"
+    elif [ "$LINES" -ge 30 ]; then
         echo "  [OK] consult-guide.md: $LINES lines (>= 30)"
     else
         echo "  [FAIL] consult-guide.md: $LINES lines (< 30 required)"
@@ -35,7 +117,9 @@ fi
 
 if [ -f "$ENTRY_DIR/analysis-primer.md" ]; then
     LINES=$(wc -l < "$ENTRY_DIR/analysis-primer.md" | tr -d ' ')
-    if [ "$LINES" -ge 20 ]; then
+    if [ "$LAYER" = "user" ]; then
+        echo "  [OK] analysis-primer.md: $LINES lines (optional for user layer)"
+    elif [ "$LINES" -ge 20 ]; then
         echo "  [OK] analysis-primer.md: $LINES lines (>= 20)"
     else
         echo "  [FAIL] analysis-primer.md: $LINES lines (< 20 required)"
@@ -43,8 +127,11 @@ if [ -f "$ENTRY_DIR/analysis-primer.md" ]; then
     fi
 fi
 
-# Validate rules.yaml structure
+# Validate rules.yaml structure (required for general layer, optional for user layer)
 if [ -f "$ENTRY_DIR/rules.yaml" ]; then
+    if [ "$LAYER" = "user" ]; then
+        echo "  [INFO] rules.yaml present (optional for user layer — performing deep check)"
+    fi
     python3 -c "
 import yaml, sys
 
