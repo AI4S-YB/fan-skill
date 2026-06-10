@@ -12,6 +12,10 @@ ENTRY_DIR=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --layer)
+            if [ -z "${2:-}" ] || [[ "$2" =~ ^-- ]]; then
+                echo "ERROR: --layer requires a value (general or user)"
+                exit 2
+            fi
             LAYER="$2"
             shift 2
             ;;
@@ -23,6 +27,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 ENTRY_DIR="${ENTRY_DIR:-.}"
+
+# Validate LAYER value
+if [ "$LAYER" != "general" ] && [ "$LAYER" != "user" ]; then
+    echo "ERROR: --layer must be \"general\" or \"user\", got \"$LAYER\""
+    exit 2
+fi
 ERRORS=0
 WARNINGS=0
 
