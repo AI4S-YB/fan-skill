@@ -285,7 +285,36 @@ confidence: low
 
 Let the user choose. If uncertain, confirm: "基于你的描述，我理解你想做 X 分析。对吗？"
   - Which steps are ready to run (data ✅) and which need additional data (data ❌)
-  ### Phase 3: User Confirms
+
+**When both user and general layers match the same topic:**
+
+If the user-layer entry's `meta.yaml` has `extends: <general_entry>` and
+both entries matched, show the differences clearly:
+
+```
+## 📋 你的个人知识库和通用知识库都有相关条目
+
+| | 用户知识库 | 通用知识库 |
+|---|-----------|-----------|
+| **条目** | rice-blast-gwas | gwas |
+| **状态** | 👤 confirmed | 📚 general |
+| **推荐方法** | FarmCPU | CMLM |
+| **理由** | 水稻稻瘟病抗性 GWAS 经验 | 低于10K SNP 的标准推荐 |
+| **关系** | specialize (你的条目是通用条目的特化版本) |
+
+你的条目推荐的方法与通用条目不同。请选择：
+A) 使用你的个人条目 (FarmCPU)
+B) 使用通用条目 (CMLM)
+C) 两者都看，我选参数更好的
+```
+
+If user entry `relation` is `override`, note that the user entry intentionally
+replaces the general recommendation.
+
+**When only Agent Fallback matched:**
+
+Remind the user:
+> "此方案由 Agent 推理生成，未经知识库验证。分析完成后可选择沉淀到你的知识库。"
 
 Let the user choose. If they need to explore further, loop back.
 
@@ -293,9 +322,26 @@ Let the user choose. If they need to explore further, loop back.
 
 For each step in the selected chain:
 
-1. Load `knowledge-base/<entry>/rules.yaml` (C-layer: decision rules)
-2. Load `knowledge-base/<entry>/notebook.md` (B-layer: expert reasoning)
-3. Match data profile to methods using the C-layer rules
+**Loading the entry (layer-aware):**
+
+If the entry is from the **user layer** (`user-knowledge/`):
+  1. Load `meta.yaml` for I/O contract (inputs/outputs) and metadata (extends, relation, confidence)
+  2. Load `notebook.md` for B-layer expert reasoning (always present)
+  3. If `rules.yaml` exists, load it for C-layer decision rules
+  4. If `rules.yaml` does NOT exist → this is a pure B-layer entry. Use notebook.md reasoning directly. This is valid — user entries don't require C-layer rules.
+  5. If `consult-guide.md` exists, reference it. If not, skip.
+
+If the entry is from the **general layer** (`knowledge-base/`):
+  1. Load `rules.yaml` (C-layer: decision rules) — always present
+  2. Load `notebook.md` (B-layer: expert reasoning) — always present
+  3. Load `consult-guide.md` and `analysis-primer.md` as needed
+
+If the entry is from **Agent Fallback** (no directory):
+  - The "entry" exists only in the decision log. Proceed with the fallback reasoning already documented in Phase 2e.
+  - Every tool_id must be verified against `tool-registry/`.
+  - Log with `--mode agent_fallback`.
+
+**After loading:** match data profile to methods using the C-layer rules (if available) or B-layer notebook reasoning (if no rules.yaml).
 
 **Decision Node Coverage Check (MANDATORY — do NOT skip ANY node):**
 
