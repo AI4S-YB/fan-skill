@@ -196,7 +196,8 @@ knowledge entry — simulate the 4-module decision process:
 
 1. **Data profiling** — same as standard Phase 4. Understand the user's data.
 2. **Method selection** — recommend tools and parameters from model knowledge.
-   Every `tool_id` must exist in `tool-registry/`. If a recommended tool has no
+   Every `tool_id` must exist in `tool-index/INDEX.yaml` or be discoverable
+   via WebSearch. If a recommended tool has no
    registry entry, note the gap.
 3. **Risk declaration** — explicitly mark the plan header:
    `⚠️ Agent推理方案（未经知识库验证） — trust level: low`
@@ -222,7 +223,7 @@ bash engine/log_decision.sh \
 
 | Risk | Mitigation |
 |------|------------|
-| Hallucinated tools | tool_id must exist in `tool-registry/`; warn if not found |
+| Hallucinated tools | tool_id must exist in `tool-index/INDEX.yaml` or be found via WebSearch; warn if not found |
 | Missing plant-specific concerns | Load `references/species-cheatsheet.md` + `common-pitfalls.md` |
 | Implausible parameters | Every parameter must include "why this value"; uncertain params explicitly noted |
 | Treating fallback as verified | Plan header: `⚠️ Agent推理方案（未经知识库验证）` |
@@ -338,7 +339,7 @@ If the entry is from the **general layer** (`knowledge-base/`):
 
 If the entry is from **Agent Fallback** (no directory):
   - The "entry" exists only in the decision log. Proceed with the fallback reasoning already documented in Phase 2e.
-  - Every tool_id must be verified against `tool-registry/`.
+  - Every tool_id must be verified against `tool-index/INDEX.yaml` or discovered via WebSearch.
   - Log with `--mode agent_fallback`.
 
 **After loading:** match data profile to methods using the C-layer rules (if available) or B-layer notebook reasoning (if no rules.yaml).
@@ -407,58 +408,124 @@ The decision log is your audit trail. If someone asks "why did you choose DESeq2
 
 4. Execute analysis based on the selected methods
 
-**Tool Documentation Check (MANDATORY — do NOT skip):**
+**Tool Availability Check (MANDATORY — do NOT skip):**
 
-BEFORE writing any analysis code, you MUST read the tool documentation for EVERY
-`tool_id` referenced by the matched rules.
+Fan-skill uses a **three-layer tool architecture** — lightweight registry
+backed by Agent web search capability. You do NOT need to memorize tools
+or read 200-line Cookbook files. Instead:
 
 ```
-For each tool_id in the matched rules:
-  Bash: head -5 tool-registry/<tool_id>.md
-  → Is it Full Cookbook, Basic, or Stub?
-  → If Cookbook: compare the code skeleton's ${PLACEHOLDERS} against the user's data.
-    Confirm each placeholder is resolved to a concrete value before writing code.
-  → If Basic/Stub: note the tool documentation level, then proceed with your knowledge.
+tool_id from rules.yaml
+        │
+        ▼
+┌─── tool-index/INDEX.yaml ───┐
+│  Find: source, package, env │
+│  Score (Bioconductor rank)  │
+│  plant_note (critical gotcha)│
+└──────────────┬──────────────┘
+               │
+    ┌──────────┼──────────┐
+    ▼          ▼          ▼
+  Found     Found but     NOT in INDEX
+  + env      no env       → Agent Fallback
+    │          │              │
+    ▼          ▼              ▼
+  Check env   Check system   WebSearch
+  installed?  installed?     "<tool_id> install bioconda"
+    │          │              │
+    ├─ YES → use directly     ├─ Find → install → verify
+    └─ NO  → install          └─ Install → verify → run
 ```
 
-**Why this matters:**
+**Step-by-step for EACH tool_id:**
 
-Even for tools you know well (DESeq2, PLINK), the Cookbook ensures consistency:
-- The same parameter names across different analyses
-- Plant-specific adjustments (polyploid handling, non-model species strategies)
-- The "when to change" decision table for edge cases
+1. **Look up in `tool-index/INDEX.yaml`** (one file, 289 entries):
+   - Get `source`, `package`, `env`, `plant_note`
+   - If `score` is high (Bioconductor top-ranked): this is a frequently-used,
+     well-validated tool — trust its parameters
 
-The recent apple RNA-seq test proved this: the code matched the Cookbook perfectly,
-but only because DESeq2 best practices are widely documented. For less common tools
-(GAPIT, MCScanX, GWASpoly), the Cookbook is the difference between correct parameters
-and guesswork.
+2. **Check if tool is already installed:**
+   ```bash
+   # Check conda env first (if env field is set)
+   conda run -n <env> which <tool> 2>/dev/null && echo "INSTALLED" || echo "NOT"
+   
+   # Check system PATH (for brew/apt/python tools)
+   command -v <tool> 2>/dev/null && echo "INSTALLED" || echo "NOT"
+   
+   # Check R package (for CRAN/Bioconductor tools)
+   R -q -e 'require("<package>")' 2>/dev/null && echo "INSTALLED" || echo "NOT"
+   ```
 
-**After the tool doc check, log the documentation level used:**
-```bash
-bash engine/log_decision.sh --step tool_documentation --mode rule \
-  --selected deseq2 --reason "Full Cookbook: lfcThreshold=1 (2-rep strategy from parameter decision table)"
-```
+3. **Install if missing** (match `source` field):
+   | source | Command |
+   |--------|---------|
+   | `bioconda` | `conda install -n <env> -c bioconda <package> -y` |
+   | `pypi` | `pip install <package>` |
+   | `cran` | `R -e 'BiocManager::install("<package>")'` |
+   | `github` | Search for build instructions → clone + make |
+   | `apt` | `sudo apt-get install <package> -y` |
+   | `brew` | `brew install <package>` |
+   | `binary` | WebSearch download URL → download → install |
 
-After the analysis, if you used tools with thin or missing documentation,
-note it: *"此次分析使用了 X，tool-registry 文档较薄。建议补充。"*
+4. **Verify installation:**
+   ```bash
+   <tool> --version 2>/dev/null || <tool> -v 2>/dev/null || echo "INSTALLED (no version flag)"
+   ```
 
-**If `tool_id` documentation is missing:**
+5. **Learn parameters (do not rely on memorized defaults):**
+   ```bash
+   <tool> --help 2>/dev/null | head -60
+   # For complex tools, search best practices:
+   # WebSearch "<tool> <analysis_type> parameters best practices plant"
+   ```
 
-This is a documentation gap, not a runtime error. The tool itself is still
-available via Bash. You have several fallback options:
+6. **Log the tool decision:**
+   ```bash
+   bash engine/log_decision.sh --step tool_setup --mode rule \
+     --selected <tool_id> \
+     --reason "INDEX.yaml: source=<source>, installed=<yes|no>, score=<n>"
+   ```
 
-| Priority | Action |
-|----------|--------|
-| 1 | Look for related tools in `tool-registry/` — similar tools often share patterns |
-| 2 | Use your own knowledge of the tool — you know GAPIT, DESeq2, PLINK etc. |
-| 3 | Check the parameters and error table in `rules.yaml` — rules encode key decisions |
-| 4 | If uncertain about parameters, ask the user: "工具 X 的文档暂缺，我将使用标准参数，可以吗？" |
+**Agent Fallback (when tool_id is NOT in INDEX.yaml):**
 
-After the analysis, if you used a missing tool_id, note it:
-*"此次分析使用了 tool_id: X，但 tool-registry/ 中暂无文档。建议补充。"*
+This is normal and expected — the index covers 289 tools but new tools appear
+constantly. Your fallback procedure:
 
-This way, missing documentation gets flagged naturally during use, rather than
-blocking analysis at validation time.
+1. **Search for the tool:**
+   ```
+   WebSearch "<tool_id> bioinformatics tool install conda pip github"
+   ```
+
+2. **Identify the installation source** — Bioconda? PyPI? CRAN? GitHub?
+   Check the search results for conda recipes, pip packages, README install
+   instructions.
+
+3. **Install using the appropriate command** (see Step 3 table above).
+
+4. **Read the documentation:**
+   - `tool --help` for CLI tools
+   - WebSearch for parameter best practices
+   - Check GitHub README for usage examples
+
+5. **Run with standard/plant-appropriate parameters.**
+   When uncertain, load `references/species-cheatsheet.md` and
+   `references/common-pitfalls.md` for domain context.
+
+6. **After the analysis, offer to save this tool to your personal layer:**
+   > "工具 `X` 不在索引中，此次从网络搜索安装。是否保存到你的工具注册表？"
+   
+   User confirms → append entry to `tool-index/user-tools/index.yaml`
+
+7. **Log with fallback mode:**
+   ```bash
+   bash engine/log_decision.sh --step tool_setup --mode agent_fallback \
+     --selected <tool_id> \
+     --reason "Not in INDEX.yaml. Web-searched and installed via <source>."
+   ```
+
+**After all tools are verified,** proceed with analysis code using the
+installed tools. The `plant_note` field in INDEX.yaml contains critical
+plant-specific gotchas — check it before writing parameters.
 
 **B-C Divergence Check (MANDATORY):**
 
@@ -557,7 +624,9 @@ Analysis report + decision log + figures.
 | User knowledge | `user-knowledge/confirmed/*/` | Your personal confirmed entries |
 | General knowledge | `knowledge-base/*/rules.yaml` | C-layer decision rules + I/O contracts |
 | General knowledge | `knowledge-base/*/notebook.md` | B-layer expert reasoning |
-| Tool registry | `tool-registry/*.md` | Tool documentation |
+| Tool index | `tool-index/INDEX.yaml` | Lightweight tool registry (source, package, env, plant_note) |
+| Tool rankings | `tool-index/BC-RANK.yaml` | Bioconductor download scores for prioritization |
+| User tools | `tool-index/user-tools/index.yaml` | Your personally installed and verified tools |
 | Chain discovery | `engine/discover_chains.py` | Multi-analysis path finding |
 | Rule engine | `engine/rule_engine.py` | C-layer condition matching |
 | Pipeline | `engine/run_pipeline.sh` | Long-running checkpointed execution |
