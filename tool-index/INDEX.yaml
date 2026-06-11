@@ -1,0 +1,2622 @@
+# Fan-Skill Tool Index
+# 
+# Lightweight tool registry — 8 fields per tool.
+# Agent uses this to find installation source and recommended environment.
+# When tool_id is NOT in this index, Agent uses WebSearch to discover it.
+#
+# Fields:
+#   id:         tool_id referenced in rules.yaml
+#   name:       Human-readable tool name
+#   purpose:    One-line description of what the tool does
+#   source:     Package source (bioconda|pypi|cran|github|apt|brew|binary|unknown)
+#   package:    Package name for installation command
+#   env:        Recommended conda environment (leave empty if generic)
+#   score:      Bioconductor download score (0 = no data available)
+#   plant_note: Plant-specific gotcha or important parameter note
+#   rule_count: Number of rules.yaml rules referencing this tool_id
+#
+# Total entries: 289
+# Generated: 2026-06-11
+
+tools:
+  - id: Rtsne
+    name: Rtsne
+    purpose: Auto-discovered: Rtsne
+    source: unknown
+    package: Rtsne
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: admixture
+    name: admixture
+    purpose: 群体结构推断
+    source: bioconda
+    package: admixture
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: agrigo
+    name: agrigo
+    purpose: Auto-discovered: agrigo
+    source: unknown
+    package: agrigo
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: ancestralchrom
+    name: ancestralchrom
+    purpose: Auto-discovered: ancestralchrom
+    source: unknown
+    package: ancestralchrom
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: ani
+    name: ani
+    purpose: Auto-discovered: ani
+    source: unknown
+    package: ani
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: annotation
+    name: annotation
+    purpose: 功能注释 (通用)
+    source: bioconda
+    package: eggnog-mapper
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: antismash
+    name: antismash
+    purpose: 次级代谢基因簇检测
+    source: bioconda
+    package: antismash
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: ape
+    name: ape
+    purpose: Auto-discovered: ape
+    source: unknown
+    package: ape
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: assembly
+    name: assembly
+    purpose: 基因组组装 (通用)
+    source: bioconda
+    package: spades
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: association-test
+    name: association-test
+    purpose: 关联检验
+    source: bioconda
+    package: plink
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 5
+  - id: astalavista
+    name: astalavista
+    purpose: Auto-discovered: astalavista
+    source: unknown
+    package: astalavista
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: astral
+    name: astral
+    purpose: 基因树到物种树汇总
+    source: github
+    package: smirarab/ASTRAL
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: barrnap
+    name: barrnap
+    purpose: rRNA基因预测
+    source: bioconda
+    package: barrnap
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: batchelor
+    name: batchelor
+    purpose: 批次校正
+    source: bioconda
+    package: bioconductor-batchelor
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: bayes-letters
+    name: bayes-letters
+    purpose: 多重比较字母标注
+    source: cran
+    package: multcompView
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: bcftools
+    name: bcftools
+    purpose: VCF/BCF 变异数据操作
+    source: bioconda
+    package: bcftools
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: beagle
+    name: beagle
+    purpose: 基因型填充和定相
+    source: bioconda
+    package: beagle
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: biomaRt
+    name: biomaRt
+    purpose: Auto-discovered: biomaRt
+    source: unknown
+    package: biomaRt
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: bismark
+    name: bismark
+    purpose: 亚硫酸盐测序比对
+    source: bioconda
+    package: bismark
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: blast
+    name: blast
+    purpose: 序列比对搜索
+    source: bioconda
+    package: blast
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: blast2go
+    name: blast2go
+    purpose: Auto-discovered: blast2go
+    source: unknown
+    package: blast2go
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: blink
+    name: blink
+    purpose: BLINK Bayesian GWAS
+    source: github
+    package: jiabowang/GAPIT
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: blup-blues
+    name: blup-blues
+    purpose: BLUP/BLUE育种值预测
+    source: cran
+    package: lme4
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: bowtie2
+    name: bowtie2
+    purpose: 短序列比对
+    source: bioconda
+    package: bowtie2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: bsrseq
+    name: bsrseq
+    purpose: BSR-seq分析
+    source: pypi
+    package: QTLseqr
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: busco
+    name: busco
+    purpose: 基因组完整性评估
+    source: bioconda
+    package: busco
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: bwa-mem
+    name: bwa-mem
+    purpose: BWA-MEM 长读长比对
+    source: bioconda
+    package: bwa
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: cafe
+    name: cafe
+    purpose: Auto-discovered: cafe
+    source: unknown
+    package: cafe
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: cazy
+    name: cazy
+    purpose: 碳水化合物活性酶注释
+    source: bioconda
+    package: run_dbcan
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: cdhit
+    name: cdhit
+    purpose: 序列去冗余聚类
+    source: bioconda
+    package: cd-hit
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: cellranger
+    name: cellranger
+    purpose: 10x Genomics数据处理
+    source: binary
+    package: cellranger
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: censor
+    name: censor
+    purpose: Auto-discovered: censor
+    source: unknown
+    package: censor
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: centromere-assembly
+    name: centromere-assembly
+    purpose: Auto-discovered: centromere-assembly
+    source: unknown
+    package: centromere-assembly
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: checkm
+    name: checkm
+    purpose: MAG质量评估
+    source: bioconda
+    package: checkm
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: circlize
+    name: circlize
+    purpose: 圆形可视化
+    source: bioconda
+    package: bioconductor-circlize
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: circos
+    name: circos
+    purpose: 基因组环形可视化
+    source: bioconda
+    package: circos
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: cis-trans
+    name: cis-trans
+    purpose: cis/trans eQTL分类
+    source: cran
+    package: MatrixEQTL
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: cnci
+    name: cnci
+    purpose: 编码-非编码区分
+    source: bioconda
+    package: cnci
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: colocalization
+    name: colocalization
+    purpose: GWAS共定位分析
+    source: cran
+    package: coloc
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: composite-interval
+    name: composite-interval
+    purpose: 复合区间定位
+    source: cran
+    package: qtl
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: concoct
+    name: concoct
+    purpose: 宏基因组分箱
+    source: bioconda
+    package: concoct
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: context-analysis
+    name: context-analysis
+    purpose: Auto-discovered: context-analysis
+    source: unknown
+    package: context-analysis
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: cooler
+    name: cooler
+    purpose: Auto-discovered: cooler
+    source: unknown
+    package: cooler
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: cooltools
+    name: cooltools
+    purpose: Auto-discovered: cooltools
+    source: unknown
+    package: cooltools
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: core-variable
+    name: core-variable
+    purpose: 核心/可变基因鉴定
+    source: bioconda
+    package: vcftools
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: correlation
+    name: correlation
+    purpose: 相关性分析
+    source: cran
+    package: WGCNA
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: corset
+    name: corset
+    purpose: Auto-discovered: corset
+    source: unknown
+    package: corset
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: cpc2
+    name: cpc2
+    purpose: 编码能力预测
+    source: bioconda
+    package: cpc2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: cpgavas2
+    name: cpgavas2
+    purpose: Auto-discovered: cpgavas2
+    source: unknown
+    package: cpgavas2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: cross-prediction
+    name: cross-prediction
+    purpose: 交叉预测
+    source: cran
+    package: rrBLUP
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: cupcake
+    name: cupcake
+    purpose: PacBio Iso-Seq分析
+    source: bioconda
+    package: cupcake
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: dada2
+    name: dada2
+    purpose: 16S ASV推断
+    source: bioconda
+    package: bioconductor-dada2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: dammit
+    name: dammit
+    purpose: Auto-discovered: dammit
+    source: unknown
+    package: dammit
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: das_tool
+    name: das-tool
+    purpose: 分箱结果优化
+    source: bioconda
+    package: das_tool
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: deblur
+    name: deblur
+    purpose: 16S 去噪
+    source: bioconda
+    package: deblur
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: deep-learning-gs
+    name: deep-learning-gs
+    purpose: 深度学习基因组选择
+    source: pypi
+    package: tensorflow
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: deepte
+    name: deepte
+    purpose: Auto-discovered: deepte
+    source: unknown
+    package: deepte
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: deepvariant
+    name: deepvariant
+    purpose: 深度学习变异检测
+    source: bioconda
+    package: deepvariant
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: degradome-analysis
+    name: degradome-analysis
+    purpose: Auto-discovered: degradome-analysis
+    source: unknown
+    package: degradome-analysis
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: deseq2
+    name: deseq2
+    purpose: RNA-seq差异表达
+    source: bioconda
+    package: bioconductor-deseq2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 6
+  - id: diablo
+    name: diablo
+    purpose: DIABLO 多组学分类
+    source: bioconda
+    package: bioconductor-mixomics
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: diann
+    name: diann
+    purpose: DIA蛋白质组定量
+    source: bioconda
+    package: diann
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: diff-abundance
+    name: diff-abundance
+    purpose: 差异丰度
+    source: bioconda
+    package: bioconductor-deseq2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: diff-accessibility
+    name: diff-accessibility
+    purpose: 差异可及性
+    source: bioconda
+    package: bioconductor-deseq2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: diff-analysis
+    name: diff-analysis
+    purpose: 差异分析 (通用)
+    source: bioconda
+    package: bioconductor-deseq2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: diff-binding
+    name: diff-binding
+    purpose: 差异结合
+    source: bioconda
+    package: bioconductor-deseq2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: differential-expression
+    name: differential-expression
+    purpose: 差异表达 (通用)
+    source: bioconda
+    package: bioconductor-deseq2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: diversity
+    name: diversity
+    purpose: 多样性分析
+    source: bioconda
+    package: qiime2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: dmr-calling
+    name: dmr-calling
+    purpose: 差异甲基化区域
+    source: bioconda
+    package: bioconductor-methylkit
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: dorado_modkit
+    name: dorado-modkit
+    purpose: Dorado basecalling+mod
+    source: bioconda
+    package: dorado
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: dram
+    name: dram
+    purpose: Auto-discovered: dram
+    source: unknown
+    package: dram
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: dsuite
+    name: dsuite
+    purpose: Auto-discovered: dsuite
+    source: unknown
+    package: dsuite
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: duppipe
+    name: duppipe
+    purpose: Auto-discovered: duppipe
+    source: unknown
+    package: duppipe
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: edger
+    name: edger
+    purpose: RNA-seq差异表达
+    source: bioconda
+    package: bioconductor-edger
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: editing-efficiency
+    name: editing-efficiency
+    purpose: 编辑效率评估
+    source: bioconda
+    package: crispresso2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: edta
+    name: edta
+    purpose: 全基因组TE注释
+    source: bioconda
+    package: edta
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: eggnog-mapper
+    name: eggnog-mapper
+    purpose: 功能注释
+    source: bioconda
+    package: eggnog-mapper
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: eggnog_mapper
+    name: eggnog-mapper
+    purpose: 功能注释 (别名)
+    source: bioconda
+    package: eggnog-mapper
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: enrichment
+    name: enrichment
+    purpose: 富集分析 (通用)
+    source: bioconda
+    package: bioconductor-clusterprofiler
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: env-index
+    name: env-index
+    purpose: 环境指数分析
+    source: cran
+    package: factoextra
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: evidentialgene
+    name: evidentialgene
+    purpose: Auto-discovered: evidentialgene
+    source: unknown
+    package: evidentialgene
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: factor-analysis
+    name: factor-analysis
+    purpose: 因子分析
+    source: cran
+    package: factoextra
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: fastp
+    name: fastp
+    purpose: FASTQ 质控过滤+接头修剪
+    source: bioconda
+    package: fastp
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: fastqc
+    name: fastqc
+    purpose: FASTQ 质量评估
+    source: bioconda
+    package: fastqc
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: fasttree
+    name: fasttree
+    purpose: 近似最大似然系统树
+    source: bioconda
+    package: fasttree
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: fit-hi-c
+    name: fit-hi-c
+    purpose: Auto-discovered: fit-hi-c
+    source: unknown
+    package: fit-hi-c
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: flye
+    name: flye
+    purpose: 长读长组装
+    source: bioconda
+    package: flye
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: footprinting
+    name: footprinting
+    purpose: 基序足迹分析
+    source: bioconda
+    package: homer
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: functional
+    name: functional
+    purpose: 功能分析
+    source: bioconda
+    package: eggnog-mapper
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: functional-annotation
+    name: functional-annotation
+    purpose: 功能注释
+    source: bioconda
+    package: eggnog-mapper
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: fusionseeker
+    name: fusionseeker
+    purpose: Auto-discovered: fusionseeker
+    source: unknown
+    package: fusionseeker
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: gap_closing
+    name: gap-closing
+    purpose: Auto-discovered: gap_closing
+    source: unknown
+    package: gap_closing
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: gapit-cmlm
+    name: gapit-cmlm
+    purpose: GAPIT 混合线性模型GWAS
+    source: github
+    package: jiabowang/GAPIT
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: gapit-farmcpu
+    name: gapit-farmcpu
+    purpose: GAPIT FarmCPU GWAS
+    source: github
+    package: jiabowang/GAPIT
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: gatk-haplotype
+    name: gatk-haplotype
+    purpose: GATK HaplotypeCaller
+    source: bioconda
+    package: gatk4
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: gblup
+    name: gblup
+    purpose: 基因组BLUP
+    source: cran
+    package: rrBLUP
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: gca-sca
+    name: gca-sca
+    purpose: 一般/特殊配合力
+    source: cran
+    package: lme4
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: gene-family
+    name: gene-family
+    purpose: 基因家族分析
+    source: bioconda
+    package: orthofinder
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: gene-prediction
+    name: gene-prediction
+    purpose: 基因结构预测
+    source: bioconda
+    package: augustus
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: gene_extraction
+    name: gene-extraction
+    purpose: 基因序列提取
+    source: bioconda
+    package: gffread
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: genetic-map
+    name: genetic-map
+    purpose: 遗传图谱构建
+    source: cran
+    package: ASMap
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: genie3
+    name: genie3
+    purpose: 基因调控网络推断 (GENIE3)
+    source: bioconda
+    package: bioconductor-genie3
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: geseq
+    name: geseq
+    purpose: Auto-discovered: geseq
+    source: unknown
+    package: geseq
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: getorganelle
+    name: getorganelle
+    purpose: 细胞器基因组组装
+    source: bioconda
+    package: getorganelle
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: gffread
+    name: gffread
+    purpose: GFF/GTF格式转换
+    source: bioconda
+    package: gffread
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: ggplot2
+    name: ggplot2
+    purpose: R出版级可视化
+    source: cran
+    package: ggplot2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 14
+  - id: ggtree
+    name: ggtree
+    purpose: 系统发育树可视化
+    source: bioconda
+    package: bioconductor-ggtree
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: go_enrichment
+    name: go-enrichment
+    purpose: GO富集
+    source: bioconda
+    package: bioconductor-clusterprofiler
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: gtdbtk
+    name: gtdbtk
+    purpose: 基因组分类
+    source: bioconda
+    package: gtdbtk
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: gviz
+    name: gviz
+    purpose: 基因组可视化
+    source: bioconda
+    package: bioconductor-gviz
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: gwaspoly
+    name: gwaspoly
+    purpose: Auto-discovered: gwaspoly
+    source: unknown
+    package: gwaspoly
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: gxe-modeling
+    name: gxe-modeling
+    purpose: 基因型×环境互作
+    source: cran
+    package: lme4
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: haplotype-analysis
+    name: haplotype-analysis
+    purpose: Auto-discovered: haplotype-analysis
+    source: unknown
+    package: haplotype-analysis
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: harmony
+    name: harmony
+    purpose: 单细胞批次校正 (Harmony)
+    source: cran
+    package: harmony
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: hdr-template
+    name: hdr-template
+    purpose: HDR模板设计
+    source: pypi
+    package: crispr
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: heritability
+    name: heritability
+    purpose: 遗传力估算
+    source: cran
+    package: lme4
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: heterotic-group
+    name: heterotic-group
+    purpose: 杂种优势群划分
+    source: cran
+    package: lme4
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: hicexplorer
+    name: hicexplorer
+    purpose: Auto-discovered: hicexplorer
+    source: unknown
+    package: hicexplorer
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: hifiasm
+    name: hifiasm
+    purpose: PacBio HiFi 组装
+    source: bioconda
+    package: hifiasm
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: hmmer
+    name: hmmer
+    purpose: 蛋白质结构域搜索
+    source: bioconda
+    package: hmmer
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: host-filtering
+    name: host-filtering
+    purpose: 宿主序列过滤
+    source: bioconda
+    package: bowtie2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: igraph
+    name: igraph
+    purpose: Auto-discovered: igraph
+    source: unknown
+    package: igraph
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: impute2
+    name: impute2
+    purpose: 基因型填充
+    source: bioconda
+    package: impute2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: infernal
+    name: infernal
+    purpose: RNA结构同源搜索
+    source: bioconda
+    package: infernal
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: iqtree
+    name: iqtree
+    purpose: 最大似然系统发育树
+    source: bioconda
+    package: iqtree
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 6
+  - id: irscope
+    name: irscope
+    purpose: IR边界可视化
+    source: bioconda
+    package: irscope
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: isoseq3
+    name: isoseq3
+    purpose: PacBio Iso-Seq流程
+    source: bioconda
+    package: isoseq3
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: jafet
+    name: jafet
+    purpose: Auto-discovered: jafet
+    source: unknown
+    package: jafet
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: juicebox
+    name: juicebox
+    purpose: Auto-discovered: juicebox
+    source: unknown
+    package: juicebox
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: juicer
+    name: juicer
+    purpose: Auto-discovered: juicer
+    source: unknown
+    package: juicer
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 5
+  - id: kaks_calculator
+    name: kaks-calculator
+    purpose: Ka/Ks计算
+    source: bioconda
+    package: kaks_calculator
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: kallisto
+    name: kallisto
+    purpose: 转录本伪比对定量
+    source: bioconda
+    package: kallisto
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: kaspar-design
+    name: kaspar-design
+    purpose: KASP标记设计
+    source: pypi
+    package: primer3
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: kegg_decoder
+    name: kegg-decoder
+    purpose: Auto-discovered: kegg_decoder
+    source: unknown
+    package: kegg_decoder
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: kmeans-cluster
+    name: kmeans-cluster
+    purpose: K-means聚类
+    source: cran
+    package: factoextra
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: kneaddata
+    name: kneaddata
+    purpose: Auto-discovered: kneaddata
+    source: unknown
+    package: kneaddata
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: ks-analysis
+    name: ks-analysis
+    purpose: Ka/Ks 选择压力分析
+    source: bioconda
+    package: paml
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: lastz
+    name: lastz
+    purpose: Auto-discovered: lastz
+    source: unknown
+    package: lastz
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: lima
+    name: lima
+    purpose: PacBio barcode拆分
+    source: bioconda
+    package: lima
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: limma
+    name: limma
+    purpose: 微阵列+RNA-seq线性模型
+    source: bioconda
+    package: bioconductor-limma
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: limma-voom
+    name: limma-voom
+    purpose: limma-voom RNA-seq流程
+    source: bioconda
+    package: bioconductor-limma
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: lordec
+    name: lordec
+    purpose: Auto-discovered: lordec
+    source: unknown
+    package: lordec
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: ltr_retriever
+    name: ltr-retriever
+    purpose: LTR反转座子鉴定
+    source: bioconda
+    package: ltr_retriever
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: machine-learning
+    name: machine-learning
+    purpose: 机器学习
+    source: pypi
+    package: scikit-learn
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: mafft
+    name: mafft
+    purpose: 多序列比对
+    source: bioconda
+    package: mafft
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: majiq
+    name: majiq
+    purpose: Auto-discovered: majiq
+    source: unknown
+    package: majiq
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: marker-validation
+    name: marker-validation
+    purpose: 标记验证
+    source: bioconda
+    package: plink
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: mate-selection
+    name: mate-selection
+    purpose: 配对选择
+    source: cran
+    package: lme4
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: mauve
+    name: mauve
+    purpose: Auto-discovered: mauve
+    source: unknown
+    package: mauve
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: maxbin2
+    name: maxbin2
+    purpose: 宏基因组分箱
+    source: bioconda
+    package: maxbin2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: maxquant
+    name: maxquant
+    purpose: 蛋白质组定量
+    source: binary
+    package: maxquant
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: mcsanx
+    name: mcsanx
+    purpose: 共线性分析 (别名)
+    source: github
+    package: wyp1125/MCScanX
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: mcscanx
+    name: mcscanx
+    purpose: 共线性分析
+    source: github
+    package: wyp1125/MCScanX
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: megahit
+    name: megahit
+    purpose: 宏基因组组装
+    source: bioconda
+    package: megahit
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: meme
+    name: meme
+    purpose: 基序发现
+    source: bioconda
+    package: meme
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: merops
+    name: merops
+    purpose: 蛋白酶数据库注释
+    source: bioconda
+    package: merops
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: met-gwas
+    name: met-gwas
+    purpose: MET-GWAS 多环境GWAS
+    source: github
+    package: jiabowang/GAPIT
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: met-summary
+    name: met-summary
+    purpose: 多环境试验汇总
+    source: cran
+    package: metan
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: metabat2
+    name: metabat2
+    purpose: 宏基因组分箱
+    source: bioconda
+    package: metabat2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: metabolite-identification
+    name: metabolite-identification
+    purpose: Auto-discovered: metabolite-identification
+    source: unknown
+    package: metabolite-identification
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: metaspades
+    name: metaspades
+    purpose: 宏基因组专用组装
+    source: bioconda
+    package: spades
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: mfuzz
+    name: mfuzz
+    purpose: 时间序列软聚类
+    source: bioconda
+    package: bioconductor-mfuzz
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: minigraph
+    name: minigraph
+    purpose: 泛基因组序列-图映射
+    source: bioconda
+    package: minigraph
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: minimac
+    name: minimac
+    purpose: 基因型填充
+    source: bioconda
+    package: minimac
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: minimap2
+    name: minimap2
+    purpose: 长读长比对 (PacBio/ONT)
+    source: bioconda
+    package: minimap2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: mirna-prediction
+    name: mirna-prediction
+    purpose: miRNA预测
+    source: pypi
+    package: miranda
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: misa
+    name: misa
+    purpose: SSR标记鉴定
+    source: bioconda
+    package: misa
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: mitofinder
+    name: mitofinder
+    purpose: 线粒体基因组鉴定
+    source: bioconda
+    package: mitofinder
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: mitos
+    name: mitos
+    purpose: 线粒体注释
+    source: bioconda
+    package: mitos
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: mixomics
+    name: mixomics
+    purpose: 多组学整合
+    source: bioconda
+    package: bioconductor-mixomics
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: modkit
+    name: modkit
+    purpose: Nanopore修饰检测
+    source: bioconda
+    package: modkit
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: mofa
+    name: mofa
+    purpose: 多组学因子分析
+    source: bioconda
+    package: bioconductor-mofa2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: monocle3
+    name: monocle3
+    purpose: 单细胞拟时序分析
+    source: bioconda
+    package: monocle3
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: motif-analysis
+    name: motif-analysis
+    purpose: 基序分析
+    source: bioconda
+    package: meme
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: multi-qtl
+    name: multi-qtl
+    purpose: 多QTL模型
+    source: cran
+    package: qtl
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: multi-tissue
+    name: multi-tissue
+    purpose: 多组织eQTL
+    source: cran
+    package: MatrixEQTL
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: multihicnorm
+    name: multihicnorm
+    purpose: Auto-discovered: multihicnorm
+    source: unknown
+    package: multihicnorm
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: multiqc
+    name: multiqc
+    purpose: 汇总多个QC报告
+    source: bioconda
+    package: multiqc
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: multivariate
+    name: multivariate
+    purpose: 多元统计分析
+    source: cran
+    package: vegan
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: mummer
+    name: mummer
+    purpose: Auto-discovered: mummer
+    source: unknown
+    package: mummer
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: muscle
+    name: muscle
+    purpose: 多序列比对
+    source: bioconda
+    package: muscle
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: mustache
+    name: mustache
+    purpose: Auto-discovered: mustache
+    source: unknown
+    package: mustache
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: mutmap
+    name: mutmap
+    purpose: MutMap突变定位
+    source: pypi
+    package: QTLseqr
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: mvista
+    name: mvista
+    purpose: Auto-discovered: mvista
+    source: unknown
+    package: mvista
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: normalization
+    name: normalization
+    purpose: 标准化
+    source: bioconda
+    package: bioconductor-deseq2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: novoplasty
+    name: novoplasty
+    purpose: 细胞器基因组组装
+    source: bioconda
+    package: novoplasty
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: off-target
+    name: off-target
+    purpose: 脱靶检测
+    source: bioconda
+    package: crispresso2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: ogdraw
+    name: ogdraw
+    purpose: 细胞器基因组图谱
+    source: bioconda
+    package: ogdraw
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: orthodb
+    name: orthodb
+    purpose: Auto-discovered: orthodb
+    source: unknown
+    package: orthodb
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: orthofinder
+    name: orthofinder
+    purpose: 直系同源群推断
+    source: bioconda
+    package: orthofinder
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: p450
+    name: p450
+    purpose: 细胞色素P450注释
+    source: pypi
+    package: cyp
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: paml
+    name: paml
+    purpose: 分子进化选择压力分析
+    source: bioconda
+    package: paml
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: pan_genome
+    name: pan-genome
+    purpose: Auto-discovered: pan_genome
+    source: unknown
+    package: pan_genome
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: parental-recommendation
+    name: parental-recommendation
+    purpose: 亲本推荐
+    source: cran
+    package: lme4
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: pathview
+    name: pathview
+    purpose: KEGG通路可视化
+    source: bioconda
+    package: bioconductor-pathview
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: pathway
+    name: pathway
+    purpose: 通路分析
+    source: bioconda
+    package: bioconductor-clusterprofiler
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: pav-detection
+    name: pav-detection
+    purpose: 存在/缺失变异检测
+    source: bioconda
+    package: minigraph
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: peak-annotation
+    name: peak-annotation
+    purpose: 峰注释
+    source: bioconda
+    package: homer
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: peak-calling
+    name: peak-calling
+    purpose: ChIP-seq峰检测
+    source: bioconda
+    package: macs2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 7
+  - id: peak-detection
+    name: peak-detection
+    purpose: 峰检测
+    source: bioconda
+    package: macs2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: pggb
+    name: pggb
+    purpose: 泛基因组图构建
+    source: bioconda
+    package: pggb
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: pheatmap
+    name: pheatmap
+    purpose: 热图
+    source: cran
+    package: pheatmap
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: phi_base
+    name: phi-base
+    purpose: 病原-宿主互作数据库
+    source: pypi
+    package: phi-base
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: phylogenetic_independent_contrasts
+    name: phylogenetic-independent-contrasts
+    purpose: Auto-discovered: phylogenetic_independent_contrasts
+    source: unknown
+    package: phylogenetic_independent_contrasts
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: phylogeny
+    name: phylogeny
+    purpose: 系统发育分析 (通用)
+    source: bioconda
+    package: iqtree
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: phylornetworks
+    name: phylornetworks
+    purpose: Auto-discovered: phylornetworks
+    source: unknown
+    package: phylornetworks
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: phyloseq
+    name: phyloseq
+    purpose: 微生物组数据R分析
+    source: bioconda
+    package: bioconductor-phyloseq
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: plant-cell-marker
+    name: plant-cell-marker
+    purpose: Auto-discovered: plant-cell-marker
+    source: unknown
+    package: plant-cell-marker
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: plantcare
+    name: plantcare
+    purpose: 植物顺式调控元件
+    source: bioconda
+    package: plantcare
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: plink
+    name: plink
+    purpose: 全基因组关联数据管理
+    source: bioconda
+    package: plink
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: plink2-convert
+    name: plink2-convert
+    purpose: PLINK2 格式转换+QC
+    source: bioconda
+    package: plink2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: polishing
+    name: polishing
+    purpose: 组装polish
+    source: bioconda
+    package: racon
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 6
+  - id: poplddecay
+    name: poplddecay
+    purpose: Auto-discovered: poplddecay
+    source: unknown
+    package: poplddecay
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: post-imputation-qc
+    name: post-imputation-qc
+    purpose: 填充后质控
+    source: bioconda
+    package: plink
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: ppi-network
+    name: ppi-network
+    purpose: 蛋白互作网络
+    source: cran
+    package: igraph
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: prcomp
+    name: prcomp
+    purpose: Auto-discovered: prcomp
+    source: unknown
+    package: prcomp
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: pre-imputation-qc
+    name: pre-imputation-qc
+    purpose: 填充前质控
+    source: bioconda
+    package: plink
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: preprocessing
+    name: preprocessing
+    purpose: 数据预处理 (通用)
+    source: bioconda
+    package: fastp
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: primer3
+    name: primer3
+    purpose: 引物设计
+    source: bioconda
+    package: primer3
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 6
+  - id: prism
+    name: prism
+    purpose: Auto-discovered: prism
+    source: unknown
+    package: prism
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: proovread
+    name: proovread
+    purpose: Auto-discovered: proovread
+    source: unknown
+    package: proovread
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: ptm-analysis
+    name: ptm-analysis
+    purpose: Auto-discovered: ptm-analysis
+    source: unknown
+    package: ptm-analysis
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: pygenometracks
+    name: pygenometracks
+    purpose: Python基因组轨道可视化
+    source: pypi
+    package: pyGenomeTracks
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: qc
+    name: qc
+    purpose: 测序数据质量评估
+    source: bioconda
+    package: fastqc
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 10
+  - id: qqman
+    name: qqman
+    purpose: 曼哈顿图+QQ图
+    source: cran
+    package: qqman
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: qtlseq
+    name: qtlseq
+    purpose: QTL-seq BSA分析
+    source: pypi
+    package: QTLseqr
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: quality-control
+    name: quality-control
+    purpose: 质量评估
+    source: bioconda
+    package: fastqc
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 9
+  - id: quast
+    name: quast
+    purpose: 基因组组装质量评估
+    source: bioconda
+    package: quast
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: quast-busco
+    name: quast-busco
+    purpose: Auto-discovered: quast-busco
+    source: unknown
+    package: quast-busco
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: raxml
+    name: raxml
+    purpose: 最大似然系统发育树
+    source: bioconda
+    package: raxml
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: repeat-masking
+    name: repeat-masking
+    purpose: 重复序列屏蔽
+    source: bioconda
+    package: repeatmasker
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: repeatmasker
+    name: repeatmasker
+    purpose: 重复序列屏蔽
+    source: bioconda
+    package: repeatmasker
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: repeatmodeler
+    name: repeatmodeler
+    purpose: 重复序列建模
+    source: bioconda
+    package: repeatmodeler
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: resistance
+    name: resistance
+    purpose: 抗病基因注释
+    source: pypi
+    package: RGAugury
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: rfmix
+    name: rfmix
+    purpose: Auto-discovered: rfmix
+    source: unknown
+    package: rfmix
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: rnaspades
+    name: rnaspades
+    purpose: RNA-seq 组装
+    source: bioconda
+    package: spades
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: rqtl
+    name: rqtl
+    purpose: R QTL定位
+    source: cran
+    package: qtl
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: rrblup
+    name: rrblup
+    purpose: 岭回归BLUP
+    source: cran
+    package: rrBLUP
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: rsem
+    name: rsem
+    purpose: RNA-seq 表达定量
+    source: bioconda
+    package: rsem
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: salmon
+    name: salmon
+    purpose: 转录本快速定量
+    source: bioconda
+    package: salmon
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: satsuma
+    name: satsuma
+    purpose: Auto-discovered: satsuma
+    source: unknown
+    package: satsuma
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: scaffolding
+    name: scaffolding
+    purpose: Hi-C scaffolding
+    source: bioconda
+    package: salsa2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: scanpy
+    name: scanpy
+    purpose: 单细胞RNA-seq Python分析
+    source: pypi
+    package: scanpy
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: scenic
+    name: scenic
+    purpose: 基因调控网络推断 (SCENIC)
+    source: bioconda
+    package: pyscenic
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: sctransform
+    name: sctransform
+    purpose: Auto-discovered: sctransform
+    source: unknown
+    package: sctransform
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: selection-pressure
+    name: selection-pressure
+    purpose: 选择压力分析
+    source: bioconda
+    package: paml
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: selfish
+    name: selfish
+    purpose: Auto-discovered: selfish
+    source: unknown
+    package: selfish
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: seurat
+    name: seurat
+    purpose: 单细胞RNA-seq R分析包
+    source: cran
+    package: Seurat
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: seurat_transfer
+    name: seurat-transfer
+    purpose: Auto-discovered: seurat_transfer
+    source: unknown
+    package: seurat_transfer
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: sgrna-design
+    name: sgrna-design
+    purpose: sgRNA设计
+    source: pypi
+    package: crispr
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: shapeit-phasing
+    name: shapeit-phasing
+    purpose: Auto-discovered: shapeit-phasing
+    source: unknown
+    package: shapeit-phasing
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: singler
+    name: singler
+    purpose: 单细胞自动细胞类型注释
+    source: bioconda
+    package: bioconductor-singler
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: spatial-correction
+    name: spatial-correction
+    purpose: 空间校正
+    source: cran
+    package: spatstat
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: spectronaut
+    name: spectronaut
+    purpose: 商业DIA蛋白质组软件
+    source: binary
+    package: spectronaut
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: sqanti3
+    name: sqanti3
+    purpose: 长读长转录本QC
+    source: bioconda
+    package: sqanti3
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: stability
+    name: stability
+    purpose: 表型稳定性分析
+    source: cran
+    package: lme4
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: stage-specificity
+    name: stage-specificity
+    purpose: 阶段特异性
+    source: cran
+    package: WGCNA
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: star
+    name: star
+    purpose: RNA-seq 快速比对
+    source: bioconda
+    package: star
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: suppa2
+    name: suppa2
+    purpose: Auto-discovered: suppa2
+    source: unknown
+    package: suppa2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: sv-genotyping
+    name: sv-genotyping
+    purpose: 结构变异基因分型
+    source: bioconda
+    package: delly
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: sva
+    name: sva
+    purpose: 替代变量分析(批次校正)
+    source: bioconda
+    package: bioconductor-sva
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: sybass
+    name: sybass
+    purpose: Auto-discovered: sybass
+    source: unknown
+    package: sybass
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: synteny
+    name: synteny
+    purpose: Auto-discovered: synteny
+    source: unknown
+    package: synteny
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: tama
+    name: tama
+    purpose: 转录本合并注释
+    source: bioconda
+    package: tama
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: target-prediction
+    name: target-prediction
+    purpose: 靶基因预测
+    source: bioconda
+    package: bioconductor-targetscan
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: taxonomy
+    name: taxonomy
+    purpose: 物种分类注释
+    source: bioconda
+    package: qiime2
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: telomere_detection
+    name: telomere-detection
+    purpose: Auto-discovered: telomere_detection
+    source: unknown
+    package: telomere_detection
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: tpe-analysis
+    name: tpe-analysis
+    purpose: TPE 表型×环境分析
+    source: cran
+    package: lme4
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: transabyss
+    name: transabyss
+    purpose: Auto-discovered: transabyss
+    source: unknown
+    package: transabyss
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: transdecoder
+    name: transdecoder
+    purpose: 转录本编码区预测
+    source: bioconda
+    package: transdecoder
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: transrate
+    name: transrate
+    purpose: 转录本组装质量评估
+    source: bioconda
+    package: transrate
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: treemix
+    name: treemix
+    purpose: Auto-discovered: treemix
+    source: unknown
+    package: treemix
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: trend-analysis
+    name: trend-analysis
+    purpose: 趋势分析
+    source: cran
+    package: WGCNA
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: trinity
+    name: trinity
+    purpose: de novo 转录本组装
+    source: bioconda
+    package: trinity
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: trinotate
+    name: trinotate
+    purpose: Auto-discovered: trinotate
+    source: unknown
+    package: trinotate
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: trio_binning
+    name: trio-binning
+    purpose: Auto-discovered: trio_binning
+    source: unknown
+    package: trio_binning
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: trnascan-se
+    name: trnascan-se
+    purpose: tRNA基因预测
+    source: bioconda
+    package: trnascan-se
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: tspex
+    name: tspex
+    purpose: Auto-discovered: tspex
+    source: unknown
+    package: tspex
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: umap
+    name: umap
+    purpose: Auto-discovered: umap
+    source: unknown
+    package: umap
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: validation
+    name: validation
+    purpose: 结果验证
+    source: bioconda
+    package: fastqc
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: variant_annotation
+    name: variant-annotation
+    purpose: 变异注释
+    source: bioconda
+    package: snpeff
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: variant_calling
+    name: variant-calling
+    purpose: 变异检测
+    source: bioconda
+    package: gatk4
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: vcf-qc
+    name: vcf-qc
+    purpose: VCF质控
+    source: bioconda
+    package: vcftools
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 3
+  - id: vcftools
+    name: vcftools
+    purpose: VCF变异数据操作
+    source: bioconda
+    package: vcftools
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: velocyto
+    name: velocyto
+    purpose: RNA velocity分析
+    source: pypi
+    package: velocyto
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1
+  - id: visualization
+    name: visualization
+    purpose: 通用可视化
+    source: pypi
+    package: matplotlib
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 14
+  - id: wgcna
+    name: wgcna
+    purpose: 加权基因共表达网络分析
+    source: cran
+    package: WGCNA
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 2
+  - id: wgdi
+    name: wgdi
+    purpose: Auto-discovered: wgdi
+    source: unknown
+    package: wgdi
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 4
+  - id: ycodon
+    name: ycodon
+    purpose: Auto-discovered: ycodon
+    source: unknown
+    package: ycodon
+    env: 
+    score: 0
+    plant_note: 
+    rule_count: 1

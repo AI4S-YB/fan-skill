@@ -1,0 +1,310 @@
+# Bioconductor Package Download Rankings
+#
+# 12-month average of distinct IP download scores.
+# Data source: https://bioconductor.org/packages/stats/
+# Updated: 2026-06-11
+#
+# is_infrastructure = true means this is an R/Bioc dependency,
+# not an analysis tool. These are not counted as "高频分析工具".
+
+rankings:
+  - id: BiocVersion
+    score: 72352
+    is_infrastructure: True
+  - id: BiocGenerics
+    score: 70475
+    is_infrastructure: True
+  - id: S4Vectors
+    score: 67026
+    is_infrastructure: True
+  - id: IRanges
+    score: 64446
+    is_infrastructure: True
+  - id: BiocParallel
+    score: 61100
+    is_infrastructure: True
+  - id: XVector
+    score: 60199
+    is_infrastructure: True
+  - id: Biobase
+    score: 60019
+    is_infrastructure: True
+  - id: SparseArray
+    score: 55824
+    is_infrastructure: True
+  - id: Biostrings
+    score: 54452
+    is_infrastructure: True
+  - id: GenomicRanges
+    score: 53262
+    is_infrastructure: True
+  - id: DelayedArray
+    score: 52287
+    is_infrastructure: True
+  - id: S4Arrays
+    score: 50131
+    is_infrastructure: True
+  - id: SummarizedExperiment
+    score: 49687
+    is_infrastructure: True
+  - id: MatrixGenerics
+    score: 49381
+    is_infrastructure: True
+  - id: GenomeInfoDb
+    score: 49119
+    is_infrastructure: True
+  - id: AnnotationDbi
+    score: 44157
+    is_infrastructure: True
+  - id: KEGGREST
+    score: 43542
+    is_infrastructure: True
+  - id: limma
+    score: 41154
+    is_infrastructure: False
+  - id: UCSC.utils
+    score: 33533
+    is_infrastructure: True
+  - id: ggtree
+    score: 32027
+    is_infrastructure: False
+  - id: DESeq2
+    score: 29888
+    is_infrastructure: False
+  - id: Seqinfo
+    score: 29675
+    is_infrastructure: True
+  - id: BiocFileCache
+    score: 29461
+    is_infrastructure: True
+  - id: Rsamtools
+    score: 29376
+    is_infrastructure: False
+  - id: treeio
+    score: 29161
+    is_infrastructure: True
+  - id: fgsea
+    score: 28748
+    is_infrastructure: False
+  - id: edgeR
+    score: 28362
+    is_infrastructure: False
+  - id: enrichplot
+    score: 27517
+    is_infrastructure: False
+  - id: Rhdf5lib
+    score: 27313
+    is_infrastructure: True
+  - id: clusterProfiler
+    score: 26621
+    is_infrastructure: False
+  - id: Rhtslib
+    score: 26620
+    is_infrastructure: True
+  - id: rhdf5
+    score: 26465
+    is_infrastructure: True
+  - id: DOSE
+    score: 26031
+    is_infrastructure: False
+  - id: GenomicAlignments
+    score: 25442
+    is_infrastructure: True
+  - id: qvalue
+    score: 25281
+    is_infrastructure: False
+  - id: rhdf5filters
+    score: 24703
+    is_infrastructure: True
+  - id: GOSemSim
+    score: 24582
+    is_infrastructure: False
+  - id: biomaRt
+    score: 24309
+    is_infrastructure: False
+  - id: zlibbioc
+    score: 24209
+    is_infrastructure: True
+  - id: rtracklayer
+    score: 24129
+    is_infrastructure: False
+  - id: graph
+    score: 23923
+    is_infrastructure: True
+  - id: ComplexHeatmap
+    score: 21920
+    is_infrastructure: False
+  - id: BiocIO
+    score: 21722
+    is_infrastructure: True
+  - id: SingleCellExperiment
+    score: 21363
+    is_infrastructure: False
+  - id: annotate
+    score: 20744
+    is_infrastructure: False
+  - id: beachmat
+    score: 19790
+    is_infrastructure: True
+  - id: GenomicFeatures
+    score: 18924
+    is_infrastructure: False
+  - id: sparseMatrixStats
+    score: 18833
+    is_infrastructure: False
+  - id: DelayedMatrixStats
+    score: 17909
+    is_infrastructure: True
+  - id: HDF5Array
+    score: 17800
+    is_infrastructure: True
+  - id: preprocessCore
+    score: 17131
+    is_infrastructure: False
+  - id: assorthead
+    score: 16911
+    is_infrastructure: True
+  - id: BiocSingular
+    score: 16149
+    is_infrastructure: True
+  - id: ScaledMatrix
+    score: 15348
+    is_infrastructure: True
+  - id: AnnotationHub
+    score: 14227
+    is_infrastructure: False
+  - id: genefilter
+    score: 14219
+    is_infrastructure: False
+  - id: BSgenome
+    score: 13973
+    is_infrastructure: False
+  - id: BiocNeighbors
+    score: 13865
+    is_infrastructure: True
+  - id: GEOquery
+    score: 13543
+    is_infrastructure: False
+  - id: multtest
+    score: 13302
+    is_infrastructure: False
+  - id: impute
+    score: 13120
+    is_infrastructure: False
+  - id: ProtGenerics
+    score: 12854
+    is_infrastructure: True
+  - id: AnnotationFilter
+    score: 12572
+    is_infrastructure: True
+  - id: h5mread
+    score: 12376
+    is_infrastructure: True
+  - id: BiocBaseUtils
+    score: 11998
+    is_infrastructure: True
+  - id: GSEABase
+    score: 11872
+    is_infrastructure: False
+  - id: scuttle
+    score: 11586
+    is_infrastructure: False
+  - id: ensembldb
+    score: 10647
+    is_infrastructure: False
+  - id: Rgraphviz
+    score: 10584
+    is_infrastructure: False
+  - id: GSVA
+    score: 10471
+    is_infrastructure: False
+  - id: RBGL
+    score: 10166
+    is_infrastructure: False
+  - id: sva
+    score: 10029
+    is_infrastructure: False
+  - id: ExperimentHub
+    score: 9896
+    is_infrastructure: False
+  - id: VariantAnnotation
+    score: 9721
+    is_infrastructure: False
+  - id: cigarillo
+    score: 9594
+    is_infrastructure: True
+  - id: affyio
+    score: 9555
+    is_infrastructure: False
+  - id: scater
+    score: 9541
+    is_infrastructure: False
+  - id: affy
+    score: 9335
+    is_infrastructure: False
+  - id: pwalign
+    score: 8625
+    is_infrastructure: True
+  - id: SpatialExperiment
+    score: 8416
+    is_infrastructure: False
+  - id: bluster
+    score: 8341
+    is_infrastructure: False
+  - id: MultiAssayExperiment
+    score: 8213
+    is_infrastructure: False
+  - id: dir.expiry
+    score: 7758
+    is_infrastructure: True
+  - id: BiocStyle
+    score: 7525
+    is_infrastructure: True
+  - id: phyloseq
+    score: 7406
+    is_infrastructure: False
+  - id: scran
+    score: 7331
+    is_infrastructure: False
+  - id: EnhancedVolcano
+    score: 7265
+    is_infrastructure: False
+  - id: biomformat
+    score: 7224
+    is_infrastructure: False
+  - id: ShortRead
+    score: 7139
+    is_infrastructure: False
+  - id: metapod
+    score: 6925
+    is_infrastructure: False
+  - id: KEGGgraph
+    score: 6662
+    is_infrastructure: False
+  - id: vsn
+    score: 6660
+    is_infrastructure: False
+  - id: pcaMethods
+    score: 6628
+    is_infrastructure: False
+  - id: glmGamPoi
+    score: 6620
+    is_infrastructure: False
+  - id: biovizBase
+    score: 6286
+    is_infrastructure: False
+  - id: TCGAbiolinks
+    score: 6095
+    is_infrastructure: False
+  - id: apeglm
+    score: 6054
+    is_infrastructure: False
+  - id: txdbmaker
+    score: 6024
+    is_infrastructure: False
+  - id: SingleR
+    score: 5879
+    is_infrastructure: False
+  - id: pathview
+    score: 5539
+    is_infrastructure: False
