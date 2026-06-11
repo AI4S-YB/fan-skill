@@ -1,5 +1,11 @@
-# Superpowers design/planning artifacts — local only, not tracked
-docs/superpowers/
-
 # Test data inventory — local only, not published
 big-test/
+
+# User tool registry — personal, not published
+tool-index/user-tools/
+
+# Docs: only publish user-facing en/zh documentation.
+# Everything else (analysis reports, superpowers specs/plans) stays local.
+docs/*
+!docs/en/
+!docs/zh/
